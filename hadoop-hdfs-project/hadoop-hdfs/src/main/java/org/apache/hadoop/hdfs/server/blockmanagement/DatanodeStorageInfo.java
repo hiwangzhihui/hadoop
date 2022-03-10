@@ -272,8 +272,8 @@ public class DatanodeStorageInfo {
   }
 
   boolean removeBlock(BlockInfo b) {
-    blocks.remove(b);
-    return b.removeStorage(this);
+    blocks.remove(b);  // DataNode FoldedTreeSet数据结构中移除该副本信息
+    return b.removeStorage(this); // BlockInfo 中移除该副本信息
   }
 
   int numBlocks() {
