@@ -4227,9 +4227,12 @@ public class BlockManager implements BlockStatsMXBean {
     // from the namespace, since the removal of the associated
     // file already removes them from the block map below.
     block.setNumBytes(BlockCommand.NO_ACK);
+    //加入  invalidateBlocks 列表交给 DataNode 心跳异步执行删除
     addToInvalidates(block);
+    // blocksMap 数据结构中将块信息解绑
     removeBlockFromMap(block);
     // Remove the block from pendingReconstruction and neededReconstruction
+    //块的损坏副本、等待心跳副本列表中移除
     pendingReconstruction.remove(block);
     neededReconstruction.remove(block, LowRedundancyBlocks.LEVEL);
     postponedMisreplicatedBlocks.remove(block);
