@@ -185,10 +185,13 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
   }
 
   /** Return the priority of a block
-   * @param curReplicas current number of replicas of the block
-   * @param expectedReplicas expected number of replicas of the block
+   * @param curReplicas current number of replicas of the block 当前块存活的副本数
+   * @param  readOnlyReplicas 只读的副本个数
+   * @param  outOfServiceReplicas 故障副本数
+   * @param expectedReplicas expected number of replicas of the block 块预期的副本个数
    * @return the priority for the blocks, between 0 and ({@link #LEVEL}-1)
    */
+
   private int getPriority(BlockInfo block,
                           int curReplicas,
                           int readOnlyReplicas,
@@ -197,44 +200,48 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
     assert curReplicas >= 0 : "Negative replicas!";
     if (curReplicas >= expectedReplicas) {
       // Block has enough copies, but not enough racks
-      return QUEUE_REPLICAS_BADLY_DISTRIBUTED;
+      return QUEUE_REPLICAS_BADLY_DISTRIBUTED; // 副本个数达到预期，但是放置策略需要优化
     }
-    if (block.isStriped()) {
+    if (block.isStriped()) { //Erasue Coding 块优副本先级
       BlockInfoStriped sblk = (BlockInfoStriped) block;
       return getPriorityStriped(curReplicas, outOfServiceReplicas,
           sblk.getRealDataBlockNum(), sblk.getParityBlockNum());
-    } else {
+    } else { // 常规块副本优先级
       return getPriorityContiguous(curReplicas, readOnlyReplicas,
           outOfServiceReplicas, expectedReplicas);
     }
   }
 
+
+
   private int getPriorityContiguous(int curReplicas, int readOnlyReplicas,
       int outOfServiceReplicas, int expectedReplicas) {
-    if (curReplicas == 0) {
+    if (curReplicas == 0) { //存活的数据块为 0
       // If there are zero non-decommissioned replicas but there are
       // some out of service replicas, then assign them highest priority
+      //还存在不可用的副本，该副本可能在维护节点或 在 进行 decommission 节点上，放到最高优先级
       if (outOfServiceReplicas > 0) {
         return QUEUE_HIGHEST_PRIORITY;
       }
+      //还存在只读副本，放到最高优先级
       if (readOnlyReplicas > 0) {
         // only has read-only replicas, highest risk
         // since the read-only replicas may go down all together.
         return QUEUE_HIGHEST_PRIORITY;
       }
       //all we have are corrupt blocks
-      return QUEUE_WITH_CORRUPT_BLOCKS;
-    } else if (curReplicas == 1) {
+      return QUEUE_WITH_CORRUPT_BLOCKS; // 块数据彻底丢失，放到最低优先级
+    } else if (curReplicas == 1) { //还有一个副本存活的块, 放到最高优先级
       // only one replica, highest risk of loss
       // highest priority
       return QUEUE_HIGHEST_PRIORITY;
     } else if ((curReplicas * 3) < expectedReplicas) {
       //can only afford one replica loss
       //this is considered very insufficiently redundant blocks.
-      return QUEUE_VERY_LOW_REDUNDANCY;
+      return QUEUE_VERY_LOW_REDUNDANCY; // 当前副本数小于期望副本数，优先级设置为 0
     } else {
       //add to the normal queue for insufficiently redundant blocks
-      return QUEUE_LOW_REDUNDANCY;
+      return QUEUE_LOW_REDUNDANCY; //正常数据备份设置 2
     }
   }
 

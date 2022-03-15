@@ -350,6 +350,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Store set of Blocks that need to be replicated 1 or more times.
    * We also store pending reconstruction-orders.
+   * 等待复制副本 1次或多次的任务、同时包含重构的 Block 任务
    */
   public final LowRedundancyBlocks neededReconstruction =
       new LowRedundancyBlocks();
@@ -1925,7 +1926,7 @@ public class BlockManager implements BlockStatsMXBean {
     NumberReplicas numReplicas = new NumberReplicas();
     List<Byte> liveBlockIndices = new ArrayList<>();
     final DatanodeDescriptor[] srcNodes = chooseSourceDatanodes(block,
-        containingNodes, liveReplicaNodes, numReplicas,
+          containingNodes, liveReplicaNodes, numReplicas,
         liveBlockIndices, priority);
     short requiredRedundancy = getExpectedLiveRedundancyNum(block,
         numReplicas);

@@ -280,14 +280,22 @@ public interface HdfsServerConstants {
    * Block replica states, which it can go through while being constructed.
    */
   enum ReplicaState {
+    // FinalizedReplica 类描述 Datanode 已经完成写操作，不再修改
     /** Replica is finalized. The state when replica is not modified. */
     FINALIZED(0),
+    //  ReplicaBeingWritten 类描述  刚被创建或追加写的副本，处于正在写的状态
     /** Replica is being written to. */
     RBW(1),
+    //ReplicaWaitingToBeRecovered 类描述 ， 在 DataNode 挂掉重启后，在该节点的副本都会从  RBW 转换为 RWR
+    // RWR 状态的副本不会被读写，等待进行租约恢复
     /** Replica is waiting to be recovered. */
     RWR(2),
+    // ReplicaUnderRecovery 类描述，租约过期之后，租约恢复和数据块恢复时副本所处状态
+    // 租约正在进行恢复的副本
     /** Replica is under recovery. */
     RUR(3),
+    //ReplicaInPipeline  类描述， DataNode 直接去传输副本时，正在传输的副本所处的状态
+    //该副本时不可读的
     /** Temporary replica: created for replication and relocation only. */
     TEMPORARY(4);
 
@@ -323,6 +331,10 @@ public interface HdfsServerConstants {
    */
   enum BlockUCState {
     /**
+     *  块的数据长度与时间戳不再变化
+     *  要至少 （configured minimal replication number）个副本为 FINALIZED 状态
+     *  block 状态才会被更新为 completed
+     *  只有当所有文件所有的 block 状态为 completed 文件才能被关闭
      * Block construction completed.<br>
      * The block has at least the configured minimal replication number
      * of {@link ReplicaState#FINALIZED} replica(s), and is not going to be
@@ -334,6 +346,7 @@ public interface HdfsServerConstants {
     /**
      * The block is under construction.<br>
      * It has been recently allocated for write or append.
+     * Block 正在被创建 或 正在被追加写
      */
     UNDER_CONSTRUCTION,
     /**
@@ -341,6 +354,7 @@ public interface HdfsServerConstants {
      * When a file lease expires its last block may not be {@link #COMPLETE}
      * and needs to go through a recovery procedure, 
      * which synchronizes the existing replicas contents.
+     * 块租约恢复或者在进行副本同步时就会进入该状态
      */
     UNDER_RECOVERY,
     /**
@@ -349,6 +363,8 @@ public interface HdfsServerConstants {
      * with the given generation stamp and block length, but no 
      * {@link ReplicaState#FINALIZED} 
      * replicas has yet been reported by data-nodes themselves.
+     * 客户端在写完一个块文件时，会带上一个commit 请求，且所有的 DataNode 已经回复 Client Ack，
+     * 但是NameNode 目前没有收到任何一个 DataNode 汇报副本为 FINALIZED 状态
      */
     COMMITTED
   }

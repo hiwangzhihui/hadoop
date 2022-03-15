@@ -44,20 +44,23 @@ import com.google.common.annotations.VisibleForTesting;
 @InterfaceAudience.Private
 public class CorruptReplicasMap{
 
+  //块损坏原因
   /** The corruption reason code */
   public enum Reason {
-    NONE,                // not specified.
-    ANY,                 // wildcard reason
-    GENSTAMP_MISMATCH,   // mismatch in generation stamps
-    SIZE_MISMATCH,       // mismatch in sizes
-    INVALID_STATE,       // invalid state
-    CORRUPTION_REPORTED  // client or datanode reported the corruption
+    NONE,                // not specified. 没有指明
+    ANY,                 // wildcard reason 通配情况 （防止策略不符）
+    GENSTAMP_MISMATCH,   // mismatch in generation stamps  DataNode 的副本时戳与 NameNode 上的不一致
+    SIZE_MISMATCH,       // mismatch in sizes DataNode 上的副本大小与 NameNode 记录的大小不一致
+    INVALID_STATE,       // invalid state  无效的状态
+    CORRUPTION_REPORTED  // client or datanode reported the corruption 客户端 或 数据节点汇报
   }
 
   private final Map<Block, Map<DatanodeDescriptor, Reason>> corruptReplicasMap =
     new HashMap<Block, Map<DatanodeDescriptor, Reason>>();
 
+  //常规块损坏的个数
   private final LongAdder totalCorruptBlocks = new LongAdder();
+ // Erasure Coding 块损坏的个数
   private final LongAdder totalCorruptECBlockGroups = new LongAdder();
 
   /**

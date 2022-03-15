@@ -50,12 +50,15 @@ import org.slf4j.Logger;
  */
 @InterfaceAudience.Private
 class InvalidateBlocks {
+  //  常规的块副本
   private final Map<DatanodeInfo, LightWeightHashSet<Block>>
       nodeToBlocks = new HashMap<>();
+  //Erasure Code 块副本
   private final Map<DatanodeInfo, LightWeightHashSet<Block>>
       nodeToECBlocks = new HashMap<>();
   private final LongAdder numBlocks = new LongAdder();
   private final LongAdder numECBlocks = new LongAdder();
+  //定时任务 每次删除的 副本个数
   private final int blockInvalidateLimit;
 
   /**
