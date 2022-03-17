@@ -2976,6 +2976,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     BlocksMapUpdateInfo toRemovedBlocks = null;
     checkOperation(OperationCategory.WRITE);
     final FSPermissionChecker pc = getPermissionChecker();
+    long part1_st = System.currentTimeMillis();
     writeLock();
     boolean ret = false;
     try {
@@ -2990,10 +2991,18 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     } finally {
       writeUnlock(operationName);
     }
+    long part1_et = System.currentTimeMillis();
+    System.out.println(src+":part_1 user time:" + (part1_et - part1_st));
+
     getEditLog().logSync();
+
+    long part2_st = System.currentTimeMillis();
     if (toRemovedBlocks != null) {
       removeBlocks(toRemovedBlocks); // Incremental deletion of blocks
     }
+    long part2_et = System.currentTimeMillis();
+    System.out.println(src+":part_2 user time:" + (part2_et - part2_st));
+
     logAuditEvent(true, operationName, src);
     return ret;
   }
