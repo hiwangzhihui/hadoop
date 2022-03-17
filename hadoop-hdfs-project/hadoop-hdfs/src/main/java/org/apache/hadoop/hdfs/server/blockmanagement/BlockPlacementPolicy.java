@@ -177,6 +177,7 @@ public abstract class BlockPlacementPolicy {
       final DatanodeStorageInfo cur) {
     
     final String rack = getRack(cur.getDatanodeDescriptor());
+    // rackMap 存储所有 EC group 的所有副本
     final List<DatanodeStorageInfo> storages = rackMap.get(rack);
     storages.remove(cur);
     if (storages.isEmpty()) {
@@ -186,7 +187,9 @@ public abstract class BlockPlacementPolicy {
       if (storages.size() == 1) {
         final DatanodeStorageInfo remaining = storages.get(0);
         moreThanOne.remove(remaining);
-        exactlyOne.add(remaining);
+        // 如果同机架还有副本，且不是同一个块，则会误放到  exactlyOne 中
+        // 导致其它原始副本块被删除
+        exactlyOne.add(remaining); //   再加入有什么问题？
       }
     } else {
       exactlyOne.remove(cur);

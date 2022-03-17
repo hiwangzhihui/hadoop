@@ -3656,8 +3656,11 @@ public class BlockManager implements BlockStatsMXBean {
     short groupSize = sblk.getTotalBlockNum();
 
     // find all duplicated indices
+    // found 查找重复的块
     BitSet found = new BitSet(groupSize); //indices found
+    // duplicated 存放出现2次的块
     BitSet duplicated = new BitSet(groupSize); //indices found more than once
+    //  维护 DN 与 副本index 的关系
     HashMap<DatanodeStorageInfo, Integer> storage2index = new HashMap<>();
     for (DatanodeStorageInfo storage : nonExcess) {
       int index = sblk.getStorageBlockIndex(storage);
@@ -3669,6 +3672,7 @@ public class BlockManager implements BlockStatsMXBean {
       storage2index.put(storage, index);
     }
 
+    // 删除明确命中的节点存储的副本
     // use delHint only if delHint is duplicated
     final DatanodeStorageInfo delStorageHint =
         DatanodeStorageInfo.getDatanodeStorageInfo(nonExcess, delNodeHint);
@@ -3699,10 +3703,11 @@ public class BlockManager implements BlockStatsMXBean {
       for (DatanodeStorageInfo storage : nonExcess) {
         int index = storage2index.get(storage);
         if (index == targetIndex) {
-          candidates.add(storage);
+          candidates.add(storage);//重复的副本
         }
       }
       if (candidates.size() > 1) {
+        //选出需要删除的副本
         List<DatanodeStorageInfo> replicasToDelete = placementPolicy
             .chooseReplicasToDelete(nonExcess, candidates, (short) 1,
                 excessTypes, null, null);
