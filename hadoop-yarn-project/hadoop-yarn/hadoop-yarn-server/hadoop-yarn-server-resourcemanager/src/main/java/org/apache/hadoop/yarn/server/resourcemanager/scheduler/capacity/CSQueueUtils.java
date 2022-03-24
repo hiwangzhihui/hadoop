@@ -266,7 +266,9 @@ public class CSQueueUtils {
       // Finally accumulate this available resource to get total.
       Resource available = (Resources.greaterThan(rc, cluster,
           queueGuranteedResource,
-          queue.getQueueResourceUsage().getUsed(partition))) ? Resources
+          queue.getQueueResourceUsage().getUsed(partition)))
+
+              ? Resources
           .componentwiseMax(Resources.subtractFrom(queueGuranteedResource,
               queue.getQueueResourceUsage().getUsed(partition)), Resources
               .none()) : Resources.none();

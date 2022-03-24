@@ -1169,15 +1169,16 @@ public class DatanodeManager {
   }
 
   /**
+   *  重新读取 exclude 文件
    * Rereads conf to get hosts and exclude list file names.
    * Rereads the files to update the hosts and exclude lists.  It
    * checks if any of the hosts have changed states:
    */
   public void refreshNodes(final Configuration conf) throws IOException {
-    refreshHostsReader(conf);
+    refreshHostsReader(conf); // hostConfigManager 从本地读取文件
     namesystem.writeLock();
     try {
-      refreshDatanodes();
+      refreshDatanodes(); //刷新所有节点数据
       countSoftwareVersions();
     } finally {
       namesystem.writeUnlock();
@@ -1206,27 +1207,28 @@ public class DatanodeManager {
    * To use maintenance mode or upgrade domain, set
    * DFS_NAMENODE_HOSTS_PROVIDER_CLASSNAME_KEY to
    * CombinedHostFileManager.class.
+   * refresh 入口
    */
   private void refreshDatanodes() {
     final Map<String, DatanodeDescriptor> copy;
     synchronized (this) {
       copy = new HashMap<>(datanodeMap);
     }
-    for (DatanodeDescriptor node : copy.values()) {
+    for (DatanodeDescriptor node : copy.values()) { //遍历所有节点开始线上线操作
       // Check if not include.
-      if (!hostConfigManager.isIncluded(node)) {
-        node.setDisallowed(true);
+      if (!hostConfigManager.isIncluded(node)) { //不在include 文件中
+        node.setDisallowed(true); // 直接设置为 不可用节点
       } else {
         long maintenanceExpireTimeInMS =
             hostConfigManager.getMaintenanceExpirationTimeInMS(node);
         if (node.maintenanceNotExpired(maintenanceExpireTimeInMS)) {
           datanodeAdminManager.startMaintenance(
               node, maintenanceExpireTimeInMS);
-        } else if (hostConfigManager.isExcluded(node)) {
-          datanodeAdminManager.startDecommission(node);
+        } else if (hostConfigManager.isExcluded(node)) { // 在 exclude 文件中
+          datanodeAdminManager.startDecommission(node); // 执行节点下线
         } else {
           datanodeAdminManager.stopMaintenance(node);
-          datanodeAdminManager.stopDecommission(node);
+          datanodeAdminManager.stopDecommission(node); //不在 exclude 文件中，停止下线操作
         }
       }
       node.setUpgradeDomain(hostConfigManager.getUpgradeDomain(node));

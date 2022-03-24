@@ -209,7 +209,7 @@ public class DatanodeAdminManager {
   public void startDecommission(DatanodeDescriptor node) {
     if (!node.isDecommissionInProgress() && !node.isDecommissioned()) {
       // Update DN stats maintained by HeartbeatManager
-      hbManager.startDecommission(node);
+      hbManager.startDecommission(node); // 设置  adminState 状态
       // hbManager.startDecommission will set dead node to decommissioned.
       if (node.isDecommissionInProgress()) {
         for (DatanodeStorageInfo storage : node.getStorageInfos()) {
@@ -217,7 +217,7 @@ public class DatanodeAdminManager {
               node, storage, storage.numBlocks());
         }
         node.getLeavingServiceStatus().setStartTime(monotonicNow());
-        pendingNodes.add(node);
+        pendingNodes.add(node); // Node 加入到pending队列
       }
     } else {
       LOG.trace("startDecommission: Node {} in {}, nothing to do.",
@@ -488,11 +488,11 @@ public class DatanodeAdminManager {
       numBlocksChecked = 0;
       numBlocksCheckedPerLock = 0;
       numNodesChecked = 0;
-      // Check decommission or maintenance progress.
+      // Check decommission or maintenance progress.  检查  decommission、maintenance 节点状态
       namesystem.writeLock();
       try {
-        processPendingNodes();
-        check();
+        processPendingNodes();// 加入到 outOfServiceNodeBlocks check 列表
+        check(); // 执行check
       } finally {
         namesystem.writeUnlock();
       }
@@ -544,8 +544,8 @@ public class DatanodeAdminManager {
           // that are insufficiently replicated for further tracking
           LOG.debug("Newly-added node {}, doing full scan to find " +
               "insufficiently-replicated blocks.", dn);
-          blocks = handleInsufficientlyStored(dn);
-          outOfServiceNodeBlocks.put(dn, blocks);
+          blocks = handleInsufficientlyStored(dn); // 将副本加入修复列表
+          outOfServiceNodeBlocks.put(dn, blocks); //将块拿出来，scan 看一下修复情况
           fullScan = true;
         } else {
           // This is a known datanode, check if its # of insufficiently
@@ -554,7 +554,7 @@ public class DatanodeAdminManager {
           LOG.debug("Processing {} node {}", dn.getAdminState(), dn);
           pruneReliableBlocks(dn, blocks);
         }
-        if (blocks.size() == 0) {
+        if (blocks.size() == 0) {//所有副本处理完成后
           if (!fullScan) {
             // If we didn't just do a full scan, need to re-check with the
             // full block map.
@@ -572,8 +572,8 @@ public class DatanodeAdminManager {
           final boolean isHealthy =
               blockManager.isNodeHealthyForDecommissionOrMaintenance(dn);
           if (blocks.size() == 0 && isHealthy) {
-            if (dn.isDecommissionInProgress()) {
-              setDecommissioned(dn);
+            if (dn.isDecommissionInProgress()) {//检测 DECOMMISSION_INPROGRESS
+              setDecommissioned(dn); // 所有的块修复完成后，节点设置为  DECOMMISSIONED
               toRemove.add(dn);
             } else if (dn.isEnteringMaintenance()) {
               // IN_MAINTENANCE node remains in the outOfServiceNodeBlocks to
@@ -625,7 +625,7 @@ public class DatanodeAdminManager {
      * @return List of blocks requiring recovery
      */
     private AbstractList<BlockInfo> handleInsufficientlyStored(
-        final DatanodeDescriptor datanode) {
+        final DatanodeDescriptor datanode) { //
       AbstractList<BlockInfo> insufficient = new ChunkedArrayList<>();
       processBlocksInternal(datanode, datanode.getBlockIterator(),
           insufficient, false);
@@ -661,7 +661,7 @@ public class DatanodeAdminManager {
       int lowRedundancyBlocks = 0;
       // All maintenance and decommission replicas.
       int outOfServiceOnlyReplicas = 0;
-      while (it.hasNext()) {
+      while (it.hasNext()) { // 节点上的挨个副本进行处理
         if (insufficientList == null
             && numBlocksCheckedPerLock >= numBlocksPerCheck) {
           // During fullscan insufficientlyReplicated will NOT be null, iterator
@@ -685,6 +685,7 @@ public class DatanodeAdminManager {
         numBlocksChecked++;
         numBlocksCheckedPerLock++;
         final BlockInfo block = it.next();
+
         // Remove the block from the list if it's no longer in the block map,
         // e.g. the containing file has been deleted
         if (blockManager.blocksMap.getStoredBlock(block) == null) {
@@ -698,7 +699,7 @@ public class DatanodeAdminManager {
           // Orphan block, will be invalidated eventually. Skip.
           continue;
         }
-
+        //将其中 blockManager 中获取 该block 信息
         final BlockCollection bc = blockManager.getBlockCollection(block);
         final NumberReplicas num = blockManager.countNodes(block);
         final int liveReplicas = num.liveReplicas();
@@ -706,6 +707,7 @@ public class DatanodeAdminManager {
         // Schedule low redundancy blocks for reconstruction
         // if not already pending.
         boolean isDecommission = datanode.isDecommissionInProgress();
+        // 是否需要为 Block 分配新的副本
         boolean neededReconstruction = isDecommission ?
             blockManager.isNeededReconstruction(block, num) :
             blockManager.isNeededReconstructionForMaintenance(block, num);
@@ -714,6 +716,7 @@ public class DatanodeAdminManager {
               blockManager.pendingReconstruction.getNumReplicas(block) == 0 &&
               blockManager.isPopulatingReplQueues()) {
             // Process these blocks only when active NN is out of safe mode.
+            // 加入到 Block 修复列表
             blockManager.neededReconstruction.add(block,
                 liveReplicas, num.readOnlyReplicas(),
                 num.outOfServiceReplicas(),

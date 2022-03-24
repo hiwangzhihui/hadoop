@@ -85,7 +85,7 @@ public class DatanodeInfo extends DatanodeID implements Node {
     }
   }
 
-  protected AdminStates adminState;
+  protected AdminStates adminState;  // Datanode 处于的状态
   private long maintenanceExpireTimeInMS;
   private long lastBlockReportTime;
   private long lastBlockReportMonotonic;
