@@ -29,6 +29,9 @@ import java.util.Set;
 /**
  * Datanode statistics.
  * For decommissioning/decommissioned nodes, only used capacity is counted.
+ * HeartBeatManager
+ * 用于节点容量信息统计
+ * 用户节点下线
  */
 class DatanodeStats {
 
@@ -77,7 +80,7 @@ class DatanodeStats {
 
   synchronized void subtract(final DatanodeDescriptor node) {
     xceiverCount -= node.getXceiverCount();
-    if (node.isInService()) {
+    if (node.isInService()) { // 如果 Node 还在服务，则扣减相关的资源信息 TODO
       capacityUsed -= node.getDfsUsed();
       capacityUsedNonDfs -= node.getNonDfsUsed();
       blockPoolUsed -= node.getBlockPoolUsed();
@@ -88,10 +91,11 @@ class DatanodeStats {
       cacheCapacity -= node.getCacheCapacity();
       cacheUsed -= node.getCacheUsed();
     } else if (node.isDecommissionInProgress() ||
-        node.isEnteringMaintenance()) {
+        node.isEnteringMaintenance()) {// TODO 如果确定 处于 下线和维护状态中，删除节点的 chache 资源
       cacheCapacity -= node.getCacheCapacity();
       cacheUsed -= node.getCacheUsed();
     }
+    //删除 statsMap 存储节点上的副本信息
     Set<StorageType> storageTypes = new HashSet<>();
     for (DatanodeStorageInfo storageInfo : node.getStorageInfos()) {
       if (storageInfo.getState() != DatanodeStorage.State.FAILED) {

@@ -1178,8 +1178,8 @@ public class DatanodeManager {
     refreshHostsReader(conf); // hostConfigManager 从本地读取文件
     namesystem.writeLock();
     try {
-      refreshDatanodes(); //刷新所有节点数据
-      countSoftwareVersions();
+      refreshDatanodes(); //刷新所有节点状态
+      countSoftwareVersions();//统计不同版本的节点个数，该数据主要用户 DN 升级的场景
     } finally {
       namesystem.writeUnlock();
     }
@@ -1216,19 +1216,20 @@ public class DatanodeManager {
     }
     for (DatanodeDescriptor node : copy.values()) { //遍历所有节点开始线上线操作
       // Check if not include.
-      if (!hostConfigManager.isIncluded(node)) { //不在include 文件中
-        node.setDisallowed(true); // 直接设置为 不可用节点
+      if (!hostConfigManager.isIncluded(node)) { // 确认节点是否允许与 NameNode connect
+        node.setDisallowed(true); // 不在inlucde 范围内直接设置该节点不可用
       } else {
         long maintenanceExpireTimeInMS =
             hostConfigManager.getMaintenanceExpirationTimeInMS(node);
-        if (node.maintenanceNotExpired(maintenanceExpireTimeInMS)) {
+        if (node.maintenanceNotExpired(maintenanceExpireTimeInMS)) { //节点维护状态相关
           datanodeAdminManager.startMaintenance(
               node, maintenanceExpireTimeInMS);
         } else if (hostConfigManager.isExcluded(node)) { // 在 exclude 文件中
           datanodeAdminManager.startDecommission(node); // 执行节点下线
         } else {
+          //发现节点不再 维护列表和下线列表中，则停止 维护和 下线操作
           datanodeAdminManager.stopMaintenance(node);
-          datanodeAdminManager.stopDecommission(node); //不在 exclude 文件中，停止下线操作
+          datanodeAdminManager.stopDecommission(node);
         }
       }
       node.setUpgradeDomain(hostConfigManager.getUpgradeDomain(node));

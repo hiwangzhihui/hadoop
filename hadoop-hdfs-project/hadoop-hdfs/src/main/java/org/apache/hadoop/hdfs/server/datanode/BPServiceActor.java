@@ -863,7 +863,7 @@ class BPServiceActor implements Runnable {
   }
 
   /**
-   * Process an array of datanode commands
+   * Process an array of data node commands
    * 
    * @param cmds an array of datanode commands
    * @return true if further processing may be required or false otherwise. 

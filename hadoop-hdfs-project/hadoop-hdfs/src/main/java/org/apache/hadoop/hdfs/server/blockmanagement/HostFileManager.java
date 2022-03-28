@@ -119,6 +119,8 @@ public class HostFileManager extends HostConfigManager {
   // includes list.
   @Override
   public synchronized boolean isIncluded(DatanodeID dn) {
+    // 如果  includes 为空，所有的节点都允许与 NameNode 通信
+    // 否则，必须在 include 列表中的节点才能与 NameNode 通信
     return includes.isEmpty() || includes.match(dn.getResolvedAddress());
   }
 
@@ -152,7 +154,7 @@ public class HostFileManager extends HostConfigManager {
    * @throws IOException thrown if there is a problem reading one of the files
    */
   private void refresh(String includeFile, String excludeFile)
-      throws IOException {
+      throws IOException { //加载 inculdes 、excludes 文件
     HostSet newIncludes = readFile("included", includeFile);
     HostSet newExcludes = readFile("excluded", excludeFile);
 

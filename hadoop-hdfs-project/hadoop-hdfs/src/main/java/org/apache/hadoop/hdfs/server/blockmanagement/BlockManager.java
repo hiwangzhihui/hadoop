@@ -1801,7 +1801,7 @@ public class BlockManager implements BlockStatsMXBean {
     List<List<BlockInfo>> blocksToReconstruct = null;
     namesystem.writeLock();
     try {
-      // Choose the blocks to be reconstructed
+      // Choose the blocks to be reconstructed  按照优先级选择需要重构的块
       blocksToReconstruct = neededReconstruction
           .chooseLowRedundancyBlocks(blocksToProcess);
     } finally {
@@ -1826,6 +1826,7 @@ public class BlockManager implements BlockStatsMXBean {
     // Step 1: categorize at-risk blocks into replication and EC tasks
     namesystem.writeLock();
     try {
+      // 为每个block 创建修复任务 BlockReconstructionWork
       synchronized (neededReconstruction) {
         for (int priority = 0; priority < blocksToReconstruct
             .size(); priority++) {
@@ -1843,6 +1844,7 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     // Step 2: choose target nodes for each reconstruction task
+    // 为每个任务分配，副本修复节点
     final Set<Node> excludedNodes = new HashSet<>();
     for(BlockReconstructionWork rw : reconWork){
       // Exclude all of the containing nodes from being targets.
@@ -1858,7 +1860,7 @@ public class BlockManager implements BlockStatsMXBean {
       rw.chooseTargets(placementPolicy, storagePolicySuite, excludedNodes);
     }
 
-    // Step 3: add tasks to the DN
+    // Step 3: add tasks to the DN 将任务分配给 DataNode
     namesystem.writeLock();
     try {
       for(BlockReconstructionWork rw : reconWork){
@@ -1869,7 +1871,7 @@ public class BlockManager implements BlockStatsMXBean {
         }
 
         synchronized (neededReconstruction) {
-          if (validateReconstructionWork(rw)) {
+          if (validateReconstructionWork(rw)) { //校验任务完成情况，并把任务分配给DN 处理
             scheduledWork++;
           }
         }
@@ -4403,6 +4405,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * A block needs reconstruction if the number of redundancies is less than
    * expected or if it does not have enough racks.
+   * 如果一个块写完后，副本数少于预期 或机架分布不符合和预期，才能允许被 reconstruction
    */
   boolean isNeededReconstruction(BlockInfo storedBlock,
       NumberReplicas numberReplicas, int pending) {

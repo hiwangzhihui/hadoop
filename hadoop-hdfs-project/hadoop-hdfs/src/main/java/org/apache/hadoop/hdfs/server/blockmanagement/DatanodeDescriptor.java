@@ -194,7 +194,9 @@ public class DatanodeDescriptor extends DatanodeInfo {
   // specified datanode, this value will be set back to 0.
   private long bandwidth;
 
-  /** A queue of blocks to be replicated by this datanode */
+  /** A queue of blocks to be replicated by this datanode
+   *  这个 DataNode 需要复制的 块
+   * */
   private final BlockQueue<BlockTargetPair> replicateBlocks =
       new BlockQueue<>();
   /** A queue of blocks to be erasure coded by this datanode */

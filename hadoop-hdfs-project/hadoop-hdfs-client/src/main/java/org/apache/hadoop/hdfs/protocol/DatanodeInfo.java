@@ -60,11 +60,11 @@ public class DatanodeInfo extends DatanodeID implements Node {
 
   // Datanode administrative states
   public enum AdminStates {
-    NORMAL("In Service"),
-    DECOMMISSION_INPROGRESS("Decommission In Progress"),
-    DECOMMISSIONED("Decommissioned"),
-    ENTERING_MAINTENANCE("Entering Maintenance"),
-    IN_MAINTENANCE("In Maintenance");
+    NORMAL("In Service"), // 正常服务的节点
+    DECOMMISSION_INPROGRESS("Decommission In Progress"),//正在下线的节点
+    DECOMMISSIONED("Decommissioned"),//已经下线的节点
+    ENTERING_MAINTENANCE("Entering Maintenance"),//正在转化为维护状态
+    IN_MAINTENANCE("In Maintenance");//节点已经转换为维护状态
 
     final String value;
 

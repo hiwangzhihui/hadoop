@@ -279,7 +279,7 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
       int curReplicas, int readOnlyReplicas,
       int outOfServiceReplicas, int expectedReplicas) {
     final int priLevel = getPriority(block, curReplicas, readOnlyReplicas,
-        outOfServiceReplicas, expectedReplicas);
+        outOfServiceReplicas, expectedReplicas);//TODO 计算修复的优先级
     if(add(block, priLevel, expectedReplicas)) {
       NameNode.blockStateChangeLog.debug(
           "BLOCK* NameSystem.LowRedundancyBlock.add: {}"
