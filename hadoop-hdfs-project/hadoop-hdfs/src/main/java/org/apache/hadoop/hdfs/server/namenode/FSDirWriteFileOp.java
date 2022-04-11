@@ -234,7 +234,7 @@ class FSDirWriteFileOp {
     final INodeFile pendingFile = fileState.inode;
     src = fileState.path;
 
-    if (onRetryBlock[0] != null) {
+    if (onRetryBlock[0] != null) {//TODO 待补充逻辑
       if (onRetryBlock[0].getLocations().length > 0) {
         // This is a retry. Just return the last block if having locations.
         return onRetryBlock[0];
@@ -507,10 +507,13 @@ class FSDirWriteFileOp {
 
         short numLocations = fileINode.getFileReplication();
         blockInfo = new BlockInfoContiguous(block, numLocations);
+        //状态为 UNDER_CONSTRUCTION
         blockInfo.convertToBlockUnderConstruction(
             HdfsServerConstants.BlockUCState.UNDER_CONSTRUCTION, targets);
       }
+      //加入到BlockManaer 中管理
       fsd.getBlockManager().addBlockCollection(blockInfo, fileINode);
+      //与文件绑定
       fileINode.addBlock(blockInfo);
 
       if(NameNode.stateChangeLog.isDebugEnabled()) {

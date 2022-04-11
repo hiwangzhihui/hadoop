@@ -514,8 +514,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   }
 
   /**
-   * Remove stale storages from storageMap. We must not remove any storages
-   * as long as they have associated block replicas.
+   * Remove stale storages from storageMap. We must not remove any storages as long as they have associated block replicas.
    */
   private void pruneStorageMap(final StorageReport[] reports) {
     synchronized (storageMap) {
@@ -533,8 +532,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
         excessStorages.remove(report.getStorage().getStorageID());
       }
 
-      // For each remaining storage, remove it if there are no associated
-      // blocks.
+      // For each remaining storage, remove it if there are no associated blocks.
       for (final DatanodeStorageInfo storageInfo : excessStorages.values()) {
         if (storageInfo.numBlocks() == 0) {
           DatanodeStorageInfo info =

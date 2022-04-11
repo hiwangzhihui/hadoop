@@ -2666,13 +2666,14 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     NameNode.stateChangeLog.debug("BLOCK* getAdditionalBlock: {}  inodeId {}" +
         " for {}", src, fileId, clientName);
 
-    LocatedBlock[] onRetryBlock = new LocatedBlock[1];
+    LocatedBlock[] onRetryBlock = new LocatedBlock[1];//申请的块个数
     FSDirWriteFileOp.ValidateAddBlockResult r;
     checkOperation(OperationCategory.READ);
     final FSPermissionChecker pc = getPermissionChecker();
     readLock();
     try {
       checkOperation(OperationCategory.READ);
+      //校验文件块个数是否达到上线，并封装块的放置策略和模式在 ValidateAddBlockResult 中
       r = FSDirWriteFileOp.validateAddBlock(this, pc, src, fileId, clientName,
                                             previous, onRetryBlock);
     } finally {
@@ -2684,7 +2685,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       // This is a retry. Just return the last block.
       return onRetryBlock[0];
     }
-
+    //为申请的块申请存放副本目标节点
     DatanodeStorageInfo[] targets = FSDirWriteFileOp.chooseTargetForNewBlock(
         blockManager, src, excludedNodes, favoredNodes, flags, r);
 
@@ -2693,6 +2694,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     LocatedBlock lb;
     try {
       checkOperation(OperationCategory.WRITE);
+      //加入到 BlockManager 中管理 同时与 InodeFile 绑定
       lb = FSDirWriteFileOp.storeAllocatedBlock(
           this, src, fileId, clientName, previous, targets);
     } finally {
