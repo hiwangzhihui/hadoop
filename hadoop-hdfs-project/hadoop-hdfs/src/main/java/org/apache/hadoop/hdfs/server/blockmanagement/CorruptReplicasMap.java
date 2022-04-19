@@ -116,6 +116,7 @@ public class CorruptReplicasMap{
   }
 
   /**
+   * 将块直接从 corruptReplicasMap 数据结构中移除
    * Remove the block at the given datanode from CorruptBlockMap
    * @param blk block to be removed
    * @param datanode datanode where the block is located
@@ -129,22 +130,22 @@ public class CorruptReplicasMap{
   boolean removeFromCorruptReplicasMap(Block blk, DatanodeDescriptor datanode,
       Reason reason) {
     Map <DatanodeDescriptor, Reason> datanodes = corruptReplicasMap.get(blk);
-    if (datanodes == null) {
+    if (datanodes == null) { //块不存在错误副本
       return false;
     }
 
     // if reasons can be compared but don't match, return false.
-    Reason storedReason = datanodes.get(datanode);
+    Reason storedReason = datanodes.get(datanode); //
     if (reason != Reason.ANY && storedReason != null &&
-        reason != storedReason) {
+        reason != storedReason) { //如果当前节点与之前状态不能对齐也不能移除
       return false;
     }
-
+    //移除该错误的副本
     if (datanodes.remove(datanode) != null) { // remove the replicas
       if (datanodes.isEmpty()) {
         // remove the block if there is no more corrupted replicas
-        corruptReplicasMap.remove(blk);
-        decrementBlockStat(blk);
+        corruptReplicasMap.remove(blk); // 如果该块无错误副本，则块从 corruptReplicasMap 中移除
+        decrementBlockStat(blk); //损坏块个数 -1
       }
       return true;
     }

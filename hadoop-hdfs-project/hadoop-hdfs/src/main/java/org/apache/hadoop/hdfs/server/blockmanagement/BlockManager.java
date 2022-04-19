@@ -320,7 +320,8 @@ public class BlockManager implements BlockStatsMXBean {
 
   // 存放损坏的块
   // DN 汇报块副本状态判断块是否正常
-  // 什么时候确认 块修复好了 恢复正常？
+  // 什么时候会将其加入修复列表中，立即但是会pending
+  // 什么时候从 corruptReplicas 中移除，开始修复时、块被删除、多余的副本
   /** Store blocks -> datanodedescriptor(s) map of corrupt replicas */
   final CorruptReplicasMap corruptReplicas = new CorruptReplicasMap();
 
@@ -353,11 +354,12 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Store set of Blocks that need to be replicated 1 or more times.
    * We also store pending reconstruction-orders.
-   * 等待复制副本 1次或多次的任务、同时包含重构的 Block 任务
+   * 等待修复的块
    */
   public final LowRedundancyBlocks neededReconstruction =
       new LowRedundancyBlocks();
 
+  //正在被修复的快？
   @VisibleForTesting
   final PendingReconstructionBlocks pendingReconstruction;
 
@@ -3247,6 +3249,7 @@ public class BlockManager implements BlockStatsMXBean {
       // if the same block is added again and the replica was corrupt
       // previously because of a wrong gen stamp, remove it from the
       // corrupt block list.
+      //如果在同一节点，重新申请副本，则将原来的错误副本信息从 corruptReplicas 列表中移除，reson 写为  GENSTAMP_MISMATCH
       corruptReplicas.removeFromCorruptReplicasMap(block, node,
           Reason.GENSTAMP_MISMATCH);
       curReplicaDelta = 0;
@@ -3775,6 +3778,7 @@ public class BlockManager implements BlockStatsMXBean {
   }
 
   /**
+   * 从指定节点移除块
    * Modify (block-->datanode) map. Possibly generate replication tasks, if the
    * removed block is still valid.
    */
@@ -3782,6 +3786,7 @@ public class BlockManager implements BlockStatsMXBean {
     blockLog.debug("BLOCK* removeStoredBlock: {} from {}", storedBlock, node);
     assert (namesystem.hasWriteLock());
     {
+      //从 blocksMap 中移除 副本
       if (storedBlock == null || !blocksMap.removeNode(storedBlock, node)) {
         blockLog.debug("BLOCK* removeStoredBlock: {} has already been" +
             " removed from node {}", storedBlock, node);
@@ -3801,7 +3806,7 @@ public class BlockManager implements BlockStatsMXBean {
         }
       }
 
-      //
+      // 如果移除失败则执行下面操作，从各个任务列表中删除块
       // It's possible that the block was removed because of a datanode
       // failure. If the block is still valid, check if replication is
       // necessary. In that case, put block on a possibly-will-

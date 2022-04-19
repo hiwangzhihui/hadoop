@@ -79,7 +79,7 @@ public class ApplicationImpl implements Application {
   // flow context is set only if the timeline service v.2 is enabled
   private FlowContext flowContext;
   final ApplicationId appId;
-  final Credentials credentials;
+  final Credentials credentials; //存放了哪些 Token
   Map<ApplicationAccessType, String> applicationACLs;
   final ApplicationACLsManager aclsManager;
   private final ReadLock readLock;

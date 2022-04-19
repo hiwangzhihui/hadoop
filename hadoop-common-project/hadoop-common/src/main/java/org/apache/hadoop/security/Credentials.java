@@ -84,6 +84,7 @@ public class Credentials implements Writable {
   private static final Logger LOG = LoggerFactory.getLogger(Credentials.class);
 
   private  Map<Text, byte[]> secretKeysMap = new HashMap<Text, byte[]>();
+  //key 为 RPC 服务地址，value 为对应服务票价信息
   private  Map<Text, Token<? extends TokenIdentifier>> tokenMap =
       new HashMap<Text, Token<? extends TokenIdentifier>>();
 
