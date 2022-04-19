@@ -318,6 +318,9 @@ public class BlockManager implements BlockStatsMXBean {
   private final BlockReportProcessingThread blockReportThread =
       new BlockReportProcessingThread();
 
+  // 存放损坏的块
+  // DN 汇报块副本状态判断块是否正常
+  // 什么时候确认 块修复好了 恢复正常？
   /** Store blocks -> datanodedescriptor(s) map of corrupt replicas */
   final CorruptReplicasMap corruptReplicas = new CorruptReplicasMap();
 
@@ -1650,23 +1653,29 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Mark a replica (of a contiguous block) or an internal block (of a striped
    * block group) as corrupt.
+   * 用于标记块内部损坏的副本
    * @param b Indicating the reported bad block and the corresponding BlockInfo
    *          stored in blocksMap.
+   * 汇报损坏的块存放于 BlockToMarkCorrupt 这个数据结构中
+   *
    * @param storageInfo storage that contains the block, if known. null otherwise.
+   *         存放块副本的节点
+   *
    */
   private void markBlockAsCorrupt(BlockToMarkCorrupt b,
       DatanodeStorageInfo storageInfo,
       DatanodeDescriptor node) throws IOException {
-    if (b.getStored().isDeleted()) {
+    if (b.getStored().isDeleted()) { //如果块所在的文件被删除，则将块加入 invalidateBlocks 列表
       blockLog.debug("BLOCK markBlockAsCorrupt: {} cannot be marked as" +
           " corrupt as it does not belong to any file", b);
       addToInvalidates(b.getCorrupted(), node);
       return;
     }
     short expectedRedundancies =
-        getExpectedRedundancyNum(b.getStored());
+        getExpectedRedundancyNum(b.getStored()); //块副本个数
 
     // Add replica to the data-node if it is not already there
+    //如果 块没有与节点绑定过，则绑定
     if (storageInfo != null) {
       storageInfo.addBlock(b.getStored(), b.getCorrupted());
     }
@@ -1677,19 +1686,21 @@ public class BlockManager implements BlockStatsMXBean {
     if (b.getStored().isStriped()) {
       corrupted.setBlockId(b.getStored().getBlockId());
     }
+    //放入损坏块列表
     corruptReplicas.addToCorruptReplicasMap(corrupted, node, b.getReason(),
         b.getReasonCode());
 
-    NumberReplicas numberOfReplicas = countNodes(b.getStored());
+    NumberReplicas numberOfReplicas = countNodes(b.getStored()); //统计块副本状态
     boolean hasEnoughLiveReplicas = numberOfReplicas.liveReplicas() >=
         expectedRedundancies;
-
+    //dfs.namenode.replication.min  副本是否为安全的
     boolean minReplicationSatisfied = hasMinStorage(b.getStored(),
         numberOfReplicas.liveReplicas());
-
+     //是否有多余的副本
     boolean hasMoreCorruptReplicas = minReplicationSatisfied &&
         (numberOfReplicas.liveReplicas() + numberOfReplicas.corruptReplicas()) >
         expectedRedundancies;
+    //块是否正在被写
     boolean corruptedDuringWrite = minReplicationSatisfied &&
         b.isCorruptedDuringWrite();
     // case 1: have enough number of live replicas
@@ -1701,8 +1712,9 @@ public class BlockManager implements BlockStatsMXBean {
     if (hasEnoughLiveReplicas || hasMoreCorruptReplicas
         || corruptedDuringWrite) {
       // the block is over-replicated so invalidate the replicas immediately
+      //  将多余的副本立即移除
       invalidateBlock(b, node, numberOfReplicas);
-    } else if (isPopulatingReplQueues()) {
+    } else if (isPopulatingReplQueues()) { //是否人允许，加入修复列表，存活的Active节点才允许
       // add the block to neededReconstruction
       updateNeededReconstructions(b.getStored(), -1, 0);
     }
@@ -2534,6 +2546,7 @@ public class BlockManager implements BlockStatsMXBean {
       } else {
         // Block reports for provided storage are not
         // maintained by DN heartbeats
+        //如果不是外部存储，都需要处理对应的报告信息
         if (!StorageType.PROVIDED.equals(storageInfo.getStorageType())) {
           invalidatedBlocks = processReport(storageInfo, newReport, context);
         }
@@ -2638,6 +2651,7 @@ public class BlockManager implements BlockStatsMXBean {
     Collection<BlockInfoToAdd> toAdd = new LinkedList<>();
     Collection<BlockInfo> toRemove = new TreeSet<>();
     Collection<Block> toInvalidate = new LinkedList<>();
+    //损坏的块
     Collection<BlockToMarkCorrupt> toCorrupt = new LinkedList<>();
     Collection<StatefulBlockInfo> toUC = new LinkedList<>();
 
@@ -2666,7 +2680,7 @@ public class BlockManager implements BlockStatsMXBean {
     } else {
       sortedReport = report;
     }
-
+    //解析 sortedReport 将不同状态的块放入 不同的集合中
     reportDiffSorted(storageInfo, sortedReport,
                      toAdd, toRemove, toInvalidate, toCorrupt, toUC);
 
@@ -2693,7 +2707,7 @@ public class BlockManager implements BlockStatsMXBean {
       addToInvalidates(b, node);
     }
     for (BlockToMarkCorrupt b : toCorrupt) {
-      markBlockAsCorrupt(b, storageInfo, node);
+      markBlockAsCorrupt(b, storageInfo, node); // 用于标记块内部损坏的副本
     }
 
     return toInvalidate;
@@ -2864,6 +2878,7 @@ public class BlockManager implements BlockStatsMXBean {
           // Check if block is available in NN but not yet on this storage
           BlockInfo nnBlock = blocksMap.getStoredBlock(new Block(replicaID));
           if (nnBlock != null) {
+            //找不到副本对应的块
             reportDiffSortedInner(storageInfo, replica, reportedState,
                                   nnBlock, toAdd, toCorrupt, toUC);
           } else {
@@ -2872,7 +2887,7 @@ public class BlockManager implements BlockStatsMXBean {
           }
           break;
         } else if (cmp == 0) {
-          // Replica matched current storageblock
+          // Replica matched current 找到副本对应的块
           reportDiffSortedInner(storageInfo, replica, reportedState,
                                 storageBlock, toAdd, toCorrupt, toUC);
           storageBlock = null;
@@ -2916,7 +2931,7 @@ public class BlockManager implements BlockStatsMXBean {
     if (invalidateBlocks.contains(dn, replica)) {
       return;
     }
-
+    //通过副本状态，判断块是否为损坏的块
     BlockToMarkCorrupt c = checkReplicaCorrupt(replica, reportedState,
                                                storedBlock, ucState, dn);
     if (c != null) {
@@ -2930,7 +2945,7 @@ public class BlockManager implements BlockStatsMXBean {
         queueReportedBlock(storageInfo, storedBlock, reportedState,
             QUEUE_REASON_CORRUPT_STATE);
       } else {
-        toCorrupt.add(c);
+        toCorrupt.add(c); //添加到列表中
       }
     } else if (isBlockUnderConstruction(storedBlock, ucState, reportedState)) {
       toUC.add(new StatefulBlockInfo(storedBlock, new Block(replica),
@@ -3010,7 +3025,9 @@ public class BlockManager implements BlockStatsMXBean {
 
   /**
    * The next two methods test the various cases under which we must conclude
-   * the replica is corrupt, or under construction.  These are laid out
+   * the replica is corrupt, or under construction.
+   *
+   * These are laid out
    * as switch statements, on the theory that it is easier to understand
    * the combinatorics of reportedState and ucState that way.  It should be
    * at least as efficient as boolean expressions.
@@ -3026,6 +3043,7 @@ public class BlockManager implements BlockStatsMXBean {
       switch(ucState) {
       case COMPLETE:
       case COMMITTED:
+        //回报时间不能对齐的
         if (storedBlock.getGenerationStamp() != reported.getGenerationStamp()) {
           final long reportedGS = reported.getGenerationStamp();
           return new BlockToMarkCorrupt(new Block(reported), storedBlock, reportedGS,
@@ -3047,6 +3065,7 @@ public class BlockManager implements BlockStatsMXBean {
           wrongSize = storedBlock.getNumBytes() != reported.getNumBytes();
         }
         if (wrongSize) {
+          //副本大小不能对齐
           return new BlockToMarkCorrupt(new Block(reported), storedBlock,
               "block is " + ucState + " and reported length " +
               reported.getNumBytes() + " does not match " +
@@ -3058,6 +3077,7 @@ public class BlockManager implements BlockStatsMXBean {
       case UNDER_CONSTRUCTION:
         if (storedBlock.getGenerationStamp() > reported.getGenerationStamp()) {
           final long reportedGS = reported.getGenerationStamp();
+          //汇报的时间戳不能对齐
           return new BlockToMarkCorrupt(new Block(reported), storedBlock, reportedGS,
               "block is " + ucState + " and reported state " + reportedState
               + ", But reported genstamp " + reportedGS
@@ -3088,6 +3108,7 @@ public class BlockManager implements BlockStatsMXBean {
                   + "it is complete with the same genstamp", storedBlock, dn);
           return null;
         } else {
+          //重启后DN ，过期的副本
           return new BlockToMarkCorrupt(new Block(reported), storedBlock,
               "reported replica has invalid state " + reportedState,
               Reason.INVALID_STATE);
@@ -3101,11 +3122,12 @@ public class BlockManager implements BlockStatsMXBean {
       " on " + dn + " size " + storedBlock.getNumBytes();
       // log here at WARN level since this is really a broken HDFS invariant
       LOG.warn("{}", msg);
+      //无效状态的副本
       return new BlockToMarkCorrupt(new Block(reported), storedBlock, msg,
           Reason.INVALID_STATE);
     }
   }
-
+ //块是否被重构修复
   private boolean isBlockUnderConstruction(BlockInfo storedBlock,
       BlockUCState ucState, ReplicaState reportedState) {
     switch(reportedState) {
