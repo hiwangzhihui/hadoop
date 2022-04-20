@@ -56,9 +56,9 @@ class FSDirRenameOp {
 
     // Rename does not operate on link targets
     // Do not resolveLink when checking permissions of src and dst
-    INodesInPath srcIIP = fsd.resolvePath(pc, src, DirOp.WRITE_LINK);
-    INodesInPath dstIIP = fsd.resolvePath(pc, dst, DirOp.CREATE_LINK);
-    dstIIP = dstForRenameTo(srcIIP, dstIIP);
+    INodesInPath srcIIP = fsd.resolvePath(pc, src, DirOp.WRITE_LINK); //创建一个写的软链
+    INodesInPath dstIIP = fsd.resolvePath(pc, dst, DirOp.CREATE_LINK); //创建一个创建的软链
+    dstIIP = dstForRenameTo(srcIIP, dstIIP); //将 src 子目录挂载到, destIIP
     return renameTo(fsd, pc, srcIIP, dstIIP, logRetryCache);
   }
 
@@ -97,7 +97,7 @@ class FSDirRenameOp {
     final String parentPath = dstIIP.getParentPath();
     fsd.verifyMaxComponentLength(dstChildName, parentPath);
     // Do not enforce max directory items if renaming within same directory.
-    if (srcIIP.getINode(-2) != dstIIP.getINode(-2)) {
+    if (srcIIP.getINode(-2) != dstIIP.getINode(-2)) {//如果 src 与 dest 在同一级目录，则不再校验maxDirItems
       fsd.verifyMaxDirItems(dstIIP.getINode(-2).asDirectory(), parentPath);
     }
   }
@@ -186,9 +186,9 @@ class FSDirRenameOp {
     }
 
     fsd.ezManager.checkMoveValidity(srcIIP, dstIIP);
-    // Ensure dst has quota to accommodate rename
-    verifyFsLimitsForRename(fsd, srcIIP, dstIIP);
-    verifyQuotaForRename(fsd, srcIIP, dstIIP);
+    // Ensure dst has quota to accommodate rename 校验一下目录是否有充足的 quota 进行 rename 操作
+    verifyFsLimitsForRename(fsd, srcIIP, dstIIP); //校验rename 后目录的文件个数限制
+    verifyQuotaForRename(fsd, srcIIP, dstIIP); //校验rename 后目录的存储容量限制
 
     RenameOperation tx = new RenameOperation(fsd, srcIIP, dstIIP);
 
@@ -197,11 +197,11 @@ class FSDirRenameOp {
     INodesInPath renamedIIP = null;
     try {
       // remove src
-      if (!tx.removeSrc4OldRename()) {
+      if (!tx.removeSrc4OldRename()) { //src 解除挂载，并更新容量
         return null;
       }
 
-      renamedIIP = tx.addSourceToDestination();
+      renamedIIP = tx.addSourceToDestination(); // 将子文件挂载到 desc
       added = (renamedIIP != null);
       if (added) {
         if (NameNode.stateChangeLog.isDebugEnabled()) {
@@ -649,7 +649,7 @@ class FSDirRenameOp {
     }
 
     boolean removeSrc4OldRename() {
-      final long removedSrc = fsd.removeLastINode(srcIIP);
+      final long removedSrc = fsd.removeLastINode(srcIIP); //先从原目录 remove
       if (removedSrc == -1) {
         NameNode.stateChangeLog.warn("DIR* FSDirRenameOp.unprotectedRenameTo: "
             + "failed to rename " + srcIIP.getPath() + " to "
@@ -657,7 +657,7 @@ class FSDirRenameOp {
         return false;
       } else {
         // update the quota count if necessary
-        fsd.updateCountForDelete(srcChild, srcIIP);
+        fsd.updateCountForDelete(srcChild, srcIIP); //更新 quota
         srcIIP = INodesInPath.replace(srcIIP, srcIIP.length() - 1, null);
         return true;
       }

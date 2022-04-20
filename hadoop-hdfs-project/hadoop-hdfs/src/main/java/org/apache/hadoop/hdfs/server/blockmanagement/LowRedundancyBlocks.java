@@ -462,8 +462,11 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
    *
    * @param blocksToProcess - number of blocks to fetch from low redundancy
    *          blocks.
+   *          修复低冗余块的个数
+   *
    * @return Return a list of block lists to be replicated. The block list
    *         index represents its redundancy priority.
+   *        返回立即要修复的块列表
    */
   synchronized List<List<BlockInfo>> chooseLowRedundancyBlocks(
       int blocksToProcess) {
@@ -479,7 +482,7 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
 
       // Go through all blocks that need reconstructions with current priority.
       // Set the iterator to the first unprocessed block at this priority level
-      final Iterator<BlockInfo> i = priorityQueues.get(priority).getBookmark();
+      final Iterator<BlockInfo> i = priorityQueues.get(priority).getBookmark(); // book标记遍历的 元素
       final List<BlockInfo> blocks = new LinkedList<>();
       blocksToReconstruct.add(blocks);
       // Loop through all remaining blocks in the list.
@@ -488,13 +491,12 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
       }
     }
 
-    if (priority == LEVEL) {
+    if (priority == LEVEL) { //遍历完所有Level，重置book 标记
       // Reset all bookmarks because there were no recently added blocks.
       for (LightWeightLinkedSet<BlockInfo> q : priorityQueues) {
         q.resetBookmark();
       }
     }
-
     return blocksToReconstruct;
   }
 

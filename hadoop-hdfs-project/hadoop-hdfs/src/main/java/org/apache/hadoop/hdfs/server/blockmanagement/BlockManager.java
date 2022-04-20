@@ -355,6 +355,9 @@ public class BlockManager implements BlockStatsMXBean {
    * Store set of Blocks that need to be replicated 1 or more times.
    * We also store pending reconstruction-orders.
    * 等待修复的块
+   * 从损坏的块列表中获取
+   * 1、什么时候修复
+   * 2、块什么时候移除
    */
   public final LowRedundancyBlocks neededReconstruction =
       new LowRedundancyBlocks();
@@ -1821,6 +1824,7 @@ public class BlockManager implements BlockStatsMXBean {
     } finally {
       namesystem.writeUnlock();
     }
+    //交给work并发叫个 DN 处理
     return computeReconstructionWorkForBlocks(blocksToReconstruct);
   }
 
@@ -1871,6 +1875,7 @@ public class BlockManager implements BlockStatsMXBean {
       // choose replication targets: NOT HOLDING THE GLOBAL LOCK
       final BlockPlacementPolicy placementPolicy =
           placementPolicies.getPolicy(rw.getBlock().getBlockType());
+      //  选择分配新副本存放节点
       rw.chooseTargets(placementPolicy, storagePolicySuite, excludedNodes);
     }
 
@@ -4672,6 +4677,7 @@ public class BlockManager implements BlockStatsMXBean {
       return 0;
     }
 
+    //允许并发修复的块的个数
     final int numlive = heartbeatManager.getLiveDatanodeCount();
     final int blocksToProcess = numlive
         * this.blocksReplWorkMultiplier;

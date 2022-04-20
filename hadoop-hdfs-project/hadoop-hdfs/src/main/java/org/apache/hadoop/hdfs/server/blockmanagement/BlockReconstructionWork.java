@@ -40,12 +40,12 @@ abstract class BlockReconstructionWork {
    * An erasure coding reconstruction task has multiple source nodes.
    * A replication task only has 1 source node, stored on top of the array
    */
-  private final DatanodeDescriptor[] srcNodes;
+  private final DatanodeDescriptor[] srcNodes; //已经存储块副本的节点
   /** Nodes containing the block; avoid them in choosing new targets */
   private final List<DatanodeDescriptor> containingNodes;
   /** Required by {@link BlockPlacementPolicy#chooseTarget} */
   private  final List<DatanodeStorageInfo> liveReplicaStorages;
-  private final int additionalReplRequired;
+  private final int additionalReplRequired; //需要修复的副本个数
 
   private DatanodeStorageInfo[] targets;
   private final int priority;
