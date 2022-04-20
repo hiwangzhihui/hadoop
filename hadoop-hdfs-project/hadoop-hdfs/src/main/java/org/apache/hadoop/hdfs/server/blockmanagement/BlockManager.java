@@ -1890,7 +1890,9 @@ public class BlockManager implements BlockStatsMXBean {
         }
 
         synchronized (neededReconstruction) {
-          if (validateReconstructionWork(rw)) { //校验任务完成情况，并把任务分配给DN 处理
+          //校验任务完成情况，如果block 修复完成则从  neededReconstruction 中移除
+          // 并把任务分配给 DN 处理
+          if (validateReconstructionWork(rw)) {
             scheduledWork++;
           }
         }
@@ -2026,6 +2028,7 @@ public class BlockManager implements BlockStatsMXBean {
   private boolean validateReconstructionWork(BlockReconstructionWork rw) {
     BlockInfo block = rw.getBlock();
     int priority = rw.getPriority();
+    //如果块被删除 或 块状态恢复正常，则可以从修复列表中移除，并取消任务
     // Recheck since global lock was released
     // skip abandoned block or block reopened for append
     if (block.isDeleted() || !block.isCompleteOrCommitted()) {
@@ -2035,9 +2038,10 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     // do not schedule more if enough replicas is already pending
+    // 如果块已经有充足的副本，则将其从 neededReconstruction 列表中移除，并取消任务
     NumberReplicas numReplicas = countNodes(block);
     final short requiredRedundancy =
-        getExpectedLiveRedundancyNum(block, numReplicas);
+        getExpectedLiveRedundancyNum(block, numReplicas); //至少存活的副本数
     final int pendingNum = pendingReconstruction.getNumReplicas(block);
     if (hasEnoughEffectiveReplicas(block, numReplicas, pendingNum)) {
       neededReconstruction.remove(block, priority);
@@ -2049,7 +2053,9 @@ public class BlockManager implements BlockStatsMXBean {
 
     DatanodeStorageInfo[] targets = rw.getTargets();
     if ((numReplicas.liveReplicas() >= requiredRedundancy) &&
-        (!isPlacementPolicySatisfied(block)) ) {
+        (!isPlacementPolicySatisfied(block)) ) { // 块的副本是否符合放置策略，rack
+      //如果目前块副本防止不安全，则检查 分配 新副本 DN 是否在不同 rack
+      // 否则终止任务
       if (!isInNewRack(rw.getSrcNodes(), targets[0].getDatanodeDescriptor())) {
         // No use continuing, unless a new rack in this case
         return false;
@@ -2059,13 +2065,16 @@ public class BlockManager implements BlockStatsMXBean {
       rw.setNotEnoughRack();
     }
 
+    //将任务交给 src DN
     // Add block to the datanode's task list
     rw.addTaskToDatanode(numReplicas);
+    //增加 DN 块个数
     DatanodeStorageInfo.incrementBlocksScheduled(targets);
 
     // Move the block-replication into a "pending" state.
     // The reason we use 'pending' is so we can retry
     // reconstructions that fail after an appropriate amount of time.
+    //将修复的块放入  pendingReconstruction 中便于后续，超时重试
     pendingReconstruction.increment(block,
         DatanodeStorageInfo.toDatanodeDescriptors(targets));
     blockLog.debug("BLOCK* block {} is moved from neededReconstruction to "

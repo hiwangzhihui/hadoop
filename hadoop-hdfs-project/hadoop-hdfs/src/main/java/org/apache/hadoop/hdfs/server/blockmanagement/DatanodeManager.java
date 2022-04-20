@@ -1684,12 +1684,12 @@ public class DatanodeManager {
         LOG.debug("Pending replication tasks: " + numReplicationTasks
             + " erasure-coded tasks: " + numECTasks);
       }
-      // check pending replication tasks
+      // check pending replication tasks 获取修复块任务
       List<BlockTargetPair> pendingList = nodeinfo.getReplicationCommand(
           numReplicationTasks);
       if (pendingList != null && !pendingList.isEmpty()) {
         cmds.add(new BlockCommand(DatanodeProtocol.DNA_TRANSFER, blockPoolId,
-            pendingList));
+            pendingList)); //封装为明亮
       }
       // check pending erasure coding tasks
       List<BlockECReconstructionInfo> pendingECList = nodeinfo
@@ -1741,7 +1741,7 @@ public class DatanodeManager {
       }
     }
 
-    if (!cmds.isEmpty()) {
+    if (!cmds.isEmpty()) { //返回给 DN
       return cmds.toArray(new DatanodeCommand[cmds.size()]);
     }
 

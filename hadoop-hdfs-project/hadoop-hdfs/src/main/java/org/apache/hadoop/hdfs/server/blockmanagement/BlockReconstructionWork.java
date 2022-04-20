@@ -47,7 +47,7 @@ abstract class BlockReconstructionWork {
   private  final List<DatanodeStorageInfo> liveReplicaStorages;
   private final int additionalReplRequired; //需要修复的副本个数
 
-  private DatanodeStorageInfo[] targets;
+  private DatanodeStorageInfo[] targets; //将要同步块副本的节点
   private final int priority;
   private boolean notEnoughRack = false;
 

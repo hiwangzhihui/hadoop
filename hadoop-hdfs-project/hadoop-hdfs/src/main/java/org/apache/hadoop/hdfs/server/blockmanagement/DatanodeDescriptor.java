@@ -195,7 +195,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   private long bandwidth;
 
   /** A queue of blocks to be replicated by this datanode
-   *  这个 DataNode 需要复制的 块
+   *  需要这个DN 修复的副本，BlockTargetPair 包含块信息已经目标节点信息
    * */
   private final BlockQueue<BlockTargetPair> replicateBlocks =
       new BlockQueue<>();

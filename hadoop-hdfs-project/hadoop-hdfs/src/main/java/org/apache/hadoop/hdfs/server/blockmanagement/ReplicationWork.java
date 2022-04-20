@@ -53,6 +53,7 @@ class ReplicationWork extends BlockReconstructionWork {
     }
   }
 
+  //将任务同步副本任务交给 rscDN
   @Override
   void addTaskToDatanode(NumberReplicas numberReplicas) {
     getSrcNodes()[0].addBlockToBeReplicated(getBlock(), getTargets());
