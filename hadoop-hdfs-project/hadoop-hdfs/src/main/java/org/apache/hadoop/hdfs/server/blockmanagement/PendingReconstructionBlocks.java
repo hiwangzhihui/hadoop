@@ -48,19 +48,19 @@ import org.slf4j.Logger;
 class PendingReconstructionBlocks {
   private static final Logger LOG = BlockManager.LOG;
 
-  private final Map<BlockInfo, PendingBlockInfo> pendingReconstructions;
-  private final ArrayList<BlockInfo> timedOutItems;
-  Daemon timerThread = null;
+  private final Map<BlockInfo, PendingBlockInfo> pendingReconstructions; //正在修复的块
+  private final ArrayList<BlockInfo> timedOutItems; //修复超时的块
+  Daemon timerThread = null; //任务检查线程 PendingReconstructionMonitor
   private volatile boolean fsRunning = true;
-  private long timedOutCount = 0L;
+  private long timedOutCount = 0L; //超时的块统计
 
   //
   // It might take anywhere between 5 to 10 minutes before
   // a request is timed out.
   //
   private long timeout =
-      DFS_NAMENODE_RECONSTRUCTION_PENDING_TIMEOUT_SEC_DEFAULT * 1000;
-  private final static long DEFAULT_RECHECK_INTERVAL = 5 * 60 * 1000;
+      DFS_NAMENODE_RECONSTRUCTION_PENDING_TIMEOUT_SEC_DEFAULT * 1000; // 修复超时时间 5 分钟
+  private final static long DEFAULT_RECHECK_INTERVAL = 5 * 60 * 1000; // 检查默认间隔时间 50 分钟
 
   PendingReconstructionBlocks(long timeoutPeriod) {
     if ( timeoutPeriod > 0 ) {
@@ -106,8 +106,8 @@ class PendingReconstructionBlocks {
       PendingBlockInfo found = pendingReconstructions.get(block);
       if (found != null) {
         LOG.debug("Removing pending reconstruction for {}", block);
-        found.decrementReplicas(dn);
-        if (found.getNumReplicas() <= 0) {
+        found.decrementReplicas(dn); //当修复的副本从 数据结构中移除
+        if (found.getNumReplicas() <= 0) {//如果需要修复的副本个数为 0 则将块从 pendingConstructions 列表中移除
           pendingReconstructions.remove(block);
           removed = true;
         }
@@ -240,7 +240,7 @@ class PendingReconstructionBlocks {
     @Override
     public void run() {
       while (fsRunning) {
-        long period = Math.min(DEFAULT_RECHECK_INTERVAL, timeout);
+        long period = Math.min(DEFAULT_RECHECK_INTERVAL, timeout);//默认 5 分钟执行一次
         try {
           pendingReconstructionCheck();
           Thread.sleep(period);
@@ -265,11 +265,11 @@ class PendingReconstructionBlocks {
           if (now > pendingBlock.getTimeStamp() + timeout) {
             BlockInfo block = entry.getKey();
             synchronized (timedOutItems) {
-              timedOutItems.add(block);
+              timedOutItems.add(block);//将超时任务加入超时列表
             }
             LOG.warn("PendingReconstructionMonitor timed out " + block);
             NameNode.getNameNodeMetrics().incTimeoutReReplications();
-            iter.remove();
+            iter.remove(); //并且从 pendingRecinsstrouctions 列表中移除
           }
         }
       }

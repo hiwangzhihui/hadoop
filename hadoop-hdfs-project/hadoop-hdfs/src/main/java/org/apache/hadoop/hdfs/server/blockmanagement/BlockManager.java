@@ -362,7 +362,7 @@ public class BlockManager implements BlockStatsMXBean {
   public final LowRedundancyBlocks neededReconstruction =
       new LowRedundancyBlocks();
 
-  //正在被修复的快？
+  //正在被修复的块
   @VisibleForTesting
   final PendingReconstructionBlocks pendingReconstruction;
 
@@ -1110,7 +1110,7 @@ public class BlockManager implements BlockStatsMXBean {
    * for this block.<br>
    * The methods returns null if there is no partial block at the end.
    * The client is supposed to allocate a new block with the next call.
-   *
+   *  获取文件最后构建的一个块
    * @param bc file
    * @param bytesToRemove num of bytes to remove from block
    * @return the last block locations if the block is partial or null otherwise
@@ -2324,6 +2324,7 @@ public class BlockManager implements BlockStatsMXBean {
    * and put them back into the neededReconstruction queue
    */
   void processPendingReconstructions() {
+     //拿取所有超时的 修复任务，并清空 timedOutItems 集合
     BlockInfo[] timedOutItems = pendingReconstruction.getTimedOutBlocks();
     if (timedOutItems != null) {
       namesystem.writeLock();
@@ -2337,6 +2338,7 @@ public class BlockManager implements BlockStatsMXBean {
           if (bi == null) {
             continue;
           }
+          //把超时需要修复的块从新加入到 neededReconstruction 集合中重试
           NumberReplicas num = countNodes(timedOutItems[i]);
           if (isNeededReconstruction(bi, num)) {
             neededReconstruction.add(bi, num.liveReplicas(),
