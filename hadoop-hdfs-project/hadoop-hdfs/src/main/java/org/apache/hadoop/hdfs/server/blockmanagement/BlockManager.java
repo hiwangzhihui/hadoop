@@ -329,6 +329,7 @@ public class BlockManager implements BlockStatsMXBean {
    * Blocks to be invalidated.
    * For a striped block to invalidate, we should track its individual internal
    * blocks.
+   * 等待删除移除的块列表
    */
   private final InvalidateBlocks invalidateBlocks;
   
@@ -338,15 +339,21 @@ public class BlockManager implements BlockStatsMXBean {
    * new active. This is to make sure that this NameNode has been
    * notified of all block deletions that might have been pending
    * when the failover happened.
+   * 在NN 故障转移后，在所有副本未被完全汇报之前，无法处理的过量副本都放到该集合中
+   * 避免在故障转移时导致误删过量的块
+   * 包含心跳滞后的DN 汇报上来得块副本，将会滞后处理
+   * 被推迟处理的异常块数量
    */
   private final Set<Block> postponedMisreplicatedBlocks =
       new LinkedHashSet<Block>();
   private final int blocksPerPostpondedRescan;
+  //一轮处理 postponedMisreplicatedBlocks 留下来还需继续监控的块
   private final ArrayList<Block> rescannedMisreplicatedBlocks;
 
   /**
    * Maps a StorageID to the set of blocks that are "extra" for this
    * DataNode. We'll eventually remove these extras.
+   * TODO
    */
   private final ExcessRedundancyMap excessRedundancyMap =
       new ExcessRedundancyMap();
@@ -366,7 +373,7 @@ public class BlockManager implements BlockStatsMXBean {
   @VisibleForTesting
   final PendingReconstructionBlocks pendingReconstruction;
 
-  /** Stores information about block recovery attempts. */
+  /** Stores information about block recovery attempts.  TODO */
   private final PendingRecoveryBlocks pendingRecoveryBlocks;
 
   /** The maximum number of replicas allowed for a block */
@@ -1729,6 +1736,7 @@ public class BlockManager implements BlockStatsMXBean {
    * Invalidates the given block on the given datanode.
    * @return true if the block was successfully invalidated and no longer
    * present in the BlocksMap
+   * 作废无效的块
    */
   private boolean invalidateBlock(BlockToMarkCorrupt b, DatanodeInfo dn,
       NumberReplicas nr) throws IOException {
@@ -1740,14 +1748,14 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     // Check how many copies we have of the block
-    if (nr.replicasOnStaleNodes() > 0) {
+    if (nr.replicasOnStaleNodes() > 0) { //如果块有副本在 心跳过期的 DN 上则该副本交给 postponeBlock 处理
       blockLog.debug("BLOCK* invalidateBlocks: postponing " +
           "invalidation of {} on {} because {} replica(s) are located on " +
           "nodes with potentially out-of-date block reports", b, dn,
           nr.replicasOnStaleNodes());
       postponeBlock(b.getCorrupted());
       return false;
-    } else {
+    } else { //如果是明确 损坏的副本和多余的副本可直接清楚
       // we already checked the number of replicas in the caller of this
       // function and know there are enough live replicas, so we can delete it.
       addToInvalidates(b.getCorrupted(), dn);
@@ -2619,6 +2627,7 @@ public class BlockManager implements BlockStatsMXBean {
 
   /**
    * Rescan the list of blocks which were previously postponed.
+   * 重新扫描之前推迟汇报的块列表
    */
   void rescanPostponedMisreplicatedBlocks() {
     if (getPostponedMisreplicatedBlocksCount() == 0) {
@@ -2631,10 +2640,10 @@ public class BlockManager implements BlockStatsMXBean {
       Iterator<Block> it = postponedMisreplicatedBlocks.iterator();
       for (int i=0; i < blocksPerPostpondedRescan && it.hasNext(); i++) {
         Block b = it.next();
-        it.remove();
+        it.remove(); //scan 时把block 从 postponedMisreplicatedBlocks 列表中移除
 
         BlockInfo bi = getStoredBlock(b);
-        if (bi == null) {
+        if (bi == null) { //如果 block 都不存在了，则移除不用管了
           LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
               "Postponed mis-replicated block {} no longer found " +
               "in block map.", b);
@@ -2644,10 +2653,12 @@ public class BlockManager implements BlockStatsMXBean {
         LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
             "Re-scanned block {}, result is {}", b, res);
         if (res == MisReplicationResult.POSTPONE) {
+          //如果 scan 发现块还是有副本在 stale 状态的节点上 ，则再次加入到 rescannedMisreplicatedBlocks 后面重试
           rescannedMisreplicatedBlocks.add(b);
         }
       }
     } finally {
+      //下一轮再重试
       postponedMisreplicatedBlocks.addAll(rescannedMisreplicatedBlocks);
       rescannedMisreplicatedBlocks.clear();
       long endSize = postponedMisreplicatedBlocks.size();
@@ -3334,6 +3345,11 @@ public class BlockManager implements BlockStatsMXBean {
   // the condition of live + maintenance == expected. We allow
   // live + maintenance >= expected. The extra redundancy will be removed
   // when the maintenance node changes to live.
+  /**
+   * 如果当前存活副本数 > 预期数 说明有冗余副本
+   * 如果当前 存活副本数 = 预期数，且有存在 maintenance（维护状态节点）的副本，则说明有冗余的副本
+   *
+   * */
   private boolean shouldProcessExtraRedundancy(NumberReplicas num,
       int expectedNum) {
     final int numCurrent = num.liveReplicas();
@@ -3532,27 +3548,32 @@ public class BlockManager implements BlockStatsMXBean {
   }
 
   /**
+   * 处理单个的可能错误的块副本
    * Process a single possibly misreplicated block. This adds it to the
+   * 如果有必要的话，会将其将加入到   neededReconstruction 队列中处理
    * appropriate queues if necessary, and returns a result code indicating
    * what happened with it.
+   * 最终会返回状态码回去，表达发生了什么
+   *
    */
   private MisReplicationResult processMisReplicatedBlock(BlockInfo block) {
-    if (block.isDeleted()) {
+    if (block.isDeleted()) {//如果块被删除，则返回 INVALID 直接不管了
       // block does not belong to any file
       addToInvalidates(block);
       return MisReplicationResult.INVALID;
     }
-    if (!block.isComplete()) {
+    if (!block.isComplete()) {//不完整的块会认为是错误的块，可以直接不管了
       // Incomplete blocks are never considered mis-replicated --
       // they'll be reached when they are completed or recovered.
       return MisReplicationResult.UNDER_CONSTRUCTION;
     }
-    // calculate current redundancy
+    // calculate current redundancy 接下来就是已经写完的块，判断其是否有充足的冗余
     short expectedRedundancy = getExpectedRedundancyNum(block);
     NumberReplicas num = countNodes(block);
     final int numCurrentReplica = num.liveReplicas();
     // add to low redundancy queue if need to be
     if (isNeededReconstruction(block, num)) {
+      //如果没充足冗余或不满足合置放策略，则将块加入到  neededReconstruction 队列中处理
       if (neededReconstruction.add(block, numCurrentReplica,
           num.readOnlyReplicas(), num.outOfServiceReplicas(),
           expectedRedundancy)) {
@@ -3560,21 +3581,23 @@ public class BlockManager implements BlockStatsMXBean {
       }
     }
 
-    if (shouldProcessExtraRedundancy(num, expectedRedundancy)) {
+    if (shouldProcessExtraRedundancy(num, expectedRedundancy)) {//是否有冗余副本
       if (num.replicasOnStaleNodes() > 0) {
         // If any of the replicas of this block are on nodes that are
         // considered "stale", then these replicas may in fact have
         // already been deleted. So, we cannot safely act on the
         // over-replication until a later point in time, when
         // the "stale" nodes have block reported.
+        // 如果在 stale 节点上块有副本，则不能立即删除
+        // 直到 stale 节点过时，就可以删除
         return MisReplicationResult.POSTPONE;
       }
       
-      // extra redundancy block
+      // extra redundancy block     处理副本数超过配置的数据块
       processExtraRedundancyBlock(block, expectedRedundancy, null, null);
       return MisReplicationResult.OVER_REPLICATED;
     }
-    
+    //  当前块没有在 "stale" 节点的副本了
     return MisReplicationResult.OK;
   }
   
