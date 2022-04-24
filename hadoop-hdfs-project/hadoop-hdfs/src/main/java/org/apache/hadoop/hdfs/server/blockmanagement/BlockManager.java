@@ -353,7 +353,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Maps a StorageID to the set of blocks that are "extra" for this
    * DataNode. We'll eventually remove these extras.
-   * TODO
+   *  记录有 "过量" 副本的块
    */
   private final ExcessRedundancyMap excessRedundancyMap =
       new ExcessRedundancyMap();
@@ -1738,7 +1738,7 @@ public class BlockManager implements BlockStatsMXBean {
    * Invalidates the given block on the given datanode.
    * @return true if the block was successfully invalidated and no longer
    * present in the BlocksMap
-   * 作废无效的块
+   * 作废无效的副本
    */
   private boolean invalidateBlock(BlockToMarkCorrupt b, DatanodeInfo dn,
       NumberReplicas nr) throws IOException {
@@ -1757,7 +1757,7 @@ public class BlockManager implements BlockStatsMXBean {
           nr.replicasOnStaleNodes());
       postponeBlock(b.getCorrupted());
       return false;
-    } else { //如果是明确 损坏的副本和多余的副本可直接清楚
+    } else { //如果是明确 损坏的副本和多余的副本可直接清除
       // we already checked the number of replicas in the caller of this
       // function and know there are enough live replicas, so we can delete it.
       addToInvalidates(b.getCorrupted(), dn);
