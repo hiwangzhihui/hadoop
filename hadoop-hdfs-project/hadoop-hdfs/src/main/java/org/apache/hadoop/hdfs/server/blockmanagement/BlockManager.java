@@ -373,7 +373,9 @@ public class BlockManager implements BlockStatsMXBean {
   @VisibleForTesting
   final PendingReconstructionBlocks pendingReconstruction;
 
-  /** Stores information about block recovery attempts.  TODO */
+  /** Stores information about block recovery attempts.
+   *  记录恢复的块，已经尝试恢复的重试次数
+   * */
   private final PendingRecoveryBlocks pendingRecoveryBlocks;
 
   /** The maximum number of replicas allowed for a block */
@@ -4892,6 +4894,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Notification of a successful block recovery.
    * @param block for which the recovery succeeded
+   *   通知块 recovery 完成
    */
   public void successfulBlockRecovery(BlockInfo block) {
     pendingRecoveryBlocks.remove(block);
@@ -4903,6 +4906,8 @@ public class BlockManager implements BlockStatsMXBean {
    * @param b block for which recovery is being attempted
    * @return true if no recovery attempt has been made or
    *         the previous attempt timed out
+   *  检查是否对块进行 recovery 操作
+   *  如果没有进行 recovery 或上一次 超时 则返回 true
    */
   public boolean addBlockRecoveryAttempt(BlockInfo b) {
     return pendingRecoveryBlocks.add(b);

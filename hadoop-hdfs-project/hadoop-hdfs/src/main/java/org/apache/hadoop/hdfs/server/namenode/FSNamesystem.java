@@ -3418,6 +3418,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       // Start recovery of the last block for this file
       // Only do so if there is no ongoing recovery for this block,
       // or the previous recovery for this block timed out.
+      // block 编辑到一半时 需要恢复到一个合理状态" UNDER_RECOVERY "
       if (blockManager.addBlockRecoveryAttempt(lastBlock)) {
         long blockRecoveryId = nextGenerationStamp(
             blockManager.isLegacyBlock(lastBlock));
