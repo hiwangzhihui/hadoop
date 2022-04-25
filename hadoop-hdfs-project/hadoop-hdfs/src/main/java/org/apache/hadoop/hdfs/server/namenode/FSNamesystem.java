@@ -3140,6 +3140,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot create directory " + src);
+      //创建目录
       auditStat = FSDirMkdirOp.mkdirs(this, pc, src, permissions,
           createParent);
     } catch (AccessControlException e) {
@@ -3148,6 +3149,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     } finally {
       writeUnlock(operationName);
     }
+    //同步editlog
     getEditLog().logSync();
     logAuditEvent(true, operationName, src, null, auditStat);
     return true;
