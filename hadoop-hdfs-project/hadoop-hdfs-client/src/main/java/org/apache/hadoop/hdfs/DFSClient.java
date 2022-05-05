@@ -829,7 +829,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
 
   public LocatedBlocks getLocatedBlocks(String src, long start)
       throws IOException {
-    return getLocatedBlocks(src, start, dfsClientConf.getPrefetchSize());
+    return getLocatedBlocks(src, start, dfsClientConf.getPrefetchSize());//默认拉取 10 * 128 MB 大小文件的块
   }
 
   /*
@@ -993,7 +993,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     checkOpen();
     //    Get block info from namenode
     try (TraceScope ignored = newPathTraceScope("newDFSInputStream", src)) {
-      LocatedBlocks locatedBlocks = getLocatedBlocks(src, 0);
+      LocatedBlocks locatedBlocks = getLocatedBlocks(src, 0);//获取文件块列表
       return openInternal(locatedBlocks, src, verifyChecksum);
     }
   }

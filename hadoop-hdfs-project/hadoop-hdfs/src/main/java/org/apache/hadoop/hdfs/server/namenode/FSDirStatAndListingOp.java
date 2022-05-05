@@ -158,9 +158,9 @@ class FSDirStatAndListingOp {
 
       final long fileSize = iip.isSnapshot()
           ? inode.computeFileSize(iip.getPathSnapshotId())
-          : inode.computeFileSizeNotIncludingLastUcBlock();
+          : inode.computeFileSizeNotIncludingLastUcBlock(); //文件大小，不包含正在写入的最后的一个块
 
-      boolean isUc = inode.isUnderConstruction();
+      boolean isUc = inode.isUnderConstruction();//文件是否在重构修复中
       if (iip.isSnapshot()) {
         // if src indicates a snapshot file, we need to make sure the returned
         // blocks do not exceed the size of the snapshot file.
@@ -173,12 +173,13 @@ class FSDirStatAndListingOp {
       final ErasureCodingPolicy ecPolicy = FSDirErasureCodingOp.
           unprotectedGetErasureCodingPolicy(fsd.getFSNamesystem(), iip);
 
+      //从 BlockManager 或文件的 block 列表
       final LocatedBlocks blocks = bm.createLocatedBlocks(
           inode.getBlocks(iip.getPathSnapshotId()), fileSize, isUc, offset,
           length, needBlockToken, iip.isSnapshot(), feInfo, ecPolicy);
 
       final long now = now();
-      boolean updateAccessTime = fsd.isAccessTimeSupported()
+      boolean updateAccessTime = fsd.isAccessTimeSupported() //访问文件的时间
           && !iip.isSnapshot()
           && now > inode.getAccessTime() + fsd.getAccessTimePrecision();
       return new GetBlockLocationsResult(updateAccessTime, blocks);

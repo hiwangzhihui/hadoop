@@ -1187,6 +1187,7 @@ public class BlockManager implements BlockStatsMXBean {
     return locations;
   }
 
+  //找到指定范围内的块列表
   private void createLocatedBlockList(
       LocatedBlockBuilder locatedBlocks,
       final BlockInfo[] blocks,
@@ -1334,8 +1335,8 @@ public class BlockManager implements BlockStatsMXBean {
   }
 
   /** Create a LocatedBlocks. */
-  public LocatedBlocks createLocatedBlocks(final BlockInfo[] blocks,
-      final long fileSizeExcludeBlocksUnderConstruction,
+  public LocatedBlocks createLocatedBlocks(final BlockInfo[] blocks, // 文件全量的块列表
+      final long fileSizeExcludeBlocksUnderConstruction,//文件大小，不包含正在写入的最后的一个块
       final boolean isFileUnderConstruction, final long offset,
       final long length, final boolean needBlockToken,
       final boolean inSnapshot, FileEncryptionInfo feInfo,
@@ -1359,7 +1360,7 @@ public class BlockManager implements BlockStatsMXBean {
           .lastUC(isFileUnderConstruction)
           .encryption(feInfo)
           .erasureCoding(ecPolicy);
-
+      //获取指定范围内的块列表
       createLocatedBlockList(locatedBlocks, blocks, offset, length, mode);
       if (!inSnapshot) {
         final BlockInfo last = blocks[blocks.length - 1];
