@@ -669,11 +669,6 @@ class BlockReaderLocal implements BlockReader {
     return BlockReaderUtil.readAll(this, buf, off, len);
   }
 
-  @Override
-  public boolean isShortCircuit() {
-    return true;
-  }
-
   /**
    * Get or create a memory map for this replica.
    *
@@ -711,6 +706,11 @@ class BlockReaderLocal implements BlockReader {
       }
     }
     return clientMmap;
+  }
+
+  @Override
+  public boolean isShortCircuit() {
+    return true;
   }
 
   @VisibleForTesting

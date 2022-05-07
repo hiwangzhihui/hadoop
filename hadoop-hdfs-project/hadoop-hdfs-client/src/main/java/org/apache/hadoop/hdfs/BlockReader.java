@@ -43,11 +43,13 @@ public interface BlockReader extends ByteBufferReadable, Closeable {
    * the checksum.
    * Note: this must return -1 on EOF, even in the case of a 0-byte read.
    * See HDFS-5762 for details.
+   * 将数据读取到 buf 中
    */
   int read(byte[] buf, int off, int len) throws IOException;
 
   /**
    * Skip the given number of bytes
+   * 在块中，跳过 n 个字节读取数据
    */
   long skip(long n) throws IOException;
 
@@ -56,6 +58,7 @@ public interface BlockReader extends ByteBufferReadable, Closeable {
    * (or skipped over) from this input stream without performing
    * network I/O.
    * This may return more than what is actually present in the block.
+   * 当前输出流是否可用
    */
   int available();
 
@@ -86,11 +89,13 @@ public interface BlockReader extends ByteBufferReadable, Closeable {
   /**
    * @return              true only if this is a short-circuit read.
    *                      All short-circuit reads are also local.
+   * 是否是一个短路读，前提必须是本地读
    */
   boolean isShortCircuit();
 
   /**
    * Get a ClientMmap object for this BlockReader.
+   * 在零拷贝时获取一个内存映射区域
    *
    * @param opts          The read options to use.
    * @return              The ClientMmap object, or null if mmap is not
@@ -100,11 +105,13 @@ public interface BlockReader extends ByteBufferReadable, Closeable {
 
   /**
    * @return              The DataChecksum used by the read block
+   * 块的校验信息
    */
   DataChecksum getDataChecksum();
 
   /**
    * Return the network distance between local machine and the remote machine.
+   * client 与 块副本网络拓扑距离
    */
   int getNetworkDistance();
 }

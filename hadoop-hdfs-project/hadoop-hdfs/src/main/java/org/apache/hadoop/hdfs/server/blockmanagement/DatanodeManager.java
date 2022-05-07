@@ -535,6 +535,7 @@ public class DatanodeManager {
       networktopology.sortByDistance(client, lb.getLocations(), activeLen); //根据网络拓扑排序
     }
     // move PROVIDED storage to the end to prefer local replicas.
+    //将不可读节点从列表中移除
     lb.moveProvidedToEnd(activeLen);
     // must update cache since we modified locations array
     lb.updateCachedStorageInfo();//更新缓存

@@ -407,7 +407,7 @@ public class DFSInputStream extends FSInputStream
   /**
    * Get block at the specified position.
    * Fetch it from the namenode if not cached.
-   * 获取指定块的位置信息，返回适合该文件的偏移量位置的块位置信息
+   * 获取指定块的位置信息
    * @param offset block corresponding to this offset in file is returned
    * @return located block
    * @throws IOException
@@ -570,7 +570,7 @@ public class DFSInputStream extends FSInputStream
 
       long offsetIntoBlock = target - targetBlock.getStartOffset();
 
-      //根据与 Client 距离从远到近获取 DataNode ，排除名单 DataNode
+      //根据从已经排好序的 DN 获取DN ，排除名单 DataNode
       DNAddrPair retval = chooseDataNode(targetBlock, null);
       chosenNode = retval.info;
       InetSocketAddress targetAddr = retval.addr;
@@ -579,6 +579,7 @@ public class DFSInputStream extends FSInputStream
       targetBlock = retval.block;
 
       try {
+        //通过  BlockReaderFactory 构建 blockReader
         blockReader = getBlockReader(targetBlock, offsetIntoBlock,
             targetBlock.getBlockSize() - offsetIntoBlock, targetAddr,
             storageType, chosenNode);
@@ -594,10 +595,10 @@ public class DFSInputStream extends FSInputStream
               + "encryption key was invalid when connecting to " + targetAddr
               + " : " + ex);
           // The encryption key used is invalid.
-          refetchEncryptionKey--;
+          refetchEncryptionKey--; //安全加密相关异常
           dfsClient.clearDataEncryptionKey();
         } else if (refetchToken > 0 && tokenRefetchNeeded(ex, targetAddr)) {
-          refetchToken--;
+          refetchToken--;//安全认证相关异常
           fetchBlockAt(target);
         } else {
           connectFailedOnce = true;
@@ -605,7 +606,7 @@ public class DFSInputStream extends FSInputStream
               "add to deadNodes and continue. ", targetAddr,
               targetBlock.getBlock(), ex);
           // Put chosen node into dead list, continue
-          addToDeadNodes(chosenNode);
+          addToDeadNodes(chosenNode); // BlockerReader 构造失败加入黑名单
         }
       }
     }
@@ -729,7 +730,7 @@ public class DFSInputStream extends FSInputStream
         ioe = e;
       }
       boolean sourceFound;
-      if (retryCurrentNode) {
+      if (retryCurrentNode) {// 重试当前节点
         /* possibly retry the same node so that transient errors don't
          * result in application level failures (e.g. Datanode could have
          * closed the connection because the client is idle for too long).
