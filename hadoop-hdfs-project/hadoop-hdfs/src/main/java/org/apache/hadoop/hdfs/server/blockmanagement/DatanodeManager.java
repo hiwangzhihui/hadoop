@@ -438,6 +438,7 @@ public class DatanodeManager {
    * a decommissioning node then should switch d2 and d9 in the storage list.
    * After sorting locations, will update corresponding block indices
    * and block tokens.
+   * Client 读取最近的块核心逻辑
    */
   public void sortLocatedBlocks(final String targetHost,
       final List<LocatedBlock> locatedBlocks) {
@@ -521,7 +522,7 @@ public class DatanodeManager {
     Arrays.sort(di, comparator);
 
     // Sort nodes by network distance only for located blocks
-    int lastActiveIndex = di.length - 1;
+    int lastActiveIndex = di.length - 1; //找到块副本可读的 DN 数
     while (lastActiveIndex > 0 && isInactive(di[lastActiveIndex])) {
       --lastActiveIndex;
     }
@@ -530,12 +531,13 @@ public class DatanodeManager {
       networktopology.sortByDistanceUsingNetworkLocation(client,
           lb.getLocations(), activeLen);
     } else {
-      networktopology.sortByDistance(client, lb.getLocations(), activeLen);
+      //Client 存在时
+      networktopology.sortByDistance(client, lb.getLocations(), activeLen); //根据网络拓扑排序
     }
     // move PROVIDED storage to the end to prefer local replicas.
     lb.moveProvidedToEnd(activeLen);
     // must update cache since we modified locations array
-    lb.updateCachedStorageInfo();
+    lb.updateCachedStorageInfo();//更新缓存
   }
 
   /** @return the datanode descriptor for the host. */

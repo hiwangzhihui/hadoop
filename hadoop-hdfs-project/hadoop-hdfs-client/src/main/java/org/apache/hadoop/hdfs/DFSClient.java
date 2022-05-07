@@ -1023,6 +1023,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     }
   }
 
+  //拿到块信息后，将其包装为流
   private DFSInputStream openInternal(LocatedBlocks locatedBlocks, String src,
       boolean verifyChecksum) throws IOException {
     if (locatedBlocks != null) {
@@ -1031,6 +1032,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         return new DFSStripedInputStream(this, src, verifyChecksum, ecPolicy,
             locatedBlocks);
       }
+      //包装为 DFSInputStream 流
       return new DFSInputStream(this, src, verifyChecksum, locatedBlocks);
     } else {
       throw new IOException("Cannot open filename " + src);

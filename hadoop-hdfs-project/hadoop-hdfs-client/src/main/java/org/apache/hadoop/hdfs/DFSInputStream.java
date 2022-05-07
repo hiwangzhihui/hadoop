@@ -178,7 +178,7 @@ public class DFSInputStream extends FSInputStream
     this.verifyChecksum = verifyChecksum;
     this.src = src;
     synchronized (infoLock) {
-      this.cachingStrategy = dfsClient.getDefaultReadCachingStrategy();
+      this.cachingStrategy = dfsClient.getDefaultReadCachingStrategy(); //读取数据缓存策略
     }
     this.locatedBlocks = locatedBlocks;
     openInfo(false);
@@ -192,6 +192,8 @@ public class DFSInputStream extends FSInputStream
   /**
    * Grab the open-file info from namenode
    * @param refreshLocatedBlocks whether to re-fetch locatedblocks
+   * 刷新和拉取块信息，并获取最后一个块的长度信息，判断文件是否处于正在被写的状态
+   * 当在NN重启时没有立即返回，则会尝试三次拉取
    */
   void openInfo(boolean refreshLocatedBlocks) throws IOException {
     final DfsClientConf conf = dfsClient.getConf();
@@ -199,6 +201,7 @@ public class DFSInputStream extends FSInputStream
       lastBlockBeingWrittenLength =
           fetchLocatedBlocksAndGetLastBlockLength(refreshLocatedBlocks);
       int retriesForLastBlockLength = conf.getRetryTimesForGetLastBlockLength();
+      //
       while (retriesForLastBlockLength > 0) {
         // Getting last block length as -1 is a special case. When cluster
         // restarts, DNs may not report immediately. At this time partial block
@@ -232,7 +235,7 @@ public class DFSInputStream extends FSInputStream
           "Interrupted while getting the last block length.");
     }
   }
-
+   //刷新拉取块信息
   private long fetchLocatedBlocksAndGetLastBlockLength(boolean refresh)
       throws IOException {
     LocatedBlocks newInfo = locatedBlocks;
@@ -266,7 +269,7 @@ public class DFSInputStream extends FSInputStream
           }
           return -1;
         }
-        final long len = readBlockLength(last);
+        final long len = readBlockLength(last);//遍历块在 DN 上的长度，同时验证 DN 是否正常
         last.getBlock().setNumBytes(len);
         lastBlockBeingWrittenLength = len;
       }
@@ -277,6 +280,13 @@ public class DFSInputStream extends FSInputStream
     return lastBlockBeingWrittenLength;
   }
 
+  public long getFileLength() {
+    synchronized(infoLock) {
+      return locatedBlocks == null? 0:
+          locatedBlocks.getFileLength() + lastBlockBeingWrittenLength;
+    }
+  }
+
   /** Read the block length from one of the datanodes. */
   private long readBlockLength(LocatedBlock locatedblock) throws IOException {
     assert locatedblock != null : "LocatedBlock cannot be null";
@@ -285,7 +295,7 @@ public class DFSInputStream extends FSInputStream
     final DfsClientConf conf = dfsClient.getConf();
     final int timeout = conf.getSocketTimeout();
     LinkedList<DatanodeInfo> nodeList = new LinkedList<DatanodeInfo>(
-        Arrays.asList(locatedblock.getLocations()));
+            Arrays.asList(locatedblock.getLocations()));
     LinkedList<DatanodeInfo> retryList = new LinkedList<DatanodeInfo>();
     boolean isRetry = false;
     StopWatch sw = new StopWatch();
@@ -294,8 +304,8 @@ public class DFSInputStream extends FSInputStream
       ClientDatanodeProtocol cdp = null;
       try {
         cdp = DFSUtilClient.createClientDatanodeProtocolProxy(datanode,
-            dfsClient.getConfiguration(), timeout,
-            conf.isConnectToDnViaHostname(), locatedblock);
+                dfsClient.getConfiguration(), timeout,
+                conf.isConnectToDnViaHostname(), locatedblock);
 
         final long n = cdp.getReplicaVisibleLength(locatedblock.getBlock());
 
@@ -306,18 +316,18 @@ public class DFSInputStream extends FSInputStream
         checkInterrupted(ioe);
         if (ioe instanceof RemoteException) {
           if (((RemoteException) ioe).unwrapRemoteException() instanceof
-              ReplicaNotFoundException) {
+                  ReplicaNotFoundException) {
             // replica is not on the DN. We will treat it as 0 length
             // if no one actually has a replica.
             replicaNotFoundCount--;
           } else if (((RemoteException) ioe).unwrapRemoteException() instanceof
-              RetriableException) {
+                  RetriableException) {
             // add to the list to be retried if necessary.
             retryList.add(datanode);
           }
         }
         DFSClient.LOG.debug("Failed to getReplicaVisibleLength from datanode {}"
-              + " for block {}", datanode, locatedblock.getBlock(), ioe);
+                + " for block {}", datanode, locatedblock.getBlock(), ioe);
       } finally {
         if (cdp != null) {
           RPC.stopProxy(cdp);
@@ -341,7 +351,7 @@ public class DFSInputStream extends FSInputStream
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw new InterruptedIOException(
-              "Interrupted while getting the length.");
+                  "Interrupted while getting the length.");
         }
       }
 
@@ -360,13 +370,6 @@ public class DFSInputStream extends FSInputStream
     }
 
     throw new IOException("Cannot obtain block length for " + locatedblock);
-  }
-
-  public long getFileLength() {
-    synchronized(infoLock) {
-      return locatedBlocks == null? 0:
-          locatedBlocks.getFileLength() + lastBlockBeingWrittenLength;
-    }
   }
 
   // Short circuit local reads are forbidden for files that are
@@ -404,7 +407,7 @@ public class DFSInputStream extends FSInputStream
   /**
    * Get block at the specified position.
    * Fetch it from the namenode if not cached.
-   *
+   * 获取指定块的位置信息，返回适合该文件的偏移量位置的块位置信息
    * @param offset block corresponding to this offset in file is returned
    * @return located block
    * @throws IOException
@@ -421,6 +424,7 @@ public class DFSInputStream extends FSInputStream
             + offset
             + ", locatedBlocks=" + locatedBlocks);
       }
+
       else if (offset >= locatedBlocks.getFileLength()) {
         // offset to the portion of the last block,
         // which is not known to the name-node yet;
@@ -528,8 +532,10 @@ public class DFSInputStream extends FSInputStream
   }
 
   /**
+   *
    * Open a DataInputStream to a DataNode so that it can be read from.
    * We get block ID and the IDs of the destinations at startup, from the namenode.
+   * 获取下一个读取数据块的 DataNode
    */
   private synchronized DatanodeInfo blockSeekTo(long target)
       throws IOException {
@@ -538,6 +544,7 @@ public class DFSInputStream extends FSInputStream
     }
 
     // Will be getting a new BlockReader.
+    //关闭当前 DataNode reader,并重置  blockEnd
     closeCurrentBlockReaders();
 
     //
@@ -552,7 +559,7 @@ public class DFSInputStream extends FSInputStream
     while (true) {
       //
       // Compute desired block
-      //
+      // 获取 target 对应数据块的位置信息
       LocatedBlock targetBlock = getBlockAt(target);
 
       // update current position
@@ -563,6 +570,7 @@ public class DFSInputStream extends FSInputStream
 
       long offsetIntoBlock = target - targetBlock.getStartOffset();
 
+      //根据与 Client 距离从远到近获取 DataNode ，排除名单 DataNode
       DNAddrPair retval = chooseDataNode(targetBlock, null);
       chosenNode = retval.info;
       InetSocketAddress targetAddr = retval.addr;
@@ -702,13 +710,14 @@ public class DFSInputStream extends FSInputStream
     while (true) {
       // retry as many times as seekToNewSource allows.
       try {
-        return reader.readFromBlock(blockReader, len);
+        return reader.readFromBlock(blockReader, len);//将数据读入 ByteArray 中
       } catch (ChecksumException ce) {
         DFSClient.LOG.warn("Found Checksum error for "
             + getCurrentBlock() + " from " + currentNode
             + " at " + ce.getPos());
         ioe = ce;
         retryCurrentNode = false;
+        //将 ChecksumException 的块副本记录起来，汇报给 NN ，后续进行修复
         // we want to remember which block replicas we have tried
         corruptedBlocks.addCorruptedBlock(getCurrentBlock(), currentNode);
       } catch (IOException e) {
@@ -747,15 +756,18 @@ public class DFSInputStream extends FSInputStream
     int len = strategy.getTargetLength();
     CorruptedBlocks corruptedBlocks = new CorruptedBlocks();
     failures = 0;
-    if (pos < getFileLength()) {
-      int retries = 2;
+    if (pos < getFileLength()) {//读取的数据在文件范围内
+      int retries = 2;//失败重试尝试允许次数
       while (retries > 0) {
         try {
           // currentNode can be left as null if previous read had a checksum
           // error on the same block. See HDFS-3067
+          // pos 如果超过了数据块边界，则需要从新的数据块读取数据
+          // 如果之前数据块在 DN 上读取校验失败时，可以再切换一个 DN 读取
           if (pos > blockEnd || currentNode == null) {
-            currentNode = blockSeekTo(pos);
+            currentNode = blockSeekTo(pos);//获取数据块读取的 DN，并更新 blockEnd 和  blockReader
           }
+          //计算本次读取的数据长度
           int realLen = (int) Math.min(len, (blockEnd - pos + 1L));
           synchronized(infoLock) {
             if (locatedBlocks.isLastBlockComplete()) {
@@ -763,8 +775,9 @@ public class DFSInputStream extends FSInputStream
                   locatedBlocks.getFileLength() - pos);
             }
           }
+          //将数据读入 ByteBuffer 中  TODO
           int result = readBuffer(strategy, realLen, corruptedBlocks);
-
+          //更新数据读取位移
           if (result >= 0) {
             pos += result;
           } else {
@@ -773,7 +786,7 @@ public class DFSInputStream extends FSInputStream
           }
           return result;
         } catch (ChecksumException ce) {
-          throw ce;
+          throw ce; //如果出现校验失败直接抛出
         } catch (IOException e) {
           checkInterrupted(e);
           if (retries == 1) {
@@ -781,14 +794,15 @@ public class DFSInputStream extends FSInputStream
           }
           blockEnd = -1;
           if (currentNode != null) {
-            addToDeadNodes(currentNode);
+            addToDeadNodes(currentNode); //如果本次失败，则加入黑名单，下次避免在请求读取该节点副本数据
           }
-          if (--retries == 0) {
+          if (--retries == 0) { //如果重试超过 2次则抛出异常
             throw e;
           }
         } finally {
           // Check if need to report block replicas corruption either read
           // was successful or ChecksumException occurred.
+          //向NameNode 汇报损坏的数据块，由 Namenode 异步修复
           reportCheckSumFailure(corruptedBlocks,
               currentLocatedBlock.getLocations().length, false);
         }
@@ -807,6 +821,7 @@ public class DFSInputStream extends FSInputStream
     if (len == 0) {
       return 0;
     }
+    //使用字节数组作为容器
     ReaderStrategy byteArrayReader =
         new ByteArrayStrategy(buf, off, len, readStatistics, dfsClient);
     try (TraceScope scope =
@@ -919,6 +934,7 @@ public class DFSInputStream extends FSInputStream
 
   /**
    * Get the best node from which to stream the data.
+   * 根据 Client 与 LocatedBlock 中 DN 的远近获取最佳的 DN
    * @param block LocatedBlock, containing nodes in priority order.
    * @param ignoredNodes Do not choose nodes in this array (may be null)
    * @return The DNAddrPair of the best node. Null if no node can be chosen.
@@ -1648,6 +1664,7 @@ public class DFSInputStream extends FSInputStream
   private static final ByteBuffer EMPTY_BUFFER =
       ByteBuffer.allocateDirect(0).asReadOnlyBuffer();
 
+  //首先会尝试零拷贝
   @Override
   public synchronized ByteBuffer read(ByteBufferPool bufferPool,
       int maxLength, EnumSet<ReadOption> opts)

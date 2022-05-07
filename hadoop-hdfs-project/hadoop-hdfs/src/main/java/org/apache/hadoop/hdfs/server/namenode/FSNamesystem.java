@@ -1994,6 +1994,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     }
 
     LocatedBlocks blocks = res.blocks;
+    //根据与 Client 远近距离，将块副本 DN 进行排序返回给 Client
     sortLocatedBlocks(clientMachine, blocks);
     return blocks;
   }

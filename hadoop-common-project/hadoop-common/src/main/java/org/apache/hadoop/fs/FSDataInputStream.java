@@ -189,10 +189,12 @@ public class FSDataInputStream extends DataInputStream
       EnumSet<ReadOption> opts) 
           throws IOException, UnsupportedOperationException {
     try {
+      //首先会尝试 零拷贝读取
       return ((HasEnhancedByteBufferAccess)in).read(bufferPool,
           maxLength, opts);
     }
     catch (ClassCastException e) {
+      //如果当前配置不支持零拷贝，则抛出异常，退化到 Socket 读取数据
       ByteBuffer buffer = ByteBufferUtil.
           fallbackRead(this, bufferPool, maxLength);
       if (buffer != null) {
