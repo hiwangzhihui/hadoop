@@ -137,21 +137,26 @@ public class DomainSocketFactory {
       throws IOException {
     // If there is no domain socket path configured, we can't use domain
     // sockets.
+    //dfs.domain.socket.path Datanode和DFSClient之间沟通的Socket的本地路径套接口文件
     if (conf.getDomainSocketPath().isEmpty()) return PathInfo.NOT_CONFIGURED;
     // If we can't do anything with the domain socket, don't create it.
+    //必须开启 domianSocket 配置
     if (!conf.isDomainSocketDataTraffic() &&
         (!conf.isShortCircuitLocalReads() || conf.isUseLegacyBlockReaderLocal())) {
       return PathInfo.NOT_CONFIGURED;
     }
     // If the DomainSocket code is not loaded, we can't create
-    // DomainSocket objects.
+    // DomainSocket objects.    判断 DomainSocket 是否启用成功
     if (DomainSocket.getLoadingFailureReason() != null) {
       return PathInfo.NOT_CONFIGURED;
     }
     // UNIX domain sockets can only be used to talk to local peers
+    // 目标 DataNode 地址是否与 Client 地址一致
     if (!DFSUtilClient.isLocalAddress(addr)) return PathInfo.NOT_CONFIGURED;
+
     String escapedPath = DomainSocket.getEffectivePath(
         conf.getDomainSocketPath(), addr.getPort());
+    //TODO 不同 domianscoket 与 对应地址的map配置？？？
     PathState status = pathMap.getIfPresent(escapedPath);
     if (status == null) {
       return new PathInfo(escapedPath, PathState.VALID);
