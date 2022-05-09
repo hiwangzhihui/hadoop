@@ -141,6 +141,7 @@ public class BlockReaderRemote implements BlockReader {
         curDataSlice.remaining() == 0 && bytesNeededToFinish > 0) {
       try (TraceScope ignored = tracer.newScope(
           "BlockReaderRemote2#readNextPacket(" + blockId + ")")) {
+        //读取下一个数据包，将数据包的数据放入到 curDataSlice 中
         readNextPacket();
       }
     }
@@ -153,7 +154,7 @@ public class BlockReaderRemote implements BlockReader {
     }
 
     int nRead = Math.min(curDataSlice.remaining(), len);
-    curDataSlice.get(buf, off, nRead);
+    curDataSlice.get(buf, off, nRead);//将数据写入buf 中
 
     return nRead;
   }
@@ -183,21 +184,23 @@ public class BlockReaderRemote implements BlockReader {
   }
 
   private void readNextPacket() throws IOException {
-    //Read packet headers.
+    //Read packet headers.   读取数据流头信息
     packetReceiver.receiveNextPacket(in);
 
     PacketHeader curHeader = packetReceiver.getHeader();
-    curDataSlice = packetReceiver.getDataSlice();
+    curDataSlice = packetReceiver.getDataSlice();//将数据写入到 curDataSlice中
+
     assert curDataSlice.capacity() == curHeader.getDataLen();
 
     LOG.trace("DFSClient readNextPacket got header {}", curHeader);
 
-    // Sanity check the lengths
+    // Sanity check the lengths  检测数请求序列号信息
     if (!curHeader.sanityCheck(lastSeqNo)) {
       throw new IOException("BlockReader: error in packet header " +
           curHeader);
     }
 
+    //检查和校验数据
     if (curHeader.getDataLen() > 0) {
       int chunks = 1 + (curHeader.getDataLen() - 1) / bytesPerChecksum;
       int checksumsLen = chunks * checksumSize;
@@ -229,6 +232,7 @@ public class BlockReaderRemote implements BlockReader {
 
     // If we've now satisfied the whole client read, read one last packet
     // header, which should be empty
+    //如何客户端完成整个块的数据读取，则读取的最后一个包的数据为空
     if (bytesNeededToFinish <= 0) {
       readTrailingEmptyPacket();
       if (verifyChecksum) {
