@@ -57,23 +57,26 @@ public class ShortCircuitReplica {
 
   /**
    * The block data input stream.
+   *  文件输入流
    */
   private final FileInputStream dataStream;
 
   /**
    * The block metadata input stream.
-   *
+   * 校验文件输入流
    * TODO: make this nullable if the file has no checksums on disk.
    */
   private final FileInputStream metaStream;
 
   /**
    * Block metadata header.
+   * 文件校验信息
    */
   private final BlockMetadataHeader metaHeader;
 
   /**
    * The cache we belong to.
+   *
    */
   private final ShortCircuitCache cache;
 
@@ -84,6 +87,7 @@ public class ShortCircuitReplica {
 
   /**
    * If non-null, the shared memory slot associated with this replica.
+   * 共享槽位信息（与DataNode  共享）
    */
   private final Slot slot;
 
@@ -91,6 +95,7 @@ public class ShortCircuitReplica {
    * Current mmap state.
    *
    * Protected by the cache lock.
+   * 文件内存映射
    */
   Object mmapData;
 
@@ -108,6 +113,7 @@ public class ShortCircuitReplica {
    * by both the cache and the requester.
    *
    * Protected by the cache lock.
+   * 槽位被引用次数
    */
   int refCount = 2;
 

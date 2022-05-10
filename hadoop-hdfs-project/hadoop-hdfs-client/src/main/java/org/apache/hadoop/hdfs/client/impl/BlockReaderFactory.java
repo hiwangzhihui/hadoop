@@ -505,6 +505,7 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
     ShortCircuitCache cache = clientContext.getShortCircuitCache();
     ExtendedBlockId key = new ExtendedBlockId(block.getBlockId(),
         block.getBlockPoolId());
+    //向 DN 申请短路读取数据的共享内存插槽
     ShortCircuitReplicaInfo info = cache.fetchOrCreate(key, this);
     InvalidToken exc = info.getInvalidTokenException();
     if (exc != null) {

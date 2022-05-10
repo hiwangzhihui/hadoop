@@ -83,7 +83,7 @@ import com.google.common.collect.HashMultimap;
 public class ShortCircuitRegistry {
   public static final Log LOG = LogFactory.getLog(ShortCircuitRegistry.class);
 
-  private static final int SHM_LENGTH = 8192;
+  private static final int SHM_LENGTH = 8192;//TODO 长度干嘛的？
 
   public static class RegisteredShm extends ShortCircuitShm
       implements DomainSocketWatcher.Handler {
