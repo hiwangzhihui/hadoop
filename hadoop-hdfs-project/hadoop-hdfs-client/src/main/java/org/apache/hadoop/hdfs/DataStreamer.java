@@ -511,8 +511,10 @@ class DataStreamer extends Daemon {
   // appending to existing partial block
   private volatile boolean appendChunk = false;
   // both dataQueue and ackQueue are protected by dataQueue lock
+  //将准备发送数据包放入到队列中
   protected final LinkedList<DFSPacket> dataQueue = new LinkedList<>();
   private final Map<Long, Long> packetSendTime = new HashMap<>();
+  //等待下游节点确定的包
   private final LinkedList<DFSPacket> ackQueue = new LinkedList<>();
   private final AtomicReference<CachingStrategy> cachingStrategy;
   private final ByteArrayManager byteArrayManager;
@@ -759,6 +761,7 @@ class DataStreamer extends Daemon {
               one.setTraceScope(scope);
             }
             scope = null;
+            //将 Package 发送之后，放入 ackQueue 等待下游 DN 发送接收消息
             dataQueue.removeFirst();
             ackQueue.addLast(one);
             packetSendTime.put(one.getSeqno(), Time.monotonicNow());

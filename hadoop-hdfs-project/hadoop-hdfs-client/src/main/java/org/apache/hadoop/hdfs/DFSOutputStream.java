@@ -270,6 +270,7 @@ public class DFSOutputStream extends FSOutputSummer
       while (shouldRetry) {
         shouldRetry = false;
         try {
+          //在 NameNode 命名空间目录上创建 HDFS 文件
           stat = dfsClient.namenode.create(src, masked, dfsClient.clientName,
               new EnumSetWritable<>(flag), createParent, replication,
               blockSize, SUPPORTED_CRYPTO_VERSIONS, ecPolicyName);
@@ -307,9 +308,11 @@ public class DFSOutputStream extends FSOutputSummer
         out = new DFSStripedOutputStream(dfsClient, src, stat,
             flag, progress, checksum, favoredNodes);
       } else {
+        //调用构造方法创建 DFSOutputStream 对象
         out = new DFSOutputStream(dfsClient, src, stat,
             flag, progress, checksum, favoredNodes, true);
       }
+      //启动 DFSOutputStream 的 streamer 线程
       out.start();
       return out;
     }
@@ -320,6 +323,7 @@ public class DFSOutputStream extends FSOutputSummer
       EnumSet<CreateFlag> flags, Progressable progress, LocatedBlock lastBlock,
       HdfsFileStatus stat, DataChecksum checksum, String[] favoredNodes)
       throws IOException {
+    // 调用 DFSOutputStream 私有的构造方法
     this(dfsClient, src, flags, progress, stat, checksum);
     initialFileSize = stat.getLen(); // length of file when opened
     this.shouldSyncBlock = flags.contains(CreateFlag.SYNC_BLOCK);
@@ -337,8 +341,11 @@ public class DFSOutputStream extends FSOutputSummer
       adjustPacketChunkSize(stat);
       getStreamer().setPipelineInConstruction(lastBlock);
     } else {
+      //计算 chunk 大小、以及 packet 包中有多少个 chunk
+      //  dfs.client-write-packet-size 64 k 一个数据包大小
       computePacketChunkSize(dfsClient.getConf().getWritePacketSize(),
           bytesPerChecksum);
+      //构建 streamer
       streamer = new DataStreamer(stat,
           lastBlock != null ? lastBlock.getBlock() : null, dfsClient, src,
           progress, checksum, cachingStrategy, byteArrayManager, favoredNodes,
@@ -400,9 +407,15 @@ public class DFSOutputStream extends FSOutputSummer
   }
 
   protected void computePacketChunkSize(int psize, int csize) {
+    //psize 整数据包大小
+    // csize 校验数据大小
+    //bodySize 数据包的数据体大小
     final int bodySize = psize - PacketHeader.PKT_MAX_HEADER_LEN;
+    //校验块大小 （包含数据块 和校验块）
     final int chunkSize = csize + getChecksumSize();
+    //每个数据包中可以包含校验块数量
     chunksPerPacket = Math.max(bodySize/chunkSize, 1);
+    //数据包实际传输的数据量大小
     packetSize = chunkSize*chunksPerPacket;
     DFSClient.LOG.debug("computePacketChunkSize: src={}, chunkSize={}, "
             + "chunksPerPacket={}, packetSize={}",
