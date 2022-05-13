@@ -702,7 +702,7 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
   /** The same as getAccessTime(Snapshot.CURRENT_STATE_ID). */
   @Override
   public final long getAccessTime() {
-    return getAccessTimecessTime(Snapshot.CURRENT_STATE_ID);
+    return getAccessTime(Snapshot.CURRENT_STATE_ID);
   }
 
   /**
