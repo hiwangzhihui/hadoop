@@ -663,7 +663,7 @@ public class DFSInputStream extends FSInputStream
       return;
     }
     dfsClient.checkOpen();
-
+    //答应提示正在使用的  ByteBuffer 需要释放
     if ((extendedReadBuffers != null) && (!extendedReadBuffers.isEmpty())) {
       final StringBuilder builder = new StringBuilder();
       extendedReadBuffers.visitAll(new IdentityHashStore.Visitor<ByteBuffer, Object>() {
@@ -676,8 +676,9 @@ public class DFSInputStream extends FSInputStream
       });
       DFSClient.LOG.warn("closing file " + src + ", but there are still " +
           "unreleased ByteBuffers allocated by read().  " +
-          "Please release " + builder.toString() + ".");
+          "Please release " + builder.toString() + ".");//并没有关闭
     }
+    //关闭 BlockReaders
     closeCurrentBlockReaders();
     super.close();
   }
@@ -1665,7 +1666,7 @@ public class DFSInputStream extends FSInputStream
   private static final ByteBuffer EMPTY_BUFFER =
       ByteBuffer.allocateDirect(0).asReadOnlyBuffer();
 
-  //首先会尝试零拷贝
+
   @Override
   public synchronized ByteBuffer read(ByteBufferPool bufferPool,
       int maxLength, EnumSet<ReadOption> opts)
@@ -1692,12 +1693,14 @@ public class DFSInputStream extends FSInputStream
       }
     }
     ByteBuffer buffer = null;
+    //首先会尝试零拷贝
     if (dfsClient.getConf().getShortCircuitConf().isShortCircuitMmapEnabled()) {
       buffer = tryReadZeroCopy(maxLength, opts);
     }
     if (buffer != null) {
       return buffer;
     }
+    //如果零拷贝失败，则退化为普通读取
     buffer = ByteBufferUtil.fallbackRead(this, bufferPool, maxLength);
     if (buffer != null) {
       getExtendedReadBuffers().put(buffer, bufferPool);
@@ -1715,6 +1718,7 @@ public class DFSInputStream extends FSInputStream
     final long blockPos = curPos - blockStartInFile;
 
     // Shorten this read if the end of the block is nearby.
+    //读取的数据在指定的块范围内
     long length63;
     if ((curPos + maxLength) <= (curEnd + 1)) {
       length63 = maxLength;
@@ -1733,6 +1737,7 @@ public class DFSInputStream extends FSInputStream
           maxLength, length63, blockPos, curPos, curEnd);
     }
     // Make sure that don't go beyond 31-bit offsets in the MappedByteBuffer.
+    //确保读取映射数据不超过2GB
     int length;
     if (blockPos + length63 <= Integer.MAX_VALUE) {
       length = (int)length63;
@@ -1754,6 +1759,7 @@ public class DFSInputStream extends FSInputStream
           + "limit.  blockPos={}; curPos={}; curEnd={}",
           maxLength, length, blockPos, curPos, curEnd);
     }
+    //获取块文件内存映射
     final ClientMmap clientMmap = blockReader.getClientMmap(opts);
     if (clientMmap == null) {
       DFSClient.LOG.debug("unable to perform a zero-copy read from offset {} of"
@@ -1764,6 +1770,7 @@ public class DFSInputStream extends FSInputStream
     ByteBuffer buffer;
     try {
       seek(curPos + length);
+      // 将内存映射缓存区返回
       buffer = clientMmap.getMappedByteBuffer().asReadOnlyBuffer();
       buffer.position((int)blockPos);
       buffer.limit((int)(blockPos + length));

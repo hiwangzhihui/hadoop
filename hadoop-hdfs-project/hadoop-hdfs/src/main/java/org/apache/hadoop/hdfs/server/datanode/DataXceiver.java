@@ -357,6 +357,7 @@ class DataXceiver extends Receiver implements Runnable {
     boolean success = false;
     try {
       try {
+        // DomainSocket 校验
         if (peer.getDomainSocket() == null) {
           throw new IOException("You cannot pass file descriptors over " +
               "anything but a UNIX domain socket.");
@@ -364,10 +365,12 @@ class DataXceiver extends Receiver implements Runnable {
         if (slotId != null) {
           boolean isCached = datanode.data.
               isCached(blk.getBlockPoolId(), blk.getBlockId());
+          //在 datanode 共享内存中注册这个 slot
           datanode.shortCircuitRegistry.registerSlot(
               ExtendedBlockId.fromExtendedBlock(blk), slotId, isCached);
           registeredSlotId = slotId;
         }
+        //获取数据块文件以及校验和文件的文件描述符
         fis = datanode.requestShortCircuitFdsForRead(blk, token, maxVersion);
         Preconditions.checkState(fis != null);
         bld.setStatus(SUCCESS);
@@ -397,6 +400,7 @@ class DataXceiver extends Receiver implements Runnable {
         } else {
           buf[0] = (byte)DO_NOT_USE_RECEIPT_VERIFICATION.getNumber();
         }
+        //通过 DomainSocket 将结果发送给 Client
         DomainSocket sock = peer.getDomainSocket();
         sock.sendFileDescriptors(fds, buf, 0, buf.length);
         if (supportsReceiptVerification) {
@@ -439,6 +443,7 @@ class DataXceiver extends Receiver implements Runnable {
       String error;
       Status status;
       try {
+        //释放共享内存中的槽位
         datanode.shortCircuitRegistry.unregisterSlot(slotId);
         error = null;
         status = Status.SUCCESS;
@@ -455,6 +460,7 @@ class DataXceiver extends Receiver implements Runnable {
       if (error != null) {
         bld.setError(error);
       }
+      //普通 Socket 将消息发送给 Client
       bld.build().writeDelimitedTo(socketOut);
       success = true;
     } finally {
@@ -491,15 +497,16 @@ class DataXceiver extends Receiver implements Runnable {
   public void requestShortCircuitShm(String clientName) throws IOException {
     NewShmInfo shmInfo = null;
     boolean success = false;
-    DomainSocket sock = peer.getDomainSocket();
+    DomainSocket sock = peer.getDomainSocket();//获取底层 DomainSocket 对象
     try {
-      if (sock == null) {
+      if (sock == null) {//如果 DataTransferProtocol 底层不是  DomainSocket 则返回异常
         sendShmErrorResponse(ERROR_INVALID, "Bad request from " +
             peer + ": must request a shared " +
             "memory segment over a UNIX domain socket.");
         return;
       }
       try {
+        //创建共享内存段
         shmInfo = datanode.shortCircuitRegistry.
             createNewMemorySegment(clientName, sock);
         // After calling #{ShortCircuitRegistry#createNewMemorySegment}, the
@@ -515,6 +522,7 @@ class DataXceiver extends Receiver implements Runnable {
             "Failed to create shared file descriptor: " + e.getMessage());
         return;
       }
+      //使用 DomainSocket 将共享内存文件的文件描述符发送给Client
       sendShmSuccessResponse(sock, shmInfo);
       success = true;
     } finally {

@@ -341,6 +341,10 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
    *
    * @return The new BlockReader.  We will not return null.
    *
+   * 1、首先会尝试创建短路读取器，如果创建失败则
+   * 2、尝试创建一个 domianSocker 读取器，由  dfs.client.domain.socket.data.traffic  参数配置是否开启
+   * 3、如果上述两种创建失败，则会创建一个普通的远程读取器，使用 TCP进行数据传输
+   *
    * @throws InvalidToken
    *             If the block token was invalid.
    *         InvalidEncryptionKeyException
@@ -352,14 +356,20 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
     Preconditions.checkNotNull(configuration);
     Preconditions
         .checkState(length >= 0, "Length must be set to a non-negative value");
+    //尝试创建扩展的 BlockReader ，目前 ReplicaAccessor 定义了扩展 Reader 顶级接口
+    //用户自定义的副本数据读取器
     BlockReader reader = tryToCreateExternalBlockReader();
     if (reader != null) {
       return reader;
     }
+
+    //尝试创建短路读取器
     final ShortCircuitConf scConf = conf.getShortCircuitConf();
     try {
+      //dfs.client.read.shortcircuit 需要开启短路配置，默认false
+      //allowShortCircuitLocalReads 同时不允许对正在构建的块进行短路读取
       if (scConf.isShortCircuitLocalReads() && allowShortCircuitLocalReads) {
-        if (clientContext.getUseLegacyBlockReaderLocal()) {
+        if (clientContext.getUseLegacyBlockReaderLocal()) { // 是否启用legacyBlockreader dfs.client.use.legacy.blockreader.local 默认false
           reader = getLegacyBlockReaderLocal();
           if (reader != null) {
             LOG.trace("{}: returning new legacy block reader local.", this);
@@ -373,6 +383,8 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
           }
         }
       }
+
+      //尝试创建 DomainSocket Reader  dfs.client.domain.socket.data.traffic
       if (scConf.isDomainSocketDataTraffic()) {
         reader = getRemoteBlockReaderFromDomain();
         if (reader != null) {
@@ -387,6 +399,7 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
     Preconditions.checkState(!DFSInputStream.tcpReadsDisabledForTesting,
         "TCP reads were disabled for testing, but we failed to " +
         "do a non-TCP read.");
+    //最后创建 remoteBlockReader
     return getRemoteBlockReaderFromTcp();
   }
 
@@ -477,6 +490,8 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
     LOG.trace("{}: trying to construct a BlockReaderLocal for short-circuit "
         + " reads.", this);
     if (pathInfo == null) {
+      //inetSocketAddress 为目标节点的 address
+      //为期创建
       pathInfo = clientContext.getDomainSocketFactory()
           .getPathInfo(inetSocketAddress, conf.getShortCircuitConf());
     }
@@ -485,9 +500,12 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
               "giving up on BlockReaderLocal.", this, pathInfo);
       return null;
     }
+
+    //获取 Block 对应的 ShortCircuitReplicaInfo 信息，里面包含了当前副本的 Slot 信息和以及数据块在内存中映射信息 mmapData
     ShortCircuitCache cache = clientContext.getShortCircuitCache();
     ExtendedBlockId key = new ExtendedBlockId(block.getBlockId(),
         block.getBlockPoolId());
+    //向 DN 申请短路读取数据的共享内存插槽
     ShortCircuitReplicaInfo info = cache.fetchOrCreate(key, this);
     InvalidToken exc = info.getInvalidTokenException();
     if (exc != null) {

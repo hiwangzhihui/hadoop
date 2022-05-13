@@ -1202,6 +1202,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     checkOpen();
     final FsPermission masked = applyUMask(permission);
     LOG.debug("{}: masked={}", src, masked);
+    //创建 DFSOutputStream 对象
     final DFSOutputStream result = DFSOutputStream.newStreamForCreate(this,
         src, masked, flag, createParent, replication, blockSize, progress,
         dfsClientConf.createChecksum(checksumOpt),
