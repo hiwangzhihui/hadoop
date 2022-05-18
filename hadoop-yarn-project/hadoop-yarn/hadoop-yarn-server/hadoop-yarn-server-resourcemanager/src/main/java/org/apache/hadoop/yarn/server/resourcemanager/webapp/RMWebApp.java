@@ -51,14 +51,17 @@ public class RMWebApp extends WebApp implements YarnWebParams {
 
   @Override
   public void setup() {
+    //创建 实体创建 容器管理
     bind(JAXBContextResolver.class);
+    // RMWebServices  注解的方式实现 Controller 并交给框架处理
     bind(RMWebServices.class);
     bind(GenericExceptionHandler.class);
-    bind(RMWebApp.class).toInstance(this);
+    bind(RMWebApp.class).toInstance(this)
 
     if (rm != null) {
       bind(ResourceManager.class).toInstance(rm);
     }
+    // Dispatcher Servelet -- Router --> 反射执行
     route("/", RmController.class);
     route(pajoin("/nodes", NODE_STATE), RmController.class, "nodes");
     route(pajoin("/apps", APP_STATE), RmController.class);

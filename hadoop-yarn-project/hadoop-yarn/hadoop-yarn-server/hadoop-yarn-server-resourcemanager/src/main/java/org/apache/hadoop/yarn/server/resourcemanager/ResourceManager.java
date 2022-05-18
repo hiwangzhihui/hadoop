@@ -1087,8 +1087,10 @@ public class ResourceManager extends CompositeService implements Recoverable {
         getClientRMService().rmDTSecretManager);
 
     Map<String, String> params = new HashMap<String, String>();
+    //
     if (getConfig().getBoolean(YarnConfiguration.YARN_API_SERVICES_ENABLE,
         false)) {
+      // 扫描,包路径
       String apiPackages = "org.apache.hadoop.yarn.service.webapp;" +
           "org.apache.hadoop.yarn.webapp";
       params.put("com.sun.jersey.config.property.resourceConfigClass",
@@ -1267,7 +1269,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     } else {
       transitionToActive();
     }
-
+    // 启动 Http 服务入口
     startWepApp();
     if (getConfig().getBoolean(YarnConfiguration.IS_MINI_YARN_CLUSTER,
         false)) {

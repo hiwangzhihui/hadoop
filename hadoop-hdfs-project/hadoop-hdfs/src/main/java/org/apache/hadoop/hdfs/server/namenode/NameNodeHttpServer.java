@@ -93,6 +93,7 @@ public class NameNodeHttpServer {
         DFSConfigKeys.DFS_WEBHDFS_AUTHENTICATION_FILTER_DEFAULT);
     final String name = className;
 
+    //初始化身份认证默认配置，使用  AuthFilter ，默认策略为 PseudoAuthenticationHandler ，切开启匿名访问
     final String pathSpec = WebHdfsFileSystem.PATH_PREFIX + "/*";
     Map<String, String> params = getAuthFilterParams(conf, hostname);
     HttpServer2.defineFilter(httpServer2.getWebAppContext(), name, className,
@@ -100,7 +101,7 @@ public class NameNodeHttpServer {
     HttpServer2.LOG.info("Added filter '" + name + "' (class=" + className
         + ")");
 
-    // add REST CSRF prevention filter
+    // add REST CSRF prevention filter 跨域访问配置，关闭
     if (conf.getBoolean(DFS_WEBHDFS_REST_CSRF_ENABLED_KEY,
         DFS_WEBHDFS_REST_CSRF_ENABLED_DEFAULT)) {
       Map<String, String> restCsrfParams = RestCsrfPreventionFilter
@@ -111,7 +112,8 @@ public class NameNodeHttpServer {
           new String[] {pathSpec});
     }
 
-    // add webhdfs packages
+    // add webhdfs packages 初始化 jersey并 扫描 org.apache.hadoop.hdfs.web.resources
+    // org.apache.hadoop.hdfs.server.namenode.web.resources; 包下的注解
     httpServer2.addJerseyResourcePackage(
         jerseyResourcePackage + ";" + Param.class.getPackage().getName(),
         pathSpec);
@@ -156,7 +158,7 @@ public class NameNodeHttpServer {
         DFSConfigKeys.DFS_XFRAME_OPTION_VALUE_DEFAULT);
 
     builder.configureXFrame(xFrameEnabled).setXFrameOption(xFrameOptionValue);
-
+    //构建  HttpServer2
     httpServer = builder.build();
 
     if (policy.isHttpsEnabled()) {
@@ -167,14 +169,15 @@ public class NameNodeHttpServer {
       httpServer.setAttribute(DFSConfigKeys.DFS_DATANODE_HTTPS_PORT_KEY,
           datanodeSslPort.getPort());
     }
-
+    //初始化 配置 认证、跨域、jersey 扫描包
     initWebHdfs(conf, bindAddress.getHostName(), httpServer,
         NamenodeWebHdfsMethods.class.getPackage().getName());
-
+    //设置 webAppContext 上下文属性
     httpServer.setAttribute(NAMENODE_ATTRIBUTE_KEY, nn);
     httpServer.setAttribute(JspHelper.CURRENT_CONF, conf);
+    //初始化部分自定义 Servlets
     setupServlets(httpServer, conf);
-    httpServer.start();
+    httpServer.start(); //启动服务
 
     int connIdx = 0;
     if (policy.isHttpEnabled()) {

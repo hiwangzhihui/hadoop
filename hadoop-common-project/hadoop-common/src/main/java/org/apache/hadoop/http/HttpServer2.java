@@ -417,7 +417,7 @@ public final class HttpServer2 implements FilterContainer {
       if (this.conf == null) {
         conf = new Configuration();
       }
-
+      //创建 HttpServer2 并设置处理 Http 请求线程个数
       HttpServer2 server = new HttpServer2(this);
 
       if (this.securityEnabled) {
@@ -430,7 +430,7 @@ public final class HttpServer2 implements FilterContainer {
           break;
         }
       }
-
+     //设置请求和响应数据量大小
       int requestHeaderSize = conf.getInt(
           HTTP_MAX_REQUEST_HEADER_SIZE_KEY,
           HTTP_MAX_REQUEST_HEADER_SIZE_DEFAULT);
@@ -516,7 +516,7 @@ public final class HttpServer2 implements FilterContainer {
     this.webServer = new Server();
     this.adminsAcl = b.adminsAcl;
     this.handlers = new HandlerCollection();
-    this.webAppContext = createWebAppContext(b, adminsAcl, appDir);
+    this.webAppContext = createWebAppContext(b, adminsAcl, appDir); //  设置
     this.xFrameOptionIsEnabled = b.xFrameEnabled;
     this.xFrameOption = b.xFrameOption;
 
@@ -542,7 +542,7 @@ public final class HttpServer2 implements FilterContainer {
       throws IOException {
 
     Preconditions.checkNotNull(webAppContext);
-
+     //处理 http 最大请求数 默认不限制，hadoop.http.max.threads
     int maxThreads = conf.getInt(HTTP_MAX_THREADS_KEY, -1);
     // If HTTP_MAX_THREADS is not configured, QueueThreadPool() will use the
     // default value (currently 250).
@@ -570,7 +570,9 @@ public final class HttpServer2 implements FilterContainer {
       handlers.addHandler(requestLogHandler);
     }
     handlers.addHandler(webAppContext);
+    //当前 webApp 静态资源目录 src/main/webapps/dfs or yarn
     final String appDir = getWebAppsPath(name);
+    //初始化 WebApp 默认配置
     addDefaultApps(contexts, appDir, conf);
     webServer.setHandler(handlers);
 
@@ -579,6 +581,8 @@ public final class HttpServer2 implements FilterContainer {
         String.valueOf(this.xFrameOptionIsEnabled));
     xFrameParams.put(X_FRAME_VALUE,  this.xFrameOption.toString());
     addGlobalFilter("safety", QuotingInputFilter.class.getName(), xFrameParams);
+
+    //初始化用户定义 Filter
     final FilterInitializer[] initializers = getFilterInitializers(conf);
     if (initializers != null) {
       conf = new Configuration(conf);
@@ -587,7 +591,7 @@ public final class HttpServer2 implements FilterContainer {
         c.initFilter(this, conf);
       }
     }
-
+   // 初始化默认的 Servelt ： stacks、logLevel、jmx、conf
     addDefaultServlets();
 
     if (pathSpecs != null) {
@@ -618,7 +622,7 @@ public final class HttpServer2 implements FilterContainer {
     ctx.addServlet(holder, "/");
     ctx.setDisplayName(b.name);
     ctx.setContextPath("/");
-    ctx.setWar(appDir + "/" + b.name);
+    ctx.setWar(appDir + "/" + b.name);     ///DefaultServlet 默认使用当前包目录 share/hadoop/hdfs/webapps/hdfs
     String tempDirectory = b.conf.get(HTTP_TEMP_DIR_KEY);
     if (tempDirectory != null && !tempDirectory.isEmpty()) {
       ctx.setTempDirectory(new File(tempDirectory));
@@ -651,7 +655,7 @@ public final class HttpServer2 implements FilterContainer {
 
   private static void addNoCacheFilter(ServletContextHandler ctxt) {
     defineFilter(ctxt, NO_CACHE_FILTER, NoCacheFilter.class.getName(),
-                 Collections.<String, String> emptyMap(), new String[] { "/*" });
+                 Collections.emptyMap(), new String[] { "/*" });
   }
 
   private static void configureChannelConnector(ServerConnector c) {
@@ -722,10 +726,11 @@ public final class HttpServer2 implements FilterContainer {
       addNoCacheFilter(logContext);
       defaultContexts.put(logContext, true);
     }
-    // set up the context for "/static/*"
+    // set up the context for "/static/*"  设置静态资源目录
     ServletContextHandler staticContext =
         new ServletContextHandler(parent, "/static");
     staticContext.setResourceBase(appDir + "/static");
+    //设置默认值的 DefaultServlet 首先为
     staticContext.addServlet(DefaultServlet.class, "/*");
     staticContext.setDisplayName("static");
     @SuppressWarnings("unchecked")
@@ -1610,7 +1615,7 @@ public final class HttpServer2 implements FilterContainer {
       ServletContextHandler.Context sContext =
           (ServletContextHandler.Context)config.getServletContext();
       String mime = sContext.getMimeType(path);
-      return (mime == null) ? null : mime;
+      return mime;
     }
 
   }
