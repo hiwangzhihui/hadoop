@@ -181,7 +181,7 @@ public class AppBlock extends HtmlBlock {
           .$onclick("confirmAction()").b("Kill Application").__()
           .__();
 
-      StringBuilder   = new StringBuilder();
+      StringBuilder script = new StringBuilder();
       script.append("function confirmAction() {")
           .append(" b = confirm(\"Are you sure?\");")
           .append(" if (b == true) {")

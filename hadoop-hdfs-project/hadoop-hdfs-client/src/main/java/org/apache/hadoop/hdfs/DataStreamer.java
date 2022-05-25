@@ -475,11 +475,14 @@ class DataStreamer extends Daemon {
   private DataOutputStream blockStream;
   private DataInputStream blockReplyStream;
   private ResponseProcessor response = null;
+  //数据块数据管道中的 datanode
   private volatile DatanodeInfo[] nodes = null; // list of targets for current block
+  //在对应 DataNode 上保存的这个数据块存储的数据类型
   private volatile StorageType[] storageTypes = null;
+  //数据块保存保存在对应   DataNode storageID
   private volatile String[] storageIDs = null;
   private final ErrorState errorState;
-
+    //数据块对应的数据管道流状态
   private volatile BlockConstructionStage stage;  // block construction stage
   protected long bytesSent = 0; // number of bytes that've been sent
   private final boolean isLazyPersistFile;
@@ -715,10 +718,13 @@ class DataStreamer extends Daemon {
         }
         if (stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {
           LOG.debug("Allocating new block: {}", this);
+          // nextBlockOutputStream 写新文件时会向 NameNode 申请分配新的块，进行数据流管道化
+          // setPipeline 记录管道状态
           setPipeline(nextBlockOutputStream());
-          initDataStreaming();
+          initDataStreaming(); //修改管道流状态为 DATA_STREAMING
         } else if (stage == BlockConstructionStage.PIPELINE_SETUP_APPEND) {
           LOG.debug("Append to block {}", block);
+          // HDFS 打开已有的文件，返回最后一个块的位置信息，进行数据流管道化
           setupPipelineForAppendOrRecovery();
           if (streamerClosed) {
             continue;
@@ -1654,6 +1660,7 @@ class DataStreamer extends Daemon {
    * This happens when a file is created and each time a new block is allocated.
    * Must get block ID and the IDs of the destinations from the namenode.
    * Returns the list of target datanodes.
+   *
    */
   protected LocatedBlock nextBlockOutputStream() throws IOException {
     LocatedBlock lb;

@@ -56,7 +56,7 @@ public class RMWebApp extends WebApp implements YarnWebParams {
     // RMWebServices  注解的方式实现 Controller 并交给框架处理
     bind(RMWebServices.class);
     bind(GenericExceptionHandler.class);
-    bind(RMWebApp.class).toInstance(this)
+    bind(RMWebApp.class).toInstance(this);
 
     if (rm != null) {
       bind(ResourceManager.class).toInstance(rm);

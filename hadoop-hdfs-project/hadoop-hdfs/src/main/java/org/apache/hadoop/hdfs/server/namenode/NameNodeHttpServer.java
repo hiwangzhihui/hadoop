@@ -32,6 +32,7 @@ import javax.servlet.ServletContext;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeysPublic;
 import org.apache.hadoop.ha.HAServiceProtocol;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
@@ -47,8 +48,10 @@ import org.apache.hadoop.hdfs.web.resources.UserParam;
 import org.apache.hadoop.http.HttpConfig;
 import org.apache.hadoop.http.HttpServer2;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.security.AuthenticationFilterInitializer;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.security.authentication.server.PseudoAuthenticationHandler;
 import org.apache.hadoop.security.http.RestCsrfPreventionFilter;
 
 /**
@@ -68,6 +71,8 @@ public class NameNodeHttpServer {
   public static final String FSIMAGE_ATTRIBUTE_KEY = "name.system.image";
   protected static final String NAMENODE_ATTRIBUTE_KEY = "name.node";
   public static final String STARTUP_PROGRESS_ATTRIBUTE_KEY = "startup.progress";
+
+  public static final String SIMPLE_ANONYMOUS_ALLOWE  = "hadoop.http.namenode.authentication.simple.anonymous.allowed";
 
   NameNodeHttpServer(Configuration conf, NameNode nn,
       InetSocketAddress bindAddress) {
@@ -144,6 +149,11 @@ public class NameNodeHttpServer {
       }
     }
 
+    //builder 之前 NameNode 发现 SIMPLE_ANONYMOUS_ALLOWE 配置存在, 且开启 simple 认证 则覆盖  hadoop.http.authentication.simple.anonymous.allowed 覆盖
+    if( conf.get(SIMPLE_ANONYMOUS_ALLOWE) !=null && PseudoAuthenticationHandler.TYPE.equals(CommonConfigurationKeysPublic.HADOOP_HTTP_AUTHENTICATION_TYPE)){
+      conf.set(AuthenticationFilterInitializer.PREFIX + PseudoAuthenticationHandler.ANONYMOUS_ALLOWED, conf.get(SIMPLE_ANONYMOUS_ALLOWE) );
+    }
+
     HttpServer2.Builder builder = DFSUtil.httpServerTemplateForNNAndJN(conf,
         httpAddr, httpsAddr, "hdfs",
         DFSConfigKeys.DFS_NAMENODE_KERBEROS_INTERNAL_SPNEGO_PRINCIPAL_KEY,
@@ -177,7 +187,7 @@ public class NameNodeHttpServer {
     httpServer.setAttribute(JspHelper.CURRENT_CONF, conf);
     //初始化部分自定义 Servlets
     setupServlets(httpServer, conf);
-    httpServer.start(); //启动服务
+    httpServer.start(); //启动服
 
     int connIdx = 0;
     if (policy.isHttpEnabled()) {

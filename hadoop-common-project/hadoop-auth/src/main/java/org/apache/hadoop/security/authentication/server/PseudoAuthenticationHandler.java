@@ -144,7 +144,7 @@ public class PseudoAuthenticationHandler implements AuthenticationHandler {
   private String getUserName(HttpServletRequest request) {
     String queryString = request.getQueryString();
     if(queryString == null || queryString.length() == 0) {
-      return getUserNameForWitheIp(request);
+      return null;
     }
     List<NameValuePair> list = URLEncodedUtils.parse(queryString, UTF8_CHARSET);
     if (list != null) {
@@ -154,19 +154,8 @@ public class PseudoAuthenticationHandler implements AuthenticationHandler {
         }
       }
     }
-     return getUserNameForWitheIp(request);
+    return null;
   }
-
-  /**
-   * 如果过来的请求符合 IP 白名单规则，则将 IP 作为用户名用于生成 Token
-   * */
-  public String getUserNameForWitheIp(HttpServletRequest request){
-      // request.getRemoteHost();
-      //hadoop.http.authentication.ip_or_host_withe_regex
-     // request.getRemoteAddr() || request.getRemoteHost()
-
-  }
-
 
   /**
    * Authenticates an HTTP client request.

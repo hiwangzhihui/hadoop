@@ -29,19 +29,19 @@ public enum BlockConstructionStage {
    * Changing this order will make getRecoveryStage not working.
    */
   // pipeline set up for block append
-  PIPELINE_SETUP_APPEND,
+  PIPELINE_SETUP_APPEND,  //追加写已有文件时，数据流管道的初始状态
   // pipeline set up for failed PIPELINE_SETUP_APPEND recovery
   PIPELINE_SETUP_APPEND_RECOVERY,
   // data streaming
-  DATA_STREAMING,
+  DATA_STREAMING, // 数据流管道以已经建立好了，可以传输数据
   // pipeline setup for failed data streaming recovery
   PIPELINE_SETUP_STREAMING_RECOVERY,
   // close the block and pipeline
-  PIPELINE_CLOSE,
+  PIPELINE_CLOSE, //数据块已经写满了，数据管道关闭
   // Recover a failed PIPELINE_CLOSE
   PIPELINE_CLOSE_RECOVERY,
   // pipeline set up for block creation
-  PIPELINE_SETUP_CREATE,
+  PIPELINE_SETUP_CREATE, //  写新文件时，数据管道流的初始状态
   // transfer RBW for adding datanodes
   TRANSFER_RBW,
   // transfer Finalized for adding datanodes
