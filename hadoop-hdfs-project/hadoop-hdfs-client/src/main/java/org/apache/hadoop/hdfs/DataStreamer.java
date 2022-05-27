@@ -816,7 +816,7 @@ class DataStreamer extends Daemon {
             continue;
           }
 
-          endBlock();
+          endBlock();//关闭管道流  状态设置为 PIPELINE_SETUP_CREATE
         }
         if (progress != null) { progress.progress(); }
 

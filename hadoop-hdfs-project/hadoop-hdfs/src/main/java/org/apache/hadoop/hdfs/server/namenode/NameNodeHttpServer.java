@@ -150,7 +150,7 @@ public class NameNodeHttpServer {
     }
 
     //builder 之前 NameNode 发现 SIMPLE_ANONYMOUS_ALLOWE 配置存在, 且开启 simple 认证 则覆盖  hadoop.http.authentication.simple.anonymous.allowed 覆盖
-    if( conf.get(SIMPLE_ANONYMOUS_ALLOWE) !=null && PseudoAuthenticationHandler.TYPE.equals(CommonConfigurationKeysPublic.HADOOP_HTTP_AUTHENTICATION_TYPE)){
+    if( conf.get(SIMPLE_ANONYMOUS_ALLOWE) !=null ){
       conf.set(AuthenticationFilterInitializer.PREFIX + PseudoAuthenticationHandler.ANONYMOUS_ALLOWED, conf.get(SIMPLE_ANONYMOUS_ALLOWE) );
     }
 
