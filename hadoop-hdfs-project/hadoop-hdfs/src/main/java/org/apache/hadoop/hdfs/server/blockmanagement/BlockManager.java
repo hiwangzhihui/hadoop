@@ -1123,13 +1123,14 @@ public class BlockManager implements BlockStatsMXBean {
    * @param bc file
    * @param bytesToRemove num of bytes to remove from block
    * @return the last block locations if the block is partial or null otherwise
+   *  如果最后一个块没有被写完则返回该块信息，否则直接返回 null
    */
   public LocatedBlock convertLastBlockToUnderConstruction(
       BlockCollection bc, long bytesToRemove) throws IOException {
     BlockInfo lastBlock = bc.getLastBlock();
     if (lastBlock == null ||
        bc.getPreferredBlockSize() == lastBlock.getNumBytes() - bytesToRemove) {
-      return null;
+      return null; //如果最后一个块写满则直接返回 null
     }
     assert lastBlock == getStoredBlock(lastBlock) :
       "last block of the file is not in blocksMap";

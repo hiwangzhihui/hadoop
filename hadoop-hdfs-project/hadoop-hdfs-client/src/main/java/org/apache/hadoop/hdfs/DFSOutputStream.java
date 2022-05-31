@@ -334,6 +334,7 @@ public class DFSOutputStream extends FSOutputSummer
 
     // The last partial block of the file has to be filled.
     if (!toNewBlock && lastBlock != null) {
+       //最后一个块没被写满，构造执行 append 操作 DataStream 线程
       // indicate that we are appending to an existing block
       streamer = new DataStreamer(lastBlock, stat, dfsClient, src, progress,
           checksum, cachingStrategy, byteArrayManager);
@@ -341,6 +342,7 @@ public class DFSOutputStream extends FSOutputSummer
       adjustPacketChunkSize(stat);
       getStreamer().setPipelineInConstruction(lastBlock);
     } else {
+      //构造成才的 DataStreamer 线程
       //计算 chunk 大小、以及 packet 包中有多少个 chunk
       //  dfs.client-write-packet-size 64 k 一个数据包大小
       computePacketChunkSize(dfsClient.getConf().getWritePacketSize(),
@@ -499,7 +501,7 @@ public class DFSOutputStream extends FSOutputSummer
             + " appendChunk={}, {}", currentPacket, src, getStreamer()
             .getBytesCurBlock(), blockSize, getStreamer().getAppendChunk(),
         getStreamer());
-    enqueueCurrentPacket();
+    enqueueCurrentPacket(); //
     adjustChunkBoundary();
     endBlock();
   }
@@ -838,7 +840,7 @@ public class DFSOutputStream extends FSOutputSummer
       throw new IOException("Failed to shutdown streamer");
     } finally {
       getStreamer().setSocketToNull();
-      setClosed();
+      setClosed(); //释放租约
     }
   }
 
@@ -882,21 +884,25 @@ public class DFSOutputStream extends FSOutputSummer
     }
 
     try {
+      //先讲输出流中缓存的数据刷入 包中
       flushBuffer();       // flush from all upper layers
 
       if (currentPacket != null) {
+        //将没有发送的数据放入到 dataQueue 中
         enqueueCurrentPacket();
       }
 
       if (getStreamer().getBytesCurBlock() != 0) {
-        setCurrentPacketToEmpty();
+        setCurrentPacketToEmpty(); //构造一个空的数据包标识表示数据块的数据已经发送完毕
       }
 
       try {
-        flushInternal();             // flush all data to Datanodes
+        // flush all data to Datanodes  确认 datanode 已经接收了所有数据包
+        flushInternal();
       } catch (IOException ioe) {
         cleanupAndRethrowIOException(ioe);
       }
+      //向 NameNode 提交文件
       completeFile();
     } catch (ClosedChannelException ignored) {
     } finally {
@@ -905,7 +911,7 @@ public class DFSOutputStream extends FSOutputSummer
       // Thus need to force closing these threads.
       // Don't need to call setClosed() because closeThreads(true)
       // calls setClosed() in the finally block.
-      closeThreads(true);
+      closeThreads(true);//关闭 dataStream  线程、释放租约
     }
   }
 
@@ -955,6 +961,7 @@ public class DFSOutputStream extends FSOutputSummer
     boolean fileComplete = false;
     int retries = conf.getNumBlockWriteLocateFollowingRetry();
     while (!fileComplete) {
+      //提交文件
       fileComplete =
           dfsClient.namenode.complete(src, dfsClient.clientName, last, fileId);
       if (!fileComplete) {
@@ -1078,11 +1085,15 @@ public class DFSOutputStream extends FSOutputSummer
     return getClass().getSimpleName() + ":" + streamer;
   }
 
+   /**
+    * 尝试提交申请新的块，并且提交上一个块
+    * */
   static LocatedBlock addBlock(DatanodeInfo[] excludedNodes,
       DFSClient dfsClient, String src, ExtendedBlock prevBlock, long fileId,
       String[] favoredNodes, EnumSet<AddBlockFlag> allocFlags)
       throws IOException {
     final DfsClientConf conf = dfsClient.getConf();
+    // dfs.client.block.write.locateFollowingBlock.retries 默认 5 次
     int retries = conf.getNumBlockWriteLocateFollowingRetry();
     long sleeptime = conf.getBlockWriteLocateFollowingInitialDelayMs();
     long localstart = Time.monotonicNow();
@@ -1100,6 +1111,8 @@ public class DFSOutputStream extends FSOutputSummer
         if (ue != e) {
           throw ue; // no need to retry these exceptions
         }
+        //文件的上一个提交数据块没有达到 HDFS 系统指定的副本数
+        // 则等待一段时间，然后重试
         if (NotReplicatedYetException.class.getName()
             .equals(e.getClassName())) {
           if (retries == 0) {

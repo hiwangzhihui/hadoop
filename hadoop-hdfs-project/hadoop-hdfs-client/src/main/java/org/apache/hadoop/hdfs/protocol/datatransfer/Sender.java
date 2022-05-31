@@ -73,6 +73,7 @@ public class Sender implements DataTransferProtocol {
     op.write(out);
   }
 
+  // 底层 Socket 将序列化好的数据发送出去
   private static void send(final DataOutputStream out, final Op opcode,
       final Message proto) throws IOException {
     LOG.trace("Sending DataTransferOp {}: {}",
@@ -141,7 +142,7 @@ public class Sender implements DataTransferProtocol {
 
     ChecksumProto checksumProto =
         DataTransferProtoUtil.toProto(requestedChecksum);
-
+    // OpWriteBlockProto 协议发送请求
     OpWriteBlockProto.Builder proto = OpWriteBlockProto.newBuilder()
         .setHeader(header)
         .setStorageType(PBHelperClient.convertStorageType(storageType))

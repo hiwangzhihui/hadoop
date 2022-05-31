@@ -296,6 +296,7 @@ public class LeaseRenewer {
       if (!isRunning() || isRenewerExpired()) {
         //start a new deamon with a new id.
         final int id = ++currentId;
+        //构建续租线程
         daemon = new Daemon(new Runnable() {
           @Override
           public void run() {
@@ -408,9 +409,9 @@ public class LeaseRenewer {
    */
   private void run(final int id) throws InterruptedException {
     for(long lastRenewed = Time.monotonicNow(); !Thread.interrupted();
-        Thread.sleep(getSleepPeriod())) {
+        Thread.sleep(getSleepPeriod())) { //默认 1s check 一次
       final long elapsed = Time.monotonicNow() - lastRenewed;
-      if (elapsed >= getRenewalTime()) {
+      if (elapsed >= getRenewalTime()) { //如果上次续租的时间大于 30s 则，就会执行一次续租
         try {
           renew();
           if (LOG.isDebugEnabled()) {

@@ -484,6 +484,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   private void beginFileLease(final long inodeId, final DFSOutputStream out)
       throws IOException {
     synchronized (filesBeingWritten) {
+      //获取租约文件，交给线程定时续租
       putFileBeingWritten(inodeId, out);
       getLeaseRenewer().put(this);
     }
@@ -1306,6 +1307,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   }
 
   /**
+   *  获取文件最后一个块的信息
+   *  如果最后一个块被写满，则块信息为null
    * Invoke namenode append RPC.
    * It retries in case of some {@link RetriableException}.
    */
@@ -1344,6 +1347,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
             "info with additional RPC call for file: {}", src);
         status = getFileInfo(src);
       }
+      //构建 dfsOutStream
       return DFSOutputStream.newStreamForAppend(this, src, flag, progress,
           blkWithStatus.getLastBlock(), status,
           dfsClientConf.createChecksum(null), favoredNodes);
@@ -1405,8 +1409,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       EnumSet<CreateFlag> flag, String[] favoredNodes, Progressable progress)
       throws IOException {
     checkOpen();
+    /**
+     *  callAppend
+     *  - 首先会获取文件最后一个块的信息
+     *  - 如果最后一个数据块写满了，重新申请一个块，再构建块的数据输出流对象
+     * */
     final DFSOutputStream result = callAppend(src, flag, progress,
         favoredNodes);
+    //获取文件租约
     beginFileLease(result.getFileId(), result);
     return result;
   }

@@ -405,6 +405,7 @@ public class DatanodeAdminManager {
       nodeList.append(node);
       nodeList.append(' ');
     }
+    //块状态信息汇报
     NameNode.blockStateChangeLog.info(
         "Block: " + block + ", Expected Replicas: "
         + curExpectedRedundancy + ", live replicas: " + curReplicas
@@ -460,7 +461,7 @@ public class DatanodeAdminManager {
     private final int maxConcurrentTrackedNodes;
     /**
      * The number of blocks that have been checked on this tick.
-     * 已经被处理的块数量
+     * 在一轮处理中被check 的块个数
      */
     private int numBlocksChecked = 0;
     /**
@@ -471,7 +472,7 @@ public class DatanodeAdminManager {
     /**
      * The number of nodes that have been checked on this tick. Used for
      * statistics.
-     * 已经被处理的节点个数
+     * 在一轮处理中被check 的dn 个数
      */
     private int numNodesChecked = 0;
     /**
@@ -767,7 +768,7 @@ public class DatanodeAdminManager {
         if (insufficientList != null) {
           insufficientList.add(block); // 否则加入未修复好的块列表中
         }
-        // Log if this is our first time through
+        // Log if this is our first time through  第一次加入修复队列
         if (firstReplicationLog) {
           logBlockReplicationInfo(block, bc, datanode, num,
               blockManager.blocksMap.getStorages(block));

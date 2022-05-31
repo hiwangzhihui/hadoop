@@ -249,6 +249,7 @@ class FSDirWriteFileOp {
     }
 
     // commit the last block and complete it if it has minimum replicas
+    // 尝试先提交上一个写完的块
     fsn.commitOrCompleteLastBlock(pendingFile, fileState.iip,
                                   ExtendedBlock.getLocalBlock(previous));
 

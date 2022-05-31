@@ -236,7 +236,7 @@ class DataStreamer extends Daemon {
 
   /**
    * Create a socket for a write pipeline
-   *
+   * 创建写文件的 Socket 管道流
    * @param first the first datanode
    * @param length the pipeline length
    * @param client client
@@ -249,7 +249,8 @@ class DataStreamer extends Daemon {
     LOG.debug("Connecting to datanode {}", dnAddr);
     final InetSocketAddress isa = NetUtils.createSocketAddr(dnAddr);
     final Socket sock = client.socketFactory.createSocket();
-    final int timeout = client.getDatanodeReadTimeout(length);
+    final int timeout = client.getDatanodeReadTimeout(length); //超时时间 等于  READ_TIMEOUT_EXTENSION * node_len
+    // 向第一个dn 建立链接请求，并保存 keepAlive
     NetUtils.connect(sock, isa, client.getRandomLocalInterfaceAddr(),
         conf.getSocketTimeout());
     sock.setTcpNoDelay(conf.getDataTransferTcpNoDelay());
@@ -445,7 +446,7 @@ class DataStreamer extends Daemon {
           // ignore, if came from the restarting node
           badNodeIndex = -1;
         }
-        // not within the deadline
+        // not within the deadline  超过deadline 后 重启节点设置为故障节点
         if (Time.monotonicNow() >= restartingNodeDeadline) {
           // expired. declare the restarting node dead
           restartingNodeDeadline = 0;
@@ -484,6 +485,7 @@ class DataStreamer extends Daemon {
   private final ErrorState errorState;
     //数据块对应的数据管道流状态
   private volatile BlockConstructionStage stage;  // block construction stage
+  // 已经被发送的数据大小
   protected long bytesSent = 0; // number of bytes that've been sent
   private final boolean isLazyPersistFile;
 
@@ -662,18 +664,19 @@ class DataStreamer extends Daemon {
     TraceScope scope = null;
     while (!streamerClosed && dfsClient.clientRunning) {
       // if the Responder encountered an error, shutdown Responder
+      // 1、 先进行错误处理，如果发现错误则关闭 Responder 线程
       if (errorState.hasError()) {
         closeResponder();
       }
 
       DFSPacket one;
       try {
-        // process datanode IO errors if any
+        // process datanode IO errors if any 2、 调用处理 processDatanodeOrExternalError 处理错误
         boolean doSleep = processDatanodeOrExternalError();
 
         final int halfSocketTimeout = dfsClient.getConf().getSocketTimeout()/2;
         synchronized (dataQueue) {
-          // wait for a packet to be sent.
+          // wait for a packet to be sent.  3、 dataQueue 等待一个需要被发送的数据包
           long now = Time.monotonicNow();
           while ((!shouldStop() && dataQueue.size() == 0 &&
               (stage != BlockConstructionStage.DATA_STREAMING ||
@@ -683,26 +686,27 @@ class DataStreamer extends Daemon {
             timeout = (stage == BlockConstructionStage.DATA_STREAMING)?
                 timeout : 1000;
             try {
-              dataQueue.wait(timeout);
+              dataQueue.wait(timeout); // dataQueue 等待
             } catch (InterruptedException  e) {
               LOG.warn("Caught exception", e);
             }
             doSleep = false;
             now = Time.monotonicNow();
           }
-          if (shouldStop()) {
+          if (shouldStop()) { //出现错误，跳过后续内容
             continue;
           }
-          // get packet to be sent.
+
+          // get packet to be sent.  从队列中获取一个packt 发送出去
           if (dataQueue.isEmpty()) {
-            one = createHeartbeatPacket();
+            one = createHeartbeatPacket(); //如果队列为空，则准备一个空的心跳消息，标记为 DFSPacket.HEART_BEAT_SEQNO
           } else {
             try {
               backOffIfNecessary();
             } catch (InterruptedException e) {
               LOG.warn("Caught exception", e);
             }
-            one = dataQueue.getFirst(); // regular data packet
+            one = dataQueue.getFirst(); // regular data packet  从队列只中拿取一个第一个包
             SpanId[] parents = one.getTraceParents();
             if (parents.length > 0) {
               scope = dfsClient.getTracer().
@@ -712,14 +716,14 @@ class DataStreamer extends Daemon {
           }
         }
 
-        // get new block from namenode.
+        // get new block from namenode. 4、从 NameNode 获取一个新的数据块，并初始化管道流
         if (LOG.isDebugEnabled()) {
           LOG.debug("stage=" + stage + ", " + this);
         }
-        if (stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {
+        if (stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) { // 创建管道流
           LOG.debug("Allocating new block: {}", this);
           // nextBlockOutputStream 写新文件时会向 NameNode 申请分配新的块，进行数据流管道化
-          // setPipeline 记录管道状态
+          // setPipeline 记录当前存储数据块的 DN 信息 ，以及 Dn 数据块的存储（storage）信息
           setPipeline(nextBlockOutputStream());
           initDataStreaming(); //修改管道流状态为 DATA_STREAMING
         } else if (stage == BlockConstructionStage.PIPELINE_SETUP_APPEND) {
@@ -729,17 +733,18 @@ class DataStreamer extends Daemon {
           if (streamerClosed) {
             continue;
           }
-          initDataStreaming();
+          initDataStreaming(); //更新数据块构建状态为 DATA_STREAMING 表数据管道流已经建立好了
         }
 
-        long lastByteOffsetInBlock = one.getLastByteOffsetBlock();
+        long lastByteOffsetInBlock = one.getLastByteOffsetBlock(); //判定数据是否写越界，则抛出异常
         if (lastByteOffsetInBlock > stat.getBlockSize()) {
           throw new IOException("BlockSize " + stat.getBlockSize() +
               " < lastByteOffsetInBlock, " + this + ", " + one);
         }
 
         if (one.isLastPacketInBlock()) {
-          // wait for all data packets have been successfully acked
+          // wait for all data packets have been successfully acked  ， 等待队列中所有的包被 ack 成功，才发送 lastPacket
+          //否则等待
           synchronized (dataQueue) {
             while (!shouldStop() && ackQueue.size() != 0) {
               try {
@@ -753,25 +758,25 @@ class DataStreamer extends Daemon {
           if (shouldStop()) {
             continue;
           }
+          //更新 管道流状态为关闭，后续会有什么操作呢？关闭流状态转为 PIPELINE_SETUP_CREATE
           stage = BlockConstructionStage.PIPELINE_CLOSE;
         }
 
-        // send the packet
+        // send the packet 5、发送数据包
         SpanId spanId = SpanId.INVALID;
         synchronized (dataQueue) {
           // move packet from dataQueue to ackQueue
-          if (!one.isHeartbeatPacket()) {
+          if (!one.isHeartbeatPacket()) { //那心跳packet 作用是什么 ping 通吗？
             if (scope != null) {
-              spanId = scope.getSpanId();
+              spanId = scope.getSpanId(); //这块什么作用？
               scope.detach();
               one.setTraceScope(scope);
             }
             scope = null;
-            //将 Package 发送之后，放入 ackQueue 等待下游 DN 发送接收消息
-            dataQueue.removeFirst();
-            ackQueue.addLast(one);
-            packetSendTime.put(one.getSeqno(), Time.monotonicNow());
-            dataQueue.notifyAll();
+            dataQueue.removeFirst();  //从  dataQueue 中移除
+            ackQueue.addLast(one); //加入搭配 ack 队列等待确认
+            packetSendTime.put(one.getSeqno(), Time.monotonicNow()); //加入监控队列
+            dataQueue.notifyAll(); //释放锁
           }
         }
 
@@ -780,7 +785,7 @@ class DataStreamer extends Daemon {
         // write out data to remote datanode
         try (TraceScope ignored = dfsClient.getTracer().
             newScope("DataStreamer#writeTo", spanId)) {
-          one.writeTo(blockStream);
+          one.writeTo(blockStream); //将数据发送出去
           blockStream.flush();
         } catch (IOException e) {
           // HDFS-3398 treat primary DN is down since client is unable to
@@ -797,7 +802,7 @@ class DataStreamer extends Daemon {
         // update bytesSent
         long tmpBytesSent = one.getLastByteOffsetBlock();
         if (bytesSent < tmpBytesSent) {
-          bytesSent = tmpBytesSent;
+          bytesSent = tmpBytesSent; // 更新已发送的数据
         }
 
         if (shouldStop()) {
@@ -805,7 +810,7 @@ class DataStreamer extends Daemon {
         }
 
         // Is this block full?
-        if (one.isLastPacketInBlock()) {
+        if (one.isLastPacketInBlock()) { //如果为最后一个消息，则等待所有的消息都被 ack
           // wait for the close packet has been acked
           synchronized (dataQueue) {
             while (!shouldStop() && ackQueue.size() != 0) {
@@ -816,7 +821,7 @@ class DataStreamer extends Daemon {
             continue;
           }
 
-          endBlock();//关闭管道流  状态设置为 PIPELINE_SETUP_CREATE
+          endBlock();//关闭管道流  状态设置为 PIPELINE_SETUP_CREATE 结束数据块的传输
         }
         if (progress != null) { progress.progress(); }
 
@@ -1091,13 +1096,13 @@ class DataStreamer extends Daemon {
       while (!responderClosed && dfsClient.clientRunning && !isLastPacketInBlock) {
         // process responses from datanodes.
         try {
-          // read an ack from the pipeline
+          // read an ack from the pipeline  从输入流中读取响应的 ack
           ack.readFields(blockReplyStream);
           if (ack.getSeqno() != DFSPacket.HEART_BEAT_SEQNO) {
             Long begin = packetSendTime.get(ack.getSeqno());
             if (begin != null) {
-              long duration = Time.monotonicNow() - begin;
-              if (duration > dfsclientSlowLogThresholdMs) {
+              long duration = Time.monotonicNow() - begin; //
+              if (duration > dfsclientSlowLogThresholdMs) { //打印处理发送太慢的 数据包信息
                 LOG.info("Slow ReadProcessor read fields for block " + block
                     + " took " + duration + "ms (threshold="
                     + dfsclientSlowLogThresholdMs + "ms); ack: " + ack
@@ -1122,7 +1127,7 @@ class DataStreamer extends Daemon {
             }
             // Restart will not be treated differently unless it is
             // the local node or the only one in the pipeline.
-            if (PipelineAck.isRestartOOBStatus(reply)) {
+            if (PipelineAck.isRestartOOBStatus(reply)) { //处理重启的 datanode
               final String message = "Datanode " + i + " is restarting: "
                   + targets[i];
               errorState.initRestartingNode(i, message,
@@ -1130,7 +1135,7 @@ class DataStreamer extends Daemon {
               throw new IOException(message);
             }
             // node error
-            if (reply != SUCCESS) {
+            if (reply != SUCCESS) { //处理错误的数据节点
               errorState.setBadNodeIndex(i); // mark bad datanode
               throw new IOException("Bad response " + reply +
                   " for " + block + " from datanode " + targets[i]);
@@ -1152,10 +1157,10 @@ class DataStreamer extends Daemon {
           assert seqno != PipelineAck.UNKOWN_SEQNO :
               "Ack for unknown seqno should be a failed ack: " + ack;
           if (seqno == DFSPacket.HEART_BEAT_SEQNO) {  // a heartbeat ack
-            continue;
+            continue; //心跳消息不用处理
           }
 
-          // a success ack for a data packet
+          // a success ack for a data packet 数据管道中成功写入数据包的消息
           DFSPacket one;
           synchronized (dataQueue) {
             one = ackQueue.getFirst();
@@ -1176,7 +1181,7 @@ class DataStreamer extends Daemon {
                 "Failing the last packet for testing.");
           }
 
-          // update bytesAcked
+          // update bytesAcked  设置接收的字节数
           block.setNumBytes(one.getLastByteOffsetBlock());
 
           synchronized (dataQueue) {
@@ -1187,13 +1192,14 @@ class DataStreamer extends Daemon {
             }
             lastAckedSeqno = seqno;
             pipelineRecoveryCount = 0;
-            ackQueue.removeFirst();
+            ackQueue.removeFirst(); //从 ack 列表中移除
             packetSendTime.remove(seqno);
             dataQueue.notifyAll();
 
             one.releaseBuffer(byteArrayManager);
           }
         } catch (Exception e) {
+          // 出现异常的部分都是直接将异常抛出，然后在 catch 语句中设置异常状态
           if (!responderClosed) {
             lastException.set(e);
             errorState.setInternalError();
@@ -1228,22 +1234,33 @@ class DataStreamer extends Daemon {
   /**
    * If this stream has encountered any errors, shutdown threads
    * and mark the stream as closed.
+   *  如果 stream 遇到异常，则应该关闭相应的线程
+   *
    *
    * @return true if it should sleep for a while after returning.
+   * 返回的结果表示 ：
+   *   true： DataStream 可以 sleep 一会儿，等待 恢复正常
+   *   false：表示没有异常
    */
   private boolean processDatanodeOrExternalError() throws IOException {
+    //1、没有遇到异常，直接返回
     if (!errorState.hasDatanodeError() && !shouldHandleExternalError()) {
       return false;
     }
+
+    //2、如果状态异常，response 线程不为空，则返回 true ；只有 restarting 的情况，需要sleep
     LOG.debug("start process datanode/external error, {}", this);
     if (response != null) {
       LOG.info("Error Recovery for " + block +
           " waiting for responder to exit. ");
       return true;
     }
+
+    //3、如果拿不到结果，且有相关异常信息，则关闭 stream 所有 IO
     closeStream();
 
     // move packets from ack queue to front of the data queue
+    //4、 将 ackQueue 中的数据包放入到 dataQueue 中，准备重试
     synchronized (dataQueue) {
       dataQueue.addAll(0, ackQueue);
       ackQueue.clear();
@@ -1253,6 +1270,7 @@ class DataStreamer extends Daemon {
     // If we had to recover the pipeline five times in a row for the
     // same packet, this client likely has corrupt data or corrupting
     // during transmission.
+    //如果节点不处理重启状态，且同一个数据包错误恢复次数超过 5 次 streamerClosed 停止错误恢复
     if (!errorState.isRestartingNode() && ++pipelineRecoveryCount > 5) {
       LOG.warn("Error recovering pipeline for writing " +
           block + ". Already retried 5 times for the same packet.");
@@ -1262,10 +1280,13 @@ class DataStreamer extends Daemon {
       return false;
     }
 
+    //5、调用  setupPipelineForAppendOrRecovery 方法重置数据管道流
     setupPipelineForAppendOrRecovery();
 
+
     if (!streamerClosed && dfsClient.clientRunning) {
-      if (stage == BlockConstructionStage.PIPELINE_CLOSE) {
+      //6、如果当前数据块所有数据包已经发送完毕，并且接收到 ack ，则直接调用 endBlock 结束当前包的传输
+      if (stage == BlockConstructionStage.PIPELINE_CLOSE) { // PIPELINE_CLOSE 表示当前包传输完毕
 
         // If we had an error while closing the pipeline, we go through a fast-path
         // where the BlockReceiver does not run. Instead, the DataNode just finalizes
@@ -1276,6 +1297,7 @@ class DataStreamer extends Daemon {
         // We also need to set lastAckedSeqno to the end-of-block Packet's seqno, so that
         // a client waiting on close() will be aware that the flush finished.
         synchronized (dataQueue) {
+          // 移除最后一个包
           DFSPacket endOfBlockPacket = dataQueue.remove();  // remove the end of block packet
           // Close any trace span associated with this Packet
           TraceScope scope = endOfBlockPacket.getTraceScope();
@@ -1290,12 +1312,14 @@ class DataStreamer extends Daemon {
           pipelineRecoveryCount = 0;
           dataQueue.notifyAll();
         }
+        //初始化block Stream 状态
         endBlock();
       } else {
+        //  重置数据流管道，启动新的  response 线程，并将状态设置为  DATA_STREAMING
         initDataStreaming();
       }
     }
-
+    //恢复管道流不需要 sleep
     return false;
   }
 
@@ -1352,11 +1376,11 @@ class DataStreamer extends Daemon {
     if (!isAppend && lastAckedSeqno < 0
         && stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {
       //no data have been written
-      return;
+      return; //没有写入数据什么都不用做
     } else if (stage == BlockConstructionStage.PIPELINE_CLOSE
         || stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
       //pipeline is closing
-      return;
+      return; //数据管道流关闭，也不用做什么
     }
 
     int tried = 0;
@@ -1367,13 +1391,13 @@ class DataStreamer extends Daemon {
     ArrayList<DatanodeInfo> exclude = new ArrayList<>(failed);
     while (tried < 3) {
       LocatedBlock lb;
-      //get a new datanode
+      //get a new datanode  申请一个新的节点
       lb = dfsClient.namenode.getAdditionalDatanode(
           src, stat.getFileId(), block.getCurrentBlock(), nodes, storageIDs,
           exclude.toArray(new DatanodeInfo[exclude.size()]),
           1, dfsClient.clientName);
       // a new node was allocated by the namenode. Update nodes.
-      setPipeline(lb);
+      setPipeline(lb); //重置管道流
 
       //find the new datanode
       final int d;
@@ -1413,6 +1437,7 @@ class DataStreamer extends Daemon {
       final String[] targetStorageIDs = {storageIDs[d]};
 
       try {
+        // 将已经传输好的包数据 拷贝到新节点
         transfer(src, targets, targetStorageTypes, targetStorageIDs,
             lb.getBlockToken());
       } catch (IOException ioe) {
@@ -1479,6 +1504,8 @@ class DataStreamer extends Daemon {
     // Check number of datanodes. Note that if there is no healthy datanode,
     // this must be internal error because we mark external error in striped
     // outputstream only when all the streamers are in the DATA_STREAMING stage
+
+    //1、如果管道流中没有 DataNode 这直接停止 DataStream
     if (nodes == null || nodes.length == 0) {
       String msg = "Could not get block locations. " + "Source file \""
           + src + "\" - Aborting..." + this;
@@ -1487,6 +1514,7 @@ class DataStreamer extends Daemon {
       streamerClosed = true;
       return;
     }
+
     setupPipelineInternal(nodes, storageTypes, storageIDs);
   }
 
@@ -1495,24 +1523,28 @@ class DataStreamer extends Daemon {
       throws IOException {
     boolean success = false;
     long newGS = 0L;
+
     while (!success && !streamerClosed && dfsClient.clientRunning) {
+      //1、循环等待 dataNode 重启超时
       if (!handleRestartingDatanode()) {
         return;
       }
 
       final boolean isRecovery = errorState.hasInternalError();
+      //2、处理错误节点
       if (!handleBadDatanode()) {
         return;
       }
 
+      //替换故障节点，在管道流中加入一个新的节点
       handleDatanodeReplacement();
 
       // get a new generation stamp and an access token
-      final LocatedBlock lb = updateBlockForPipeline();
+      final LocatedBlock lb = updateBlockForPipeline(); //获得一个新的时间戳，和 token
       newGS = lb.getBlock().getGenerationStamp();
       accessToken = lb.getBlockToken();
 
-      // set up the pipeline again with the remaining nodes
+      // set up the pipeline again with the remaining nodes  更新数据管道流，重建数据管道流的 IO 流
       success = createBlockOutputStream(nodes, storageTypes, storageIDs, newGS,
           isRecovery);
 
@@ -1522,6 +1554,8 @@ class DataStreamer extends Daemon {
     } // while
 
     if (success) {
+      // 更新 NN 命名空间中数据块和 Client 块 的时间戳
+      // 进而故障节点的块过期就会作废
       updatePipeline(newGS);
     }
   }
@@ -1533,7 +1567,7 @@ class DataStreamer extends Daemon {
    */
   boolean handleRestartingDatanode() {
     if (errorState.isRestartingNode()) {
-      if (!errorState.doWaitForRestart()) {
+      if (!errorState.doWaitForRestart()) { //如果状态不是等待重启则将 DN 加入 badList
         // If node is restarting and not worth to wait for restart then can go
         // ahead with error recovery considering it as bad node for now. Later
         // it should be able to re-consider the same node for future pipeline
@@ -1544,6 +1578,7 @@ class DataStreamer extends Daemon {
       // 4 seconds or the configured deadline period, whichever is shorter.
       // This is the retry interval and recovery will be retried in this
       // interval until timeout or success.
+      //默认等待 4s
       final long delay = Math.min(errorState.datanodeRestartTimeout, 4000L);
       try {
         Thread.sleep(delay);
@@ -1565,7 +1600,7 @@ class DataStreamer extends Daemon {
   boolean handleBadDatanode() {
     final int badNodeIndex = errorState.getBadNodeIndex();
     if (badNodeIndex >= 0) {
-      if (nodes.length <= 1) {
+      if (nodes.length <= 1) { //如果管道流中只有一个节点，则直接关闭 stream
         lastException.set(new IOException("All datanodes "
             + Arrays.toString(nodes) + " are bad. Aborting..."));
         streamerClosed = true;
@@ -1573,6 +1608,7 @@ class DataStreamer extends Daemon {
       }
 
       String reason = "bad.";
+      //如果重启节点与bad节点一致，则加入到  restartingNodes 列表表中
       if (errorState.getRestartingNodeIndex() == badNodeIndex) {
         reason = "restarting.";
         restartingNodes.add(nodes[badNodeIndex]);
@@ -1580,8 +1616,10 @@ class DataStreamer extends Daemon {
       LOG.warn("Error Recovery for " + block + " in pipeline "
           + Arrays.toString(nodes) + ": datanode " + badNodeIndex
           + "("+ nodes[badNodeIndex] + ") is " + reason);
+      //将失败节点加入到失败队列中
       failed.add(nodes[badNodeIndex]);
 
+      //从数据流管道数据列表中移除失败节点
       DatanodeInfo[] newnodes = new DatanodeInfo[nodes.length-1];
       arraycopy(nodes, newnodes, badNodeIndex);
 
@@ -1591,8 +1629,10 @@ class DataStreamer extends Daemon {
       final String[] newStorageIDs = new String[newnodes.length];
       arraycopy(storageIDs, newStorageIDs, badNodeIndex);
 
+      //重置数据管道流
       setPipeline(newnodes, newStorageTypes, newStorageIDs);
 
+      //更新 restartingNodeIndex 索引
       errorState.adjustState4RestartingNode();
       lastException.clear();
     }
@@ -1602,9 +1642,9 @@ class DataStreamer extends Daemon {
   /** Add a datanode if replace-datanode policy is satisfied. */
   private void handleDatanodeReplacement() throws IOException {
     if (dfsClient.dtpReplaceDatanodeOnFailure.satisfy(stat.getReplication(),
-        nodes, isAppend, isHflushed)) {
+        nodes, isAppend, isHflushed)) { //判断是否要替换当前管道流中的故障 dn
       try {
-        addDatanode2ExistingPipeline();
+        addDatanode2ExistingPipeline(); //
       } catch(IOException ioe) {
         if (!dfsClient.dtpReplaceDatanodeOnFailure.isBestEffort()) {
           throw ioe;
@@ -1667,6 +1707,7 @@ class DataStreamer extends Daemon {
     DatanodeInfo[] nodes;
     StorageType[] nextStorageTypes;
     String[] nextStorageIDs;
+    // client 写重试次数 dfs.client.block.write.retries 5 次
     int count = dfsClient.getConf().getNumBlockWriteRetry();
     boolean success;
     final ExtendedBlock oldBlock = block.getCurrentBlock();
@@ -1675,22 +1716,25 @@ class DataStreamer extends Daemon {
       lastException.clear();
 
       DatanodeInfo[] excluded = getExcludedNodes();
+      //向 NameNode 申请一个新的块，并提提交上一个块
       lb = locateFollowingBlock(
           excluded.length > 0 ? excluded : null, oldBlock);
-      block.setCurrentBlock(lb.getBlock());
-      block.setNumBytes(0);
-      bytesSent = 0;
+      block.setCurrentBlock(lb.getBlock()); // 当前正在写的数据块
+      block.setNumBytes(0); //数据块大小，没有写因此为 0
+      bytesSent = 0; // 写入字节数
       accessToken = lb.getBlockToken();
-      nodes = lb.getLocations();
+      nodes = lb.getLocations(); // 块副本的 datanode 列表
       nextStorageTypes = lb.getStorageTypes();
       nextStorageIDs = lb.getStorageIDs();
 
       // Connect to first DataNode in the list.
+      // 检查 block 各副本的节点是否都能正常链接，创建管道流 （核心方法）
       success = createBlockOutputStream(nodes, nextStorageTypes, nextStorageIDs,
           0L, false);
 
-      if (!success) {
+      if (!success) {  // 如果创建失败，则将异常节点加入到 excludedNodes 中避免下次申请的时候再遇到
         LOG.warn("Abandoning " + block);
+        //创建输出流失败，则放弃数据块 ，下次再申请的新的块
         dfsClient.namenode.abandonBlock(block.getCurrentBlock(),
             stat.getFileId(), src, dfsClient.clientName);
         block.setCurrentBlock(null);
@@ -1701,7 +1745,7 @@ class DataStreamer extends Daemon {
     } while (!success && --count >= 0);
 
     if (!success) {
-      throw new IOException("Unable to create new block.");
+      throw new IOException("Unable to create new block."); //重试不成功抛出异常
     }
     return lb;
   }
@@ -1732,10 +1776,13 @@ class DataStreamer extends Daemon {
       try {
         assert null == s : "Previous socket unclosed";
         assert null == blockReplyStream : "Previous blockReplyStream unclosed";
+        // 创建与第一个 Dn 创建 socket 链接 ，并设置对应的超时时间
         s = createSocketForPipeline(nodes[0], nodes.length, dfsClient);
+        // read、write 时间为  5s * dn_length
         long writeTimeout = dfsClient.getDatanodeWriteTimeout(nodes.length);
         long readTimeout = dfsClient.getDatanodeReadTimeout(nodes.length);
 
+        //将 socket 包装为输入、输出流
         OutputStream unbufOut = NetUtils.getOutputStream(s, writeTimeout);
         InputStream unbufIn = NetUtils.getInputStream(s, readTimeout);
         IOStreamPair saslStreams = dfsClient.saslClient.socketSend(s,
@@ -1757,9 +1804,10 @@ class DataStreamer extends Daemon {
         // of bytes ack'ed.
         ExtendedBlock blockCopy = block.getCurrentBlock();
         blockCopy.setNumBytes(stat.getBlockSize());
-
+        // 记录数组中各 DN 的状态
         boolean[] targetPinnings = getPinnings(nodes);
-        // send the request
+        // send the request   构造 Sender ，发送一个数据请求到 dn
+        //  dn 如何处理请求的，这个时候就将请求也转发到后续的节点上吗？ todo
         new Sender(out).writeBlock(blockCopy, nodeStorageTypes[0], accessToken,
             dfsClient.clientName, nodes, nodeStorageTypes, null, bcs,
             nodes.length, block.getNumBytes(), bytesSent, newGS,
@@ -1767,7 +1815,7 @@ class DataStreamer extends Daemon {
             (targetPinnings != null && targetPinnings[0]), targetPinnings,
             nodeStorageIDs[0], nodeStorageIDs);
 
-        // receive ack for connect
+        // receive ack for connect  获取写数据块响应
         BlockOpResponseProto resp = BlockOpResponseProto.parseFrom(
             PBHelperClient.vintPrefixed(blockReplyStream));
         Status pipelineStatus = resp.getStatus();
@@ -1777,7 +1825,7 @@ class DataStreamer extends Daemon {
         // If a node is already restarting, this status is not likely from
         // the same node. If it is from a different node, it is not
         // from the local datanode. Thus it is safe to treat this as a
-        // regular node error.
+        // regular node error.   如果管道流中有 datanode 在重启，则 checkRestart , 并抛出异常
         if (PipelineAck.isRestartOOBStatus(pipelineStatus) &&
             !errorState.isRestartingNode()) {
           checkRestart = true;
@@ -1785,11 +1833,12 @@ class DataStreamer extends Daemon {
         }
 
         String logInfo = "ack with firstBadLink as " + firstBadLink;
+        // 最后检查 数据管道流建立的情况，如果不成功则抛出异常
         DataTransferProtoUtil.checkBlockOpStatus(resp, logInfo);
 
         assert null == blockStream : "Previous blockStream unclosed";
-        blockStream = out;
-        result =  true; // success
+        blockStream = out; //将输出流赋值到 blockStream 上
+        result =  true; // success  创建输出流成功
         errorState.resetInternalError();
         // remove all restarting nodes from failed nodes list
         failed.removeAll(restartingNodes);
@@ -1798,6 +1847,7 @@ class DataStreamer extends Daemon {
         if (!errorState.isRestartingNode()) {
           LOG.info("Exception in createBlockOutputStream " + this, ie);
         }
+        //安全错误，重新获得 key
         if (ie instanceof InvalidEncryptionKeyException &&
             refetchEncryptionKey > 0) {
           LOG.info("Will fetch a new encryption key and retry, "
@@ -1812,6 +1862,7 @@ class DataStreamer extends Daemon {
         }
 
         // find the datanode that matches
+        // 找到出现错误的节点，记录在 errorState 中
         if (firstBadLink.length() != 0) {
           for (int i = 0; i < nodes.length; i++) {
             // NB: Unconditionally using the xfer addr w/o hostname
@@ -1827,7 +1878,7 @@ class DataStreamer extends Daemon {
 
         final int i = errorState.getBadNodeIndex();
         // Check whether there is a restart worth waiting for.
-        if (checkRestart) {
+        if (checkRestart) { // 判断是否需要等待节点重启， 等待local 节点或副本个数为 1 时也可等待
           errorState.initRestartingNode(i,
               "Datanode " + i + " is restarting: " + nodes[i],
               shouldWaitForRestart(i));
@@ -1869,7 +1920,13 @@ class DataStreamer extends Daemon {
       return pinnings;
     }
   }
-
+  /**
+   * 申请一个新的块，并提交上一个块
+   * @param  excluded 排除的节点
+   * @param  oldBlock  需要提交的上一个块
+   * @return 返回一个存储数据的新的块
+   *  如果上一个块副本数据没有满足预期，则会抛出 NotReplicatedYetException
+   * */
   private LocatedBlock locateFollowingBlock(DatanodeInfo[] excluded,
       ExtendedBlock oldBlock) throws IOException {
     return DFSOutputStream.addBlock(excluded, dfsClient, src, oldBlock,

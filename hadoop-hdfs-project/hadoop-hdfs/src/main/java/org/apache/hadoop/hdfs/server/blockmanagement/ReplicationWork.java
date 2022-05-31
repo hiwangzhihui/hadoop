@@ -43,6 +43,7 @@ class ReplicationWork extends BlockReconstructionWork {
     assert getSrcNodes().length > 0
         : "At least 1 source node should have been selected";
     try {
+      //选择节点
       DatanodeStorageInfo[] chosenTargets = blockplacement.chooseTarget(
           getSrcPath(), getAdditionalReplRequired(), getSrcNodes()[0],
           getLiveReplicaStorages(), false, excludedNodes, getBlockSize(),
