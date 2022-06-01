@@ -534,9 +534,11 @@ public class DistributedFileSystem extends FileSystem
     return new FileSystemLinkResolver<FSDataOutputStream>() {
       @Override
       public FSDataOutputStream doCall(final Path p) throws IOException {
+        //使用 DFSClient 去创建文件
         final DFSOutputStream dfsos = dfs.create(getPathName(p), permission,
             cflags, replication, blockSize, progress, bufferSize,
             checksumOpt);
+        //将 DFSOutputStream 包装为  FSDataOutputStream 返回给用户
         return dfs.createWrappedOutputStream(dfsos, statistics);
       }
       @Override
