@@ -132,9 +132,11 @@ public class DFSOutputStream extends FSOutputSummer
       long offsetInBlock, long seqno, boolean lastPacketInBlock)
       throws InterruptedIOException {
     final byte[] buf;
+    //单个包真实占用内存大小
     final int bufferSize = PacketHeader.PKT_MAX_HEADER_LEN + packetSize;
 
     try {
+      //为 packet 申请内存
       buf = byteArrayManager.newByteArray(bufferSize);
     } catch (InterruptedException ie) {
       final InterruptedIOException iioe = new InterruptedIOException(
@@ -432,6 +434,7 @@ public class DFSOutputStream extends FSOutputSummer
   @Override
   protected synchronized void writeChunk(byte[] b, int offset, int len,
       byte[] checksum, int ckoff, int cklen) throws IOException {
+    //写chunk 的准备工作
     writeChunkPrepare(len, ckoff, cklen);
 
     currentPacket.writeChecksum(checksum, ckoff, cklen);

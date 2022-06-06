@@ -158,10 +158,11 @@ public class DFSPacket {
   public synchronized void writeTo(DataOutputStream stm) throws IOException {
     checkBuffer();
 
+    //真实传输的用户数据大小
     final int dataLen = dataPos - dataStart;
     final int checksumLen = checksumPos - checksumStart;
     final int pktLen = HdfsConstants.BYTES_IN_INTEGER + dataLen + checksumLen;
-
+    //此时将头信息输出写入到，Packet 中
     PacketHeader header = new PacketHeader(
         pktLen, offsetInBlock, seqno, lastPacketInBlock, dataLen, syncBlock);
 
