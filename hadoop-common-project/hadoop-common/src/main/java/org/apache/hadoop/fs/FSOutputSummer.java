@@ -34,7 +34,7 @@ import java.util.zip.Checksum;
 @InterfaceAudience.LimitedPrivate({"HDFS"})
 @InterfaceStability.Unstable
 abstract public class FSOutputSummer extends OutputStream {
-  // data checksum
+  // data checksum  单个 chunk 默认大小为：512kb  校验算法使用：CRC32C
   private final DataChecksum sum;
   // internal buffer for storing data before it is checksumed
   private byte buf[];
@@ -51,6 +51,7 @@ abstract public class FSOutputSummer extends OutputStream {
   
   protected FSOutputSummer(DataChecksum sum) {
     this.sum = sum;
+    //一个 buf、 checksum 包含 9 个 chunk 的信息
     this.buf = new byte[sum.getBytesPerChecksum() * BUFFER_NUM_CHUNKS];
     this.checksum = new byte[getChecksumSize() * BUFFER_NUM_CHUNKS];
     this.count = 0;
@@ -103,11 +104,11 @@ abstract public class FSOutputSummer extends OutputStream {
       throws IOException {
     
     checkClosed();
-    
+    //判断参数是否合法
     if (off < 0 || len < 0 || off > b.length - len) {
       throw new ArrayIndexOutOfBoundsException();
     }
-
+    //循环调用 write1 方法直到把 buffer 写满 9 * 512 （9 个chunk）
     for (int n=0;n<len;n+=write1(b, off+n, len-n)) {
     }
   }
@@ -117,6 +118,8 @@ abstract public class FSOutputSummer extends OutputStream {
    * stream at most once if necessary.
    */
   private int write1(byte b[], int off, int len) throws IOException {
+    //如果 buf 为空，且一次就可以把 buf 写满，数据就不经过 buf，则直接调用 writeChecksumChunks
+    //将数据写入 IO 流
     if(count==0 && len>=buf.length) {
       // local buffer is empty and user buffer size >= local buffer size, so
       // simply checksum the user buffer and send it directly to the underlying
@@ -126,14 +129,14 @@ abstract public class FSOutputSummer extends OutputStream {
       return length;
     }
     
-    // copy user data to local buffer
+    // copy user data to local buffer 否则继续性buffer 中写入数据，直到写满为止
     int bytesToCopy = buf.length-count;
     bytesToCopy = (len<bytesToCopy) ? len : bytesToCopy;
     System.arraycopy(b, off, buf, count, bytesToCopy);
     count += bytesToCopy;
     if (count == buf.length) {
       // local buffer is full
-      flushBuffer();
+      flushBuffer(); // buffer 数据写满后，则调用 flushBuffer 方法将缓存的数据向 IO 中写
     } 
     return bytesToCopy;
   }
@@ -208,12 +211,15 @@ abstract public class FSOutputSummer extends OutputStream {
    */
   private void writeChecksumChunks(byte b[], int off, int len)
   throws IOException {
+    //计算chunk 的校验块信息
     sum.calculateChunkedSums(b, off, len, checksum, 0);
     TraceScope scope = createWriteTraceScope();
     try {
+      //这样的话是不是会导致数据空间浪费一个chunk 的空间？？？
       for (int i = 0; i < len; i += sum.getBytesPerChecksum()) {
         int chunkLen = Math.min(sum.getBytesPerChecksum(), len - i);
         int ckOffset = i / sum.getBytesPerChecksum() * getChecksumSize();
+        //将 chunk 和 校验块信息写入到 paket 中
         writeChunk(b, off + i, chunkLen, checksum, ckOffset,
             getChecksumSize());
       }
