@@ -434,15 +434,20 @@ public class DFSOutputStream extends FSOutputSummer
   @Override
   protected synchronized void writeChunk(byte[] b, int offset, int len,
       byte[] checksum, int ckoff, int cklen) throws IOException {
-    //写chunk 的准备工作
+    //写chunk 的准备工作, 如果 currentPacket 不存在则创建
     writeChunkPrepare(len, ckoff, cklen);
 
+    //写入 校验块信息
     currentPacket.writeChecksum(checksum, ckoff, cklen);
+    //写入 数据块信息
     currentPacket.writeData(b, offset, len);
+    //记录写入的 数据块发个数
     currentPacket.incNumChunks();
+    //记录当前块写入的数据长度
     getStreamer().incBytesCurBlock(len);
 
     // If packet is full, enqueue it for transmission
+    //如果当packet 被写满则将其放入到 dataQueue 队列中等发送
     if (currentPacket.getNumChunks() == currentPacket.getMaxChunks() ||
         getStreamer().getBytesCurBlock() == blockSize) {
       enqueueCurrentPacketFull();
@@ -474,6 +479,7 @@ public class DFSOutputStream extends FSOutputSummer
     dfsClient.checkOpen();
     checkClosed();
 
+    //检查当前写入的 chunk 和对应的校验数据大小是否越界
     if (buflen > bytesPerChecksum) {
       throw new IOException("writeChunk() buffer size is " + buflen +
                             " is larger than supported  bytesPerChecksum " +
@@ -484,6 +490,7 @@ public class DFSOutputStream extends FSOutputSummer
                             getChecksumSize() + " but found to be " + cklen);
     }
 
+    //如果 currentPacket 不存在则创建一个新的
     if (currentPacket == null) {
       currentPacket = createPacket(packetSize, chunksPerPacket, getStreamer()
           .getBytesCurBlock(), getStreamer().getAndIncCurrentSeqno(), false);
@@ -504,9 +511,9 @@ public class DFSOutputStream extends FSOutputSummer
             + " appendChunk={}, {}", currentPacket, src, getStreamer()
             .getBytesCurBlock(), blockSize, getStreamer().getAppendChunk(),
         getStreamer());
-    enqueueCurrentPacket(); //
-    adjustChunkBoundary();
-    endBlock();
+    enqueueCurrentPacket(); //将 packet 加入到 dataQueu 中
+    adjustChunkBoundary(); // TODO 调整 append 追加的情况
+    endBlock(); //判定一个块是否被写满，如果写满则发送一个空 packet 告知 pipeline 写满了
   }
 
   /** create an empty packet to mark the end of the block. */

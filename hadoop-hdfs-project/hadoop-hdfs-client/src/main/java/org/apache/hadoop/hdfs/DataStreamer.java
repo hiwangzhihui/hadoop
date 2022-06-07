@@ -927,8 +927,10 @@ class DataStreamer extends Daemon {
     synchronized (dataQueue) {
       try {
         // If queue is full, then wait till we have enough space
+         //这块有什么指标吗？如果出现问题导致 dataQueue 堆积
         boolean firstWait = true;
         try {
+          // dfs.client.write.max-packets-in-flight 默认队列长度 80
           while (!streamerClosed && dataQueue.size() + ackQueue.size() >
               dfsClient.getConf().getWriteMaxPackets()) {
             if (firstWait) {
@@ -939,7 +941,7 @@ class DataStreamer extends Daemon {
               firstWait = false;
             }
             try {
-              dataQueue.wait();
+              dataQueue.wait(); //如果 dataQueue、ackQueue 队列堆积长度大于 80 则，等待
             } catch (InterruptedException e) {
               // If we get interrupted while waiting to queue data, we still need to get rid
               // of the current packet. This is because we have an invariant that if
@@ -959,7 +961,7 @@ class DataStreamer extends Daemon {
           }
         }
         checkClosed();
-        queuePacket(packet);
+        queuePacket(packet); //将 packet 加入 dataQueue 队尾
       } catch (ClosedChannelException ignored) {
       }
     }
