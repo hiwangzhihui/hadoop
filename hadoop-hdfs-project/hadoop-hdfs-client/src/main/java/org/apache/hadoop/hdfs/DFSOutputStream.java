@@ -512,8 +512,8 @@ public class DFSOutputStream extends FSOutputSummer
             .getBytesCurBlock(), blockSize, getStreamer().getAppendChunk(),
         getStreamer());
     enqueueCurrentPacket(); //将 packet 加入到 dataQueu 中
-    adjustChunkBoundary(); // TODO 调整 append 追加的情况
-    endBlock(); //判定一个块是否被写满，如果写满则发送一个空 packet 告知 pipeline 写满了
+    adjustChunkBoundary(); // TODO 处理 append 情况的块边界
+    endBlock(); //判定一个块是否被写满，如果写满则发送一个空 packet 表示块已经写完了
   }
 
   /** create an empty packet to mark the end of the block. */
@@ -529,12 +529,15 @@ public class DFSOutputStream extends FSOutputSummer
    * crc chunks from now on.
    */
   protected void adjustChunkBoundary() {
+    //如果之前块的 chunk 没写满，则当前 pakcet 只发送 appen chunk
+    //然后将 checksum 和 appendChunk 重置
     if (getStreamer().getAppendChunk() &&
         getStreamer().getBytesCurBlock() % bytesPerChecksum == 0) {
       getStreamer().setAppendChunk(false);
       resetChecksumBufSize();
     }
 
+    //恢复packet 大小，避免数据块越界
     if (!getStreamer().getAppendChunk()) {
       final int psize = (int) Math
           .min(blockSize - getStreamer().getBytesCurBlock(), writePacketSize);
