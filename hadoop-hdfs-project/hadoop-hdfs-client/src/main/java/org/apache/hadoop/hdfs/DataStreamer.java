@@ -249,7 +249,7 @@ class DataStreamer extends Daemon {
     LOG.debug("Connecting to datanode {}", dnAddr);
     final InetSocketAddress isa = NetUtils.createSocketAddr(dnAddr);
     final Socket sock = client.socketFactory.createSocket();
-    final int timeout = client.getDatanodeReadTimeout(length); //超时时间 等于  READ_TIMEOUT_EXTENSION * node_len
+    final int timeout = client.getDatanodeReadTimeout(length); //超时时间 等于  READ_TIMEOUT_EXTENSION * node_len + readTimeOut
     // 向第一个dn 建立链接请求，并保存 keepAlive
     NetUtils.connect(sock, isa, client.getRandomLocalInterfaceAddr(),
         conf.getSocketTimeout());
@@ -1709,7 +1709,7 @@ class DataStreamer extends Daemon {
     DatanodeInfo[] nodes;
     StorageType[] nextStorageTypes;
     String[] nextStorageIDs;
-    // client 写重试次数 dfs.client.block.write.retries 5 次
+    // client 写重试次数 dfs.client.block.write.retries 3 次
     int count = dfsClient.getConf().getNumBlockWriteRetry();
     boolean success;
     final ExtendedBlock oldBlock = block.getCurrentBlock();
@@ -1780,8 +1780,9 @@ class DataStreamer extends Daemon {
         assert null == blockReplyStream : "Previous blockReplyStream unclosed";
         // 创建与第一个 Dn 创建 socket 链接 ，并设置对应的超时时间
         s = createSocketForPipeline(nodes[0], nodes.length, dfsClient);
-        // read、write 时间为  5s * dn_length
+        // writer 数据超时时间默认： dfs.datanode.socket.write.timeout  8 * 60s +  5s *  nodes.length
         long writeTimeout = dfsClient.getDatanodeWriteTimeout(nodes.length);
+        // read 数据超时时间默认： dfs.client.socket-timeout  60s +  5s *  nodes.length
         long readTimeout = dfsClient.getDatanodeReadTimeout(nodes.length);
 
         //将 socket 包装为输入、输出流
@@ -1798,7 +1799,6 @@ class DataStreamer extends Daemon {
         //
         // Xmit header info to datanode
         //
-
         BlockConstructionStage bcs = recoveryFlag ?
             stage.getRecoveryStage() : stage;
 
@@ -1810,6 +1810,7 @@ class DataStreamer extends Daemon {
         boolean[] targetPinnings = getPinnings(nodes);
         // send the request   构造 Sender ，发送一个数据请求到 dn
         //  dn 如何处理请求的，这个时候就将请求也转发到后续的节点上吗？ todo
+        // 调用 DataTransferProtocol.writeBlock 接口向第一个 datanode  发送数据
         new Sender(out).writeBlock(blockCopy, nodeStorageTypes[0], accessToken,
             dfsClient.clientName, nodes, nodeStorageTypes, null, bcs,
             nodes.length, block.getNumBytes(), bytesSent, newGS,

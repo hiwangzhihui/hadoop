@@ -757,7 +757,8 @@ class DataXceiver extends Receiver implements Runnable {
       final Replica replica;
       if (isDatanode || 
           stage != BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
-        // open a block receiver
+        // open a block receiver 为每个 Block 开一个receiver 吗？那一个 DN 同一时刻只能写一个块数据？
+        // 这时候怎么控制呢？
         setCurrentBlockReceiver(getBlockReceiver(block, storageType, in,
             peer.getRemoteAddressString(),
             peer.getLocalAddressString(),

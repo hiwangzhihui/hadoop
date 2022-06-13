@@ -1108,6 +1108,7 @@ public class DFSOutputStream extends FSOutputSummer
     final DfsClientConf conf = dfsClient.getConf();
     // dfs.client.block.write.locateFollowingBlock.retries 默认 5 次
     int retries = conf.getNumBlockWriteLocateFollowingRetry();
+    // dfs.client.block.write.locateFollowingBlock.initial.delay.ms 400 ms
     long sleeptime = conf.getBlockWriteLocateFollowingInitialDelayMs();
     long localstart = Time.monotonicNow();
     while (true) {
