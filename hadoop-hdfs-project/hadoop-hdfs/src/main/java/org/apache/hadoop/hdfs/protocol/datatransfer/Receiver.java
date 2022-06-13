@@ -164,7 +164,7 @@ public abstract class Receiver implements DataTransferProtocol {
   }
   
   /** Receive OP_WRITE_BLOCK */
-  private void mirrorInStatusopWriteBlock(DataInputStream in) throws IOException {
+  private void opWriteBlock(DataInputStream in) throws IOException {
     final OpWriteBlockProto proto = OpWriteBlockProto.parseFrom(vintPrefixed(in));
     final DatanodeInfo[] targets = PBHelperClient.convert(proto.getTargetsList());
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),

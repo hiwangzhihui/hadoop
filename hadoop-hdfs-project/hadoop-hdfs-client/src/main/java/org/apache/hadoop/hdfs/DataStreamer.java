@@ -530,6 +530,7 @@ class DataStreamer extends Daemon {
   private long artificialSlowdown = 0;
   // List of congested data nodes. The stream will back off if the DataNodes
   // are congested
+  //阻塞的数据节点列表
   private final List<DatanodeInfo> congestedNodes = new ArrayList<>();
   private static final int CONGESTION_BACKOFF_MEAN_TIME_IN_MS = 5000;
   private static final int CONGESTION_BACK_OFF_MAX_TIME_IN_MS =
@@ -664,19 +665,21 @@ class DataStreamer extends Daemon {
     TraceScope scope = null;
     while (!streamerClosed && dfsClient.clientRunning) {
       // if the Responder encountered an error, shutdown Responder
-      // 1、 先进行错误处理，如果发现错误则关闭 Responder 线程
+      // 1、 如果发现错误则关闭 Responder 线程
       if (errorState.hasError()) {
         closeResponder();
       }
 
       DFSPacket one;
       try {
-        // process datanode IO errors if any 2、 调用处理 processDatanodeOrExternalError 处理错误
+        // process datanode IO errors if any
+        // 2、 调用 processDatanodeOrExternalError 处理错误
         boolean doSleep = processDatanodeOrExternalError();
-
+        // 30s
         final int halfSocketTimeout = dfsClient.getConf().getSocketTimeout()/2;
         synchronized (dataQueue) {
-          // wait for a packet to be sent.  3、 dataQueue 等待一个需要被发送的数据包
+          // wait for a packet to be sent.
+          // 3、 dataQueue 等待一个需要被发送的数据包
           long now = Time.monotonicNow();
           while ((!shouldStop() && dataQueue.size() == 0 &&
               (stage != BlockConstructionStage.DATA_STREAMING ||
@@ -686,7 +689,7 @@ class DataStreamer extends Daemon {
             timeout = (stage == BlockConstructionStage.DATA_STREAMING)?
                 timeout : 1000;
             try {
-              dataQueue.wait(timeout); // dataQueue 等待
+              dataQueue.wait(timeout); // 如果队列为空则需求等待
             } catch (InterruptedException  e) {
               LOG.warn("Caught exception", e);
             }
@@ -697,16 +700,19 @@ class DataStreamer extends Daemon {
             continue;
           }
 
-          // get packet to be sent.  从队列中获取一个packt 发送出去
+          // get packet to be sent.
+          // 4、从队列中获取一个packt 发送出去
           if (dataQueue.isEmpty()) {
-            one = createHeartbeatPacket(); //如果队列为空，则准备一个空的心跳消息，标记为 DFSPacket.HEART_BEAT_SEQNO
+            //如果超过等待时间发现 dataQueue 为空，则发送一个心跳包
+            one = createHeartbeatPacket();
           } else {
             try {
               backOffIfNecessary();
             } catch (InterruptedException e) {
               LOG.warn("Caught exception", e);
             }
-            one = dataQueue.getFirst(); // regular data packet  从队列只中拿取一个第一个包
+            //从队列只中拿取一个第一个包
+            one = dataQueue.getFirst(); // regular data packet
             SpanId[] parents = one.getTraceParents();
             if (parents.length > 0) {
               scope = dfsClient.getTracer().
@@ -716,16 +722,19 @@ class DataStreamer extends Daemon {
           }
         }
 
-        // get new block from namenode. 4、从 NameNode 获取一个新的数据块，并初始化管道流
+        // get new block from namenode.
+        // 从 NameNode 获取一个新的数据块，并初始化管道流
         if (LOG.isDebugEnabled()) {
           LOG.debug("stage=" + stage + ", " + this);
         }
-        if (stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) { // 创建管道流
+        // 如果当前管道流状态为 PIPELINE_SETUP_CREATE 则创建管道流
+        if (stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {
           LOG.debug("Allocating new block: {}", this);
           // nextBlockOutputStream 写新文件时会向 NameNode 申请分配新的块，进行数据流管道化
           // setPipeline 记录当前存储数据块的 DN 信息 ，以及 Dn 数据块的存储（storage）信息
           setPipeline(nextBlockOutputStream());
           initDataStreaming(); //修改管道流状态为 DATA_STREAMING
+          //如果当前管道流状态为 PIPELINE_SETUP_APPEND 则尝试恢复管道流
         } else if (stage == BlockConstructionStage.PIPELINE_SETUP_APPEND) {
           LOG.debug("Append to block {}", block);
           // HDFS 打开已有的文件，返回最后一个块的位置信息，进行数据流管道化
@@ -735,16 +744,16 @@ class DataStreamer extends Daemon {
           }
           initDataStreaming(); //更新数据块构建状态为 DATA_STREAMING 表数据管道流已经建立好了
         }
-
-        long lastByteOffsetInBlock = one.getLastByteOffsetBlock(); //判定数据是否写越界，则抛出异常
+        //判定数据是否写越界，则抛出异常
+        long lastByteOffsetInBlock = one.getLastByteOffsetBlock();
         if (lastByteOffsetInBlock > stat.getBlockSize()) {
           throw new IOException("BlockSize " + stat.getBlockSize() +
               " < lastByteOffsetInBlock, " + this + ", " + one);
         }
 
         if (one.isLastPacketInBlock()) {
-          // wait for all data packets have been successfully acked  ， 等待队列中所有的包被 ack 成功，才发送 lastPacket
-          //否则等待
+          // wait for all data packets have been successfully acked  ，
+          // 等待队列中所有的包被 ack 成功，才发送 lastPacket
           synchronized (dataQueue) {
             while (!shouldStop() && ackQueue.size() != 0) {
               try {
@@ -758,7 +767,7 @@ class DataStreamer extends Daemon {
           if (shouldStop()) {
             continue;
           }
-          //更新 管道流状态为关闭，后续会有什么操作呢？关闭流状态转为 PIPELINE_SETUP_CREATE
+          //更新管道流状态为关闭
           stage = BlockConstructionStage.PIPELINE_CLOSE;
         }
 
@@ -810,7 +819,8 @@ class DataStreamer extends Daemon {
         }
 
         // Is this block full?
-        if (one.isLastPacketInBlock()) { //如果为最后一个消息，则等待所有的消息都被 ack
+        //如果为最后一个消息，则等待所有的消息都被 ack ，这次是等待 lastPakcet 的 ack
+        if (one.isLastPacketInBlock()) {
           // wait for the close packet has been acked
           synchronized (dataQueue) {
             while (!shouldStop() && ackQueue.size() != 0) {

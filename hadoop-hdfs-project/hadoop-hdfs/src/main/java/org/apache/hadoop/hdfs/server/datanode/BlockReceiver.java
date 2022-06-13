@@ -522,6 +522,7 @@ class BlockReceiver implements Closeable {
   /** 
    * Receives and processes a packet. It can contain many chunks.
    * returns the number of data bytes that the packet has.
+   * 从网络 IO 中读取数据
    */
   private int receivePacket() throws IOException {
     // read the next packet
@@ -627,6 +628,7 @@ class BlockReceiver implements Closeable {
 
       if (checksumReceivedLen > 0 && shouldVerifyChecksum()) {
         try {
+          //chunk 的CheckSum 校验
           verifyChunks(dataBuf, checksumBuf);
         } catch (IOException ioe) {
           // checksum error detected locally. there is no reason to continue.
