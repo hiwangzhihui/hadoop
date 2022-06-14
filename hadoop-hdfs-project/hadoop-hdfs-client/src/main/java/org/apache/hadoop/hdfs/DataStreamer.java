@@ -1018,6 +1018,7 @@ class DataStreamer extends Daemon {
     }
   }
 
+  //关闭 blockStream、blockReplyStream 流
   void closeStream() {
     final MultipleIOException.Builder b = new MultipleIOException.Builder();
 
@@ -1260,7 +1261,7 @@ class DataStreamer extends Daemon {
       return false;
     }
 
-    //2、如果状态异常，response 线程不为空，则返回 true ；只有 restarting 的情况，需要sleep
+    //2、如果 response 还没有被关闭，则可能此时重新创建一个新的 response ，等待管道流恢复
     LOG.debug("start process datanode/external error, {}", this);
     if (response != null) {
       LOG.info("Error Recovery for " + block +
@@ -1268,11 +1269,11 @@ class DataStreamer extends Daemon {
       return true;
     }
 
-    //3、如果拿不到结果，且有相关异常信息，则关闭 stream 所有 IO
+    //3、确定异常发生直接关闭 blockStream  IO
     closeStream();
 
     // move packets from ack queue to front of the data queue
-    //4、 将 ackQueue 中的数据包放入到 dataQueue 中，准备重试
+    //4、 将 ackQueue 中的数据包放入到 dataQueue 中，准备重试，同时也从 packetSendTime 监控队列中移除
     synchronized (dataQueue) {
       dataQueue.addAll(0, ackQueue);
       ackQueue.clear();
@@ -1282,7 +1283,7 @@ class DataStreamer extends Daemon {
     // If we had to recover the pipeline five times in a row for the
     // same packet, this client likely has corrupt data or corrupting
     // during transmission.
-    //如果节点不处理重启状态，且同一个数据包错误恢复次数超过 5 次 streamerClosed 停止错误恢复
+    //5、如果 pipeline 没有等待重启的节点且错误恢复尝试了5次，则停止错误恢复流程
     if (!errorState.isRestartingNode() && ++pipelineRecoveryCount > 5) {
       LOG.warn("Error recovering pipeline for writing " +
           block + ". Already retried 5 times for the same packet.");
@@ -1319,7 +1320,7 @@ class DataStreamer extends Daemon {
             endOfBlockPacket.setTraceScope(null);
           }
           assert endOfBlockPacket.isLastPacketInBlock();
-          assert lastAckedSeqno == endOfBlockPacket.getSeqno() - 1;
+          assert lastAckedSeqno == endOfBlockPacket.getSeqno() - 1;//最后 ack 的 packet 序列号与 endOfBlockPacket 相等
           lastAckedSeqno = endOfBlockPacket.getSeqno();
           pipelineRecoveryCount = 0;
           dataQueue.notifyAll();
@@ -1327,7 +1328,7 @@ class DataStreamer extends Daemon {
         //初始化block Stream 状态
         endBlock();
       } else {
-        //  重置数据流管道，启动新的  response 线程，并将状态设置为  DATA_STREAMING
+        //重置数据流管道，启动新的  response 线程，并将状态设置为  DATA_STREAMING
         initDataStreaming();
       }
     }
@@ -1644,7 +1645,7 @@ class DataStreamer extends Daemon {
       //重置数据管道流
       setPipeline(newnodes, newStorageTypes, newStorageIDs);
 
-      //更新 restartingNodeIndex 索引
+      //更新由于删除了节点包含等待超时的 DataNode 需要更新 restartingNodeIndex
       errorState.adjustState4RestartingNode();
       lastException.clear();
     }
