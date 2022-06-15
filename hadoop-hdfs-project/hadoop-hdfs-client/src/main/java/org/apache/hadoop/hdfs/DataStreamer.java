@@ -1386,14 +1386,15 @@ class DataStreamer extends Daemon {
        * - Append/Create:
        *    + no transfer, let NameNode replicates the block.
        */
-    if (!isAppend && lastAckedSeqno < 0
+
+    if (!isAppend && lastAckedSeqno < 0          //如果没有数据写入的情况，什么都不用做
         && stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {
       //no data have been written
-      return; //没有写入数据什么都不用做
-    } else if (stage == BlockConstructionStage.PIPELINE_CLOSE
+      return;
+    } else if (stage == BlockConstructionStage.PIPELINE_CLOSE        //数据管道流关闭，也不用做什么
         || stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
       //pipeline is closing
-      return; //数据管道流关闭，也不用做什么
+      return;
     }
 
     int tried = 0;
@@ -1404,7 +1405,7 @@ class DataStreamer extends Daemon {
     ArrayList<DatanodeInfo> exclude = new ArrayList<>(failed);
     while (tried < 3) {
       LocatedBlock lb;
-      //get a new datanode  申请一个新的节点
+      //get a new datanode  调用 namenode.getAdditionalDatanode 申请一个新的节点并添加到管道流中 ，最多重试 3次
       lb = dfsClient.namenode.getAdditionalDatanode(
           src, stat.getFileId(), block.getCurrentBlock(), nodes, storageIDs,
           exclude.toArray(new DatanodeInfo[exclude.size()]),
@@ -1450,7 +1451,7 @@ class DataStreamer extends Daemon {
       final String[] targetStorageIDs = {storageIDs[d]};
 
       try {
-        // 将已经传输好的包数据 拷贝到新节点
+        // 将当前块的数据，复制到新的节点上
         transfer(src, targets, targetStorageTypes, targetStorageIDs,
             lb.getBlockToken());
       } catch (IOException ioe) {
@@ -1654,6 +1655,11 @@ class DataStreamer extends Daemon {
 
   /** Add a datanode if replace-datanode policy is satisfied. */
   private void handleDatanodeReplacement() throws IOException {
+
+    /**
+     * 默认是：副本个数 >=3 同时，当前节点小于等于  replication / 2 或 当前为追加 、同步写的状态是需要替换异常节点的
+     * replication >= 3 && (n <= (replication / 2) || isAppend || isHflushed);
+     * */
     if (dfsClient.dtpReplaceDatanodeOnFailure.satisfy(stat.getReplication(),
         nodes, isAppend, isHflushed)) { //判断是否要替换当前管道流中的故障 dn
       try {
