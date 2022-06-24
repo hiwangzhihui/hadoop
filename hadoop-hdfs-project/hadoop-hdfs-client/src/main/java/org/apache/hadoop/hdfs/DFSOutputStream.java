@@ -897,7 +897,7 @@ public class DFSOutputStream extends FSOutputSummer
     }
 
     try {
-      //先讲输出流中缓存的数据刷入 包中
+      //先将输出流中缓存的数据刷入包中
       flushBuffer();       // flush from all upper layers
 
       if (currentPacket != null) {
