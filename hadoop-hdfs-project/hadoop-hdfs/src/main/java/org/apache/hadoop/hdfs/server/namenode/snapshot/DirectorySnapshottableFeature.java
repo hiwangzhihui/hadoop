@@ -185,6 +185,7 @@ public class DirectorySnapshottableFeature extends DirectoryWithSnapshotFeature 
     }
     final Snapshot s = new Snapshot(id, name, snapshotRoot);
     final byte[] nameBytes = s.getRoot().getLocalNameBytes();
+    //检测是否有同名的 快照
     final int i = searchSnapshot(nameBytes);
     if (i >= 0) {
       throw new SnapshotException("Failed to add snapshot: there is already a "
@@ -195,7 +196,7 @@ public class DirectorySnapshottableFeature extends DirectoryWithSnapshotFeature 
     d.setSnapshotRoot(s.getRoot());
     snapshotsByNames.add(-i - 1, s);
 
-    // set modification time
+    // set modification time  更新快照目录最新修改的时间
     final long now = Time.now();
     snapshotRoot.updateModificationTime(now, Snapshot.CURRENT_STATE_ID);
     s.getRoot().setModificationTime(now, Snapshot.CURRENT_STATE_ID);

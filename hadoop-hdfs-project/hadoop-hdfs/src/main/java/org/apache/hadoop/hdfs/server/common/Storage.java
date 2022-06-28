@@ -103,18 +103,20 @@ public abstract class Storage extends StorageInfo {
    * releases.
    */
   public static final String STORAGE_1_BBW = "blocksBeingWritten";
-  
+
+  //定义了存储空间可能出现的各种异常状态
+  //这些状态与 StartupOption 启动选项有关
   public enum StorageState {
-    NON_EXISTENT,
-    NOT_FORMATTED,
-    COMPLETE_UPGRADE,
-    RECOVER_UPGRADE,
-    COMPLETE_FINALIZE,
-    COMPLETE_ROLLBACK,
-    RECOVER_ROLLBACK,
-    COMPLETE_CHECKPOINT,
-    RECOVER_CHECKPOINT,
-    NORMAL;
+    NON_EXISTENT, //存储不存在
+    NOT_FORMATTED, //未格式化
+    COMPLETE_UPGRADE, // 升级完成状态
+    RECOVER_UPGRADE,  //恢复升级状态
+    COMPLETE_FINALIZE, //完成升级提交
+    COMPLETE_ROLLBACK, //完成回滚操作
+    RECOVER_ROLLBACK, //恢复回滚
+    COMPLETE_CHECKPOINT, //完成检查点操作
+    RECOVER_CHECKPOINT, //恢复检查点操作
+    NORMAL; //正常状态
   }
   
   /**

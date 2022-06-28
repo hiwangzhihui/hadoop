@@ -40,15 +40,16 @@ import com.google.common.base.Joiner;
  * Common class for storage information.
  * 
  * TODO namespaceID should be long and computed as hash(address + port)
+ * 记录存储的 VERSION 信息
  */
 @InterfaceAudience.Private
 public class StorageInfo {
-  public int   layoutVersion;   // layout version of the storage data
-  public int   namespaceID;     // id of the file system
-  public String clusterID;      // id of the cluster
-  public long  cTime;           // creation time of the file system state
+  public int   layoutVersion;   // layout version of the storage data  系统版本号
+  public int   namespaceID;     // id of the file system  集群对应的 namespaceId
+  public String clusterID;      // id of the cluster   集群ID
+  public long  cTime;           // creation time of the file system state  集群创建的时间
 
-  protected final NodeType storageType; // Type of the node using this storage 
+  protected final NodeType storageType; // Type of the node using this storage 节点类型
   
   protected static final String STORAGE_FILE_VERSION    = "VERSION";
 

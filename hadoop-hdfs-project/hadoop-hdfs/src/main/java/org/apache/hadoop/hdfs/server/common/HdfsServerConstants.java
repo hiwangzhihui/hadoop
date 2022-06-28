@@ -133,14 +133,14 @@ public interface HdfsServerConstants {
 
   /** Startup options */
   enum StartupOption{
-    FORMAT  ("-format"),
+    FORMAT  ("-format"), //格式化操作
     CLUSTERID ("-clusterid"),
     GENCLUSTERID ("-genclusterid"),
-    REGULAR ("-regular"),
+    REGULAR ("-regular"), //正常启动
     BACKUP  ("-backup"),
     CHECKPOINT("-checkpoint"),
-    UPGRADE ("-upgrade"),
-    ROLLBACK("-rollback"),
+    UPGRADE ("-upgrade"), //升级操作
+    ROLLBACK("-rollback"),//回滚操作
     ROLLINGUPGRADE("-rollingUpgrade"),
     IMPORT  ("-importCheckpoint"),
     BOOTSTRAPSTANDBY("-bootstrapStandby"),

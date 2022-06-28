@@ -1109,13 +1109,14 @@ class DataStreamer extends Daemon {
       while (!responderClosed && dfsClient.clientRunning && !isLastPacketInBlock) {
         // process responses from datanodes.
         try {
-          // read an ack from the pipeline  从输入流中读取响应的 ack
+          // read an ack from the pipeline  从数据管道中读取数据包发送的响应结果
           ack.readFields(blockReplyStream);
           if (ack.getSeqno() != DFSPacket.HEART_BEAT_SEQNO) {
             Long begin = packetSendTime.get(ack.getSeqno());
             if (begin != null) {
-              long duration = Time.monotonicNow() - begin; //
-              if (duration > dfsclientSlowLogThresholdMs) { //打印处理发送太慢的 数据包信息
+              long duration = Time.monotonicNow() - begin;
+              //打印处理发送超过 30s(默认)的数据包信息 dfs.client.slow.io.warning.threshold.ms
+              if (duration > dfsclientSlowLogThresholdMs) {
                 LOG.info("Slow ReadProcessor read fields for block " + block
                     + " took " + duration + "ms (threshold="
                     + dfsclientSlowLogThresholdMs + "ms); ack: " + ack
@@ -1563,7 +1564,7 @@ class DataStreamer extends Daemon {
           isRecovery);
 
       failPacket4Testing();
-
+      //检查等待重试的 datanode 是否超时
       errorState.checkRestartingNodeDeadline(nodes);
     } // while
 
