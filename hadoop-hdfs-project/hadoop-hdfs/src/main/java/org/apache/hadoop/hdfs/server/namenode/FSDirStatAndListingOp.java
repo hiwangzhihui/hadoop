@@ -74,8 +74,12 @@ class FSDirStatAndListingOp {
     }
 
     boolean isSuperUser = true;
+    /**
+     *  确认是否开启鉴权 dfs.permissions.enabled
+     */
     if (fsd.isPermissionEnabled()) {
       if (iip.getLastINode() != null && iip.getLastINode().isDirectory()) {
+        //check 当前用户是否有读的权限
         fsd.checkPathAccess(pc, iip, FsAction.READ_EXECUTE);
       }
       isSuperUser = pc.isSuperUser();

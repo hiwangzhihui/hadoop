@@ -188,7 +188,7 @@ public class FSPermissionChecker implements AccessControlEnforcer {
 
     String path = inodesInPath.getPath();
     int ancestorIndex = inodes.length - 2;
-
+    // 默认使用 FSPermissionChecker    check
     AccessControlEnforcer enforcer = getAccessControlEnforcer();
     enforcer.checkPermission(fsOwner, supergroup, callerUgi, inodeAttrs, inodes,
         components, snapshotId, path, ancestorIndex, doCheckOwner,

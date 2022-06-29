@@ -1756,8 +1756,9 @@ public class FSDirectory implements Closeable {
   FSPermissionChecker getPermissionChecker()
     throws AccessControlException {
     try {
+
       return getPermissionChecker(fsOwnerShortUserName, supergroup,
-          NameNode.getRemoteUser());
+          NameNode.getRemoteUser()); //从 RCP 请求中获取 UGI 信息
     } catch (IOException e) {
       throw new AccessControlException(e);
     }
@@ -1844,7 +1845,7 @@ public class FSDirectory implements Closeable {
       boolean doCheckOwner, FsAction ancestorAccess, FsAction parentAccess,
       FsAction access, FsAction subAccess, boolean ignoreEmptyDir)
       throws AccessControlException {
-    if (!pc.isSuperUser()) {
+    if (!pc.isSuperUser()) { //是否为超级管理员
       readLock();
       try {
         pc.checkPermission(iip, doCheckOwner, ancestorAccess,
