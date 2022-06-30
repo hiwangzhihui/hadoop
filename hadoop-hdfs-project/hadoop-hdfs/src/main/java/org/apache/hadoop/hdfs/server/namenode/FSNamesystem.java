@@ -3778,6 +3778,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     checkOperation(OperationCategory.READ);
     final String operationName = "listStatus";
     DirectoryListing dl = null;
+   //获取当前目录的 PermissionChecker
     final FSPermissionChecker pc = getPermissionChecker();
     readLock();
     try {
