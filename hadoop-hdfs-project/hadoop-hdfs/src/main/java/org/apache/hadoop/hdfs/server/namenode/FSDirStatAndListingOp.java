@@ -80,6 +80,7 @@ class FSDirStatAndListingOp {
       }
       isSuperUser = pc.isSuperUser();
     }
+    //获取指定目录的文件列表
     return getListing(fsd, iip, startAfter, needLocation, isSuperUser);
   }
 

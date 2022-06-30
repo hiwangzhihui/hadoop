@@ -115,6 +115,7 @@ public class FSPermissionChecker implements AccessControlEnforcer {
   }
 
   private AccessControlEnforcer getAccessControlEnforcer() {
+    //使用 attributeProvider 的 getExternalAccessControlEnforcer 方法获取 AccessControl
     return (attributeProvider != null)
         ? attributeProvider.getExternalAccessControlEnforcer(this) : this;
   }
@@ -180,6 +181,7 @@ public class FSPermissionChecker implements AccessControlEnforcer {
     // If resolveLink, the check is performed on the link target.
     final int snapshotId = inodesInPath.getPathSnapshotId();
     final INode[] inodes = inodesInPath.getINodesArray();
+    //dfs.namenode.inode.attributes.provider.class
     final INodeAttributes[] inodeAttrs = new INodeAttributes[inodes.length];
     final byte[][] components = inodesInPath.getPathComponents();
     for (int i = 0; i < inodes.length && inodes[i] != null; i++) {
@@ -239,6 +241,7 @@ public class FSPermissionChecker implements AccessControlEnforcer {
         ancestorIndex--);
 
     try {
+      //遍历 Attributes 进行权限校验
       checkTraverse(inodeAttrs, inodes, components, ancestorIndex);
     } catch (UnresolvedPathException | ParentNotDirectoryException ex) {
       // must tunnel these exceptions out to avoid breaking interface for
@@ -270,6 +273,7 @@ public class FSPermissionChecker implements AccessControlEnforcer {
     }
   }
 
+  //获取指定目录的  Attributes
   private INodeAttributes getINodeAttrs(byte[][] pathByNameArr, int pathIdx,
       INode inode, int snapshotId) {
     INodeAttributes inodeAttrs = inode.getSnapshotINode(snapshotId);
@@ -312,6 +316,7 @@ public class FSPermissionChecker implements AccessControlEnforcer {
           UnresolvedPathException, ParentNotDirectoryException {
     for (int i=0; i <= last; i++) {
       checkIsDirectory(inodes[i], components, i);
+      //为什么先 check EXECUTE 呢？
       check(inodeAttrs, components, i, FsAction.EXECUTE);
     }
   }
@@ -409,13 +414,14 @@ public class FSPermissionChecker implements AccessControlEnforcer {
     }
     final FsPermission mode = inode.getFsPermission();
     final AclFeature aclFeature = inode.getAclFeature();
-    if (aclFeature != null) {
+    if (aclFeature != null) { //扩展的 acl 权限
       // It's possible that the inode has a default ACL but no access ACL.
       int firstEntry = aclFeature.getEntryAt(0);
       if (AclEntryStatusFormat.getScope(firstEntry) == AclEntryScope.ACCESS) {
         return hasAclPermission(inode, access, mode, aclFeature);
       }
     }
+    //默认的 acl
     final FsAction checkAction;
     if (getUser().equals(inode.getUserName())) { //user class
       checkAction = mode.getUserAction();

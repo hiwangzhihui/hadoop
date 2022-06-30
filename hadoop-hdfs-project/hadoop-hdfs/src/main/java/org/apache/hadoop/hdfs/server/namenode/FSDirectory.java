@@ -132,7 +132,7 @@ public class FSDirectory implements Closeable {
   private final static byte[] RAW = DFSUtil.string2Bytes(RAW_STRING);
   public final static String DOT_INODES_STRING =
       HdfsConstants.DOT_INODES_STRING;
-  public final static byte[] DOT_INODES = 
+  public final static byte[] DOT_INODES =
       DFSUtil.string2Bytes(DOT_INODES_STRING);
   private final static byte[] DOT_DOT =
       DFSUtil.string2Bytes("..");
@@ -400,6 +400,7 @@ public class FSDirectory implements Closeable {
    */
   private INodeAttributeProvider getUserFilteredAttributeProvider(
       UserGroupInformation ugi) {
+    //扩展的校验属性
     if (attributeProvider == null ||
         (ugi != null && isUserBypassingExtAttrProvider(ugi.getUserName()))) {
       return null;
