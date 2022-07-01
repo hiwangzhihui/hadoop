@@ -511,31 +511,38 @@ public class CapacityScheduler extends
   static void schedule(CapacityScheduler cs) throws InterruptedException{
     // First randomize the start point
     int current = 0;
+    //拿到所有节点准备分配
     Collection<FiCaSchedulerNode> nodes = cs.nodeTracker.getAllNodes();
+    //随机从节点开始
     int start = random.nextInt(nodes.size());
 
     // To avoid too verbose DEBUG logging, only print debug log once for
     // every 10 secs.
     boolean printSkipedNodeLogging = false;
+
+    //随机打印日志
     if (Time.monotonicNow() / 1000 % 10 == 0) {
       printSkipedNodeLogging = (!printedVerboseLoggingForAsyncScheduling);
     } else {
       printedVerboseLoggingForAsyncScheduling = false;
     }
 
-    // Allocate containers of node [start, end)
+    // Allocate containers of node [start, end)  遍历 start 到 end 的资源
     for (FiCaSchedulerNode node : nodes) {
       if (current++ >= start) {
+        //是否跳过该节点
         if (shouldSkipNodeSchedule(node, cs, printSkipedNodeLogging)) {
           continue;
         }
+
+        //在该节点上分配资源
         cs.allocateContainersToNode(node.getNodeID(), false);
       }
     }
 
     current = 0;
 
-    // Allocate containers of node [0, start)
+    // Allocate containers of node [0, start)  再从 0 ~ start 分配资源
     for (FiCaSchedulerNode node : nodes) {
       if (current++ > start) {
         break;
@@ -553,6 +560,7 @@ public class CapacityScheduler extends
     Thread.sleep(cs.getAsyncScheduleInterval());
   }
 
+  //异步调度线程
   static class AsyncScheduleThread extends Thread {
 
     private final CapacityScheduler cs;
@@ -574,6 +582,7 @@ public class CapacityScheduler extends
             if (cs.getAsyncSchedulingPendingBacklogs() > 100) {
               Thread.sleep(1);
             } else{
+              //进入调度
               schedule(cs);
             }
           }
@@ -595,6 +604,8 @@ public class CapacityScheduler extends
 
   }
 
+
+//提交资源服务进程
   static class ResourceCommitterService extends Thread {
     private final CapacityScheduler cs;
     private BlockingQueue<ResourceCommitRequest<FiCaSchedulerApp, FiCaSchedulerNode>>
@@ -607,13 +618,16 @@ public class CapacityScheduler extends
 
     @Override
     public void run() {
+      //资源提案裁决过程
       while (!Thread.currentThread().isInterrupted()) {
         try {
+
           ResourceCommitRequest<FiCaSchedulerApp, FiCaSchedulerNode> request =
               backlogs.take();
 
           try {
             cs.writeLock.lock();
+            //提交提案
             cs.tryCommit(cs.getClusterResource(), request, true);
           } finally {
             cs.writeLock.unlock();
@@ -1354,7 +1368,7 @@ public class CapacityScheduler extends
     FiCaSchedulerNode node = getNode(nodeId);
     if (null != node) {
       int offswitchCount = 0;
-      int assignedContainers = 0;
+      int assignedContainers = 0; //该节点上已经分配的 Container 个数
 
       CandidateNodeSet<FiCaSchedulerNode> candidates =
           new SimpleCandidateNodeSet<>(node);
@@ -2575,7 +2589,7 @@ public class CapacityScheduler extends
 
     return list;
   }
-
+  //提交资源提案
   @VisibleForTesting
   public void submitResourceCommitRequest(Resource cluster,
       CSAssignment csAssignment) {
@@ -2759,12 +2773,13 @@ public class CapacityScheduler extends
     ApplicationAttemptId attemptId = null;
 
     // We need to update unconfirmed allocated resource of application when
-    // any container allocated.
+    // any container allocated. 确认需要
     boolean updateUnconfirmedAllocatedResource =
         request.getContainersToAllocate() != null && !request
             .getContainersToAllocate().isEmpty();
 
     // find the application to accept and apply the ResourceCommitRequest
+    // 获取 app 信息
     if (request.anythingAllocatedOrReserved()) {
       ContainerAllocationProposal<FiCaSchedulerApp, FiCaSchedulerNode> c =
           request.getFirstAllocatedOrReservedContainer();
@@ -2778,11 +2793,14 @@ public class CapacityScheduler extends
       }
     }
 
+
+    //正常的资源提案裁决
     if (LOG.isDebugEnabled()) {
       LOG.debug("Try to commit allocation proposal=" + request);
     }
 
     boolean isSuccess = false;
+
     if (attemptId != null) {
       FiCaSchedulerApp app = getApplicationAttempt(attemptId);
       // Required sanity check for attemptId - when async-scheduling enabled,
@@ -2792,12 +2810,12 @@ public class CapacityScheduler extends
         if (app.accept(cluster, request, updatePending)
             && app.apply(cluster, request, updatePending)) {
           LOG.info("Allocation proposal accepted");
-          isSuccess = true;
+          isSuccess = true; //资源提案通过
         } else{
           LOG.info("Failed to accept allocation proposal");
         }
 
-        // Update unconfirmed allocated resource.
+        // Update unconfirmed allocated resource. 更新集群资源提
         if (updateUnconfirmedAllocatedResource) {
           app.decUnconfirmedRes(request.getTotalAllocatedResource());
         }

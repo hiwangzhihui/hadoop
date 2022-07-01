@@ -269,19 +269,26 @@ public abstract class Storage extends StorageInfo {
   
   /**
    * One of the storage directories.
+   * StorageDirectory 定义管理目录的通用方法
    */
   @InterfaceAudience.Private
   public static class StorageDirectory implements FormatConfirmable {
-    final File root;              // root directory
+    final File root;              // root directory  存储目录的根
     // whether or not this dir is shared between two separate NNs for HA, or
     // between multiple block pools in the case of federation.
-    final boolean isShared;
-    final StorageDirType dirType; // storage dir type
+    final boolean isShared; //  ？？
+    final StorageDirType dirType; // storage dir type 目录类型
+    /**
+     * 目录的 lock 文件避免多个 datanode 进程同时操作一个目录
+     * 在目录在会有一个 in_use.lock ，当 datanode 进程退出是会创建该文件
+     * 当 datanode 时会尝试创建该问题 （如果之前的 datanode 非正常退出，导致文件没删除掉呢？ 详细 tryLock）
+     * */
     FileLock lock;                // storage lock
 
-    private String storageUuid = null;      // Storage directory identifier.
+
+    private String storageUuid = null;      // Storage directory identifier. ???
     
-    private final StorageLocation location;
+    private final StorageLocation location; // 目录具体路径
     public StorageDirectory(File dir) {
       this(dir, null, false);
     }
@@ -624,7 +631,7 @@ public abstract class Storage extends StorageInfo {
 
     /**
      * Check consistency of the storage directory.
-     * 
+     *
      * @param startOpt a startup option.
      * @param storage The Storage object that manages this StorageDirectory.
      * @param checkCurrentIsEmpty if true, make sure current/ directory
@@ -634,6 +641,8 @@ public abstract class Storage extends StorageInfo {
      * @throws InconsistentFSStateException if directory state is not 
      * consistent and cannot be recovered.
      * @throws IOException
+     *
+     * 用于 datanode 启动时分析当前目录的状态
      */
     public StorageState analyzeStorage(StartupOption startOpt, Storage storage,
         boolean checkCurrentIsEmpty)
@@ -890,19 +899,23 @@ public abstract class Storage extends StorageInfo {
     FileLock tryLock() throws IOException {
       boolean deletionHookAdded = false;
       File lockF = new File(root, STORAGE_FILE_LOCK);
+      //构造 in_use.lock 文件
       if (!lockF.exists()) {
-        lockF.deleteOnExit();
+        lockF.deleteOnExit(); //设置文件当虚拟机终止时，删除该文件
         deletionHookAdded = true;
       }
+      // s 权限表示：文件将以 root 权限运行，前提对应的 组、用户 有 执行（x） 权限
       RandomAccessFile file = new RandomAccessFile(lockF, "rws");
       String jvmName = ManagementFactory.getRuntimeMXBean().getName();
       FileLock res = null;
       try {
+        //尝试在文件上枷锁，该锁对其它 进程可见
         res = file.getChannel().tryLock();
-        if (null == res) {
+        if (null == res) { //如果被占用则抛出异常
           LOG.error("Unable to acquire file lock on path {}", lockF);
           throw new OverlappingFileLockException();
         }
+        //namenode 进程编号写入文件
         file.write(jvmName.getBytes(Charsets.UTF_8));
         LOG.info("Lock on {} acquired by nodename {}", lockF, jvmName);
       } catch(OverlappingFileLockException oe) {
@@ -923,6 +936,8 @@ public abstract class Storage extends StorageInfo {
         // If the file existed prior to our startup, we didn't
         // call deleteOnExit above. But since we successfully locked
         // the dir, we can take care of cleaning it up.
+        //不是新创建的文件，如果加锁成功，则设置在虚拟机运行结束后删除锁文件 kill -9
+        //的场景不会触发该删除
         lockF.deleteOnExit();
       }
       return res;
@@ -930,7 +945,7 @@ public abstract class Storage extends StorageInfo {
 
     /**
      * Unlock storage.
-     * 
+     *  节点退出是释放锁
      * @throws IOException
      */
     public void unlock() throws IOException {

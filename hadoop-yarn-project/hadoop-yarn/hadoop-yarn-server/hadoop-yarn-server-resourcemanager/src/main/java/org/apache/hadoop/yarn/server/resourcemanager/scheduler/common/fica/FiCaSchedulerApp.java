@@ -392,7 +392,7 @@ public class FiCaSchedulerApp extends SchedulerApplicationAttempt {
       // TODO, make sure all scheduler nodes are existed
       // TODO, make sure all node labels are not changed
 
-      if (request.anythingAllocatedOrReserved()) {
+      if (request.anythingAllocatedOrReserved()) { //确认资源请求和预留资源不为空
         /*
          * 1) If this is a newly allocated container, check if the node is reserved
          *    / not-reserved by any other application
