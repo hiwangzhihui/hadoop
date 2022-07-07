@@ -40,6 +40,10 @@ import org.slf4j.LoggerFactory;
 /** 
  * This interface is used for choosing the desired number of targets
  * for placing block replicas.
+ * 副本置放策略顶级抽象类
+ *  - 其实现主要分为：BlockPlacementPolicyDefault、BlockPlacementPolicyWithNodeGroup 两大子类
+ *  -
+ *
  */
 @InterfaceAudience.Private
 public abstract class BlockPlacementPolicy {

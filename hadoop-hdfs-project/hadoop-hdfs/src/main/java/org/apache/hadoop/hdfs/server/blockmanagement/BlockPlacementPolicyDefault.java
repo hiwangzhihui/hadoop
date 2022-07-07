@@ -45,6 +45,11 @@ import com.google.common.annotations.VisibleForTesting;
  * otherwise a random datanode. The 2nd replica is placed on a datanode
  * that is on a different rack. The 3rd replica is placed on a datanode
  * which is on a different node of the rack as the second replica.
+ *
+ * 1 replica. 第一个副本如果写请求方所在机器是其中一个datanode,首先选择存放在本机 datanode,否则随机在集群中选择一个datanode.
+ * 2 replica. 第二个副本存放在与第一个副本不同的机架 datanode.
+ * 3 replica. 第三个副本存放在第二个副本所在的机架,切实不同的节点. （如果这个机器架没节点可以存放呢？怎么处理？ TODO）
+ *
  */
 @InterfaceAudience.Private
 public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
