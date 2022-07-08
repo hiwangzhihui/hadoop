@@ -276,6 +276,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     //是否避免将数据写入过时的节点
     boolean avoidStaleNodes = (stats != null
         && stats.isAvoidingStaleDataNodesForWrite());
+    //是否避免数据本地化写入
     boolean avoidLocalNode = (addBlockFlags != null
         && addBlockFlags.contains(AddBlockFlag.NO_LOCAL_WRITE)
         && writer != null
@@ -283,7 +284,11 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
     // Attempt to exclude local node if the client suggests so. If no enough
     // nodes can be obtained, it falls back to the default block placement
-    // policy.
+    // policy
+    /**
+     * 如果客户端建议排查本地节点存储，当发现没有足够节点时，则回退到默认置放策略
+     *  todo
+     * */
     if (avoidLocalNode) {
       results = new ArrayList<>(chosenStorage);
       Set<Node> excludedNodeCopy = new HashSet<>(excludedNodes);
@@ -293,11 +298,12 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           avoidStaleNodes, storagePolicy,
           EnumSet.noneOf(StorageType.class), results.isEmpty());
       if (results.size() < numOfReplicas) {
-        // not enough nodes; discard results and fall back
+        // not enough nodes; discard results and fall back  节点不足返回退出
         results = null;
       }
     }
 
+    //走默认置放策略
     if (results == null) {
       results = new ArrayList<>(chosenStorage);
       localNode = chooseTarget(numOfReplicas, writer, excludedNodes,
@@ -305,11 +311,11 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           storagePolicy, EnumSet.noneOf(StorageType.class), results.isEmpty());
     }
 
-    if (!returnChosenNodes) {  
+    if (!returnChosenNodes) {
       results.removeAll(chosenStorage);
     }
       
-    // sorting nodes to form a pipeline
+    // sorting nodes to form a pipeline  根据网络拓关系返回一个  pipeline 结果
     return getPipeline(
         (writer != null && writer instanceof DatanodeDescriptor) ? writer
             : localNode,
