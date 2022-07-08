@@ -240,7 +240,9 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     }
   }
 
-  /** This is the implementation. */
+  /** This is the implementation.
+   *  具体的实现
+   * */
   private DatanodeStorageInfo[] chooseTarget(int numOfReplicas,
                                     Node writer,
                                     List<DatanodeStorageInfo> chosenStorage,
@@ -249,18 +251,21 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
                                     long blocksize,
                                     final BlockStoragePolicy storagePolicy,
                                     EnumSet<AddBlockFlag> addBlockFlags) {
+     //如果目标的副本个数和当前集群节点个数为 0 则返回一个空数组
     if (numOfReplicas == 0 || clusterMap.getNumOfLeaves()==0) {
       return DatanodeStorageInfo.EMPTY_ARRAY;
     }
-      
+
+    //如果 "黑名单" 为空则为其创建一个集合存放，打通后续的逻辑
     if (excludedNodes == null) {
       excludedNodes = new HashSet<>();
     }
-     
+    //返回二维数组 ：{允许分配的总节点个数，每个机架允许分配的最大节点个数}
     int[] result = getMaxNodesPerRack(chosenStorage.size(), numOfReplicas);
     numOfReplicas = result[0];
     int maxNodesPerRack = result[1];
-      
+
+    //将以分配的节点加入到 excludedNodes 黑名单中，避免再次被分配到
     for (DatanodeStorageInfo storage : chosenStorage) {
       // add localMachine and related nodes to excludedNodes
       addToExcludedNodes(storage.getDatanodeDescriptor(), excludedNodes);
@@ -268,12 +273,14 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
     List<DatanodeStorageInfo> results = null;
     Node localNode = null;
+    //是否避免将数据写入过时的节点
     boolean avoidStaleNodes = (stats != null
         && stats.isAvoidingStaleDataNodesForWrite());
     boolean avoidLocalNode = (addBlockFlags != null
         && addBlockFlags.contains(AddBlockFlag.NO_LOCAL_WRITE)
         && writer != null
         && !excludedNodes.contains(writer));
+
     // Attempt to exclude local node if the client suggests so. If no enough
     // nodes can be obtained, it falls back to the default block placement
     // policy.
@@ -290,6 +297,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
         results = null;
       }
     }
+
     if (results == null) {
       results = new ArrayList<>(chosenStorage);
       localNode = chooseTarget(numOfReplicas, writer, excludedNodes,
@@ -312,28 +320,37 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
    * Calculate the maximum number of replicas to allocate per rack. It also
    * limits the total number of replicas to the total number of nodes in the
    * cluster. Caller should adjust the replica count to the return value.
-   *
-   * @param numOfChosen The number of already chosen nodes.
-   * @param numOfReplicas The number of additional nodes to allocate.
+   *  计算每个机架节点允许分配的副本个数
+   *  最终返回允许分配的总副本个数
+   * @param numOfChosen The number of already chosen nodes. 已经分配的副本节点个数
+   * @param numOfReplicas The number of additional nodes to allocate. 期望分配的副本节点个数
    * @return integer array. Index 0: The number of nodes allowed to allocate
    *         in addition to already chosen nodes.
    *         Index 1: The maximum allowed number of nodes per rack. This
    *         is independent of the number of chosen nodes, as it is calculated
    *         using the target number of replicas.
+   *  返回一个数组：{允许分配的总节点个数，每个机架允许分配的最大节点个数}
+   *  TODO 解读不透测
    */
   protected int[] getMaxNodesPerRack(int numOfChosen, int numOfReplicas) {
-    int clusterSize = clusterMap.getNumOfLeaves();
-    int totalNumOfReplicas = numOfChosen + numOfReplicas;
-    if (totalNumOfReplicas > clusterSize) {
+    int clusterSize = clusterMap.getNumOfLeaves(); //集群存活节点个数
+    int totalNumOfReplicas = numOfChosen + numOfReplicas; //需求的总资源数
+    if (totalNumOfReplicas > clusterSize) { //如果资源总需求量超过节点个数
+      // numOfReplicas = numOfReplicas - （totalNumOfReplicas-clusterSize）
+      // numOfReplicas 等于在该集群中允许分配的副本（不在同一节点）
       numOfReplicas -= (totalNumOfReplicas-clusterSize);
+      //集群总节点数此时为能满足需求的最大副本个数
       totalNumOfReplicas = clusterSize;
     }
     // No calculation needed when there is only one rack or picking one node.
-    int numOfRacks = clusterMap.getNumOfRacks();
+    int numOfRacks = clusterMap.getNumOfRacks(); //总机架个数
+    // 如果只有一个机架时，且总副本资源小于等于 1 时直接返回
     if (numOfRacks == 1 || totalNumOfReplicas <= 1) {
+      // return {1,1}
       return new int[] {numOfReplicas, totalNumOfReplicas};
     }
 
+    //计算每个 rack 允许分配的副本个数
     int maxNodesPerRack = (totalNumOfReplicas-1)/numOfRacks + 2;
     // At this point, there are more than one racks and more than one replicas
     // to store. Avoid all replicas being in the same rack.
@@ -348,6 +365,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (maxNodesPerRack == totalNumOfReplicas) {
       maxNodesPerRack--;
     }
+
     return new int[] {numOfReplicas, maxNodesPerRack};
   }
 
