@@ -259,7 +259,8 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     int[] result = getMaxNodesPerRack(chosenStorage.size(), numOfReplicas);
     numOfReplicas = result[0];
     int maxNodesPerRack = result[1];
-      
+
+    //将以分配的节点加入到 excludedNodes 黑名单中，避免再次被分配到
     for (DatanodeStorageInfo storage : chosenStorage) {
       // add localMachine and related nodes to excludedNodes
       addToExcludedNodes(storage.getDatanodeDescriptor(), excludedNodes);
@@ -267,12 +268,14 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
     List<DatanodeStorageInfo> results = null;
     Node localNode = null;
+    //是否避免将数据写入过时的节点
     boolean avoidStaleNodes = (stats != null
         && stats.isAvoidingStaleDataNodesForWrite());
     boolean avoidLocalNode = (addBlockFlags != null
         && addBlockFlags.contains(AddBlockFlag.NO_LOCAL_WRITE)
         && writer != null
         && !excludedNodes.contains(writer));
+
     // Attempt to exclude local node if the client suggests so. If no enough
     // nodes can be obtained, it falls back to the default block placement
     // policy.
@@ -289,6 +292,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
         results = null;
       }
     }
+
     if (results == null) {
       results = new ArrayList<>(chosenStorage);
       localNode = chooseTarget(numOfReplicas, writer, excludedNodes,
