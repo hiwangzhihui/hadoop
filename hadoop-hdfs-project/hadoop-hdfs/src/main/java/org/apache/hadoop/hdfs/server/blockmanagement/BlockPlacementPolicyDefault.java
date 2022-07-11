@@ -296,7 +296,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       localNode = chooseTarget(numOfReplicas, writer,
           excludedNodeCopy, blocksize, maxNodesPerRack, results,
           avoidStaleNodes, storagePolicy,
-          EnumSet.noneOf(StorageType.class), results.isEmpty());
+          EnumSet.noneOf(StorageType.class), results.isEmpty()); //如果还没有分配任何节点则，当前行为为 newBlock
       if (results.size() < numOfReplicas) {
         // not enough nodes; discard results and fall back  节点不足返回退出
         results = null;
@@ -393,12 +393,21 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
   /**
    * choose <i>numOfReplicas</i> from all data nodes
    * @param numOfReplicas additional number of replicas wanted
+   *                       需要的副本个数
    * @param writer the writer's machine, could be a non-DatanodeDescriptor node
+   *               写入数据的数据源节点
    * @param excludedNodes datanodes that should not be considered as targets
+   *                       不在考虑范围之内的节点集合
    * @param blocksize size of the data to be written
+   *                   写入的数据块大小
    * @param maxNodesPerRack max nodes allowed per rack
+   *                    同一个 rack 最多允许分配的副本个数
    * @param results the target nodes already chosen
+   *                 当前已经选好的副本目标节点集合
    * @param avoidStaleNodes avoid stale nodes in replica choosing
+   *                  避免选择过期的节点 TODO  stale node？怎么定义的
+   * @param storagePolicy 副本置放策略
+   * @param newBlock   如果 results 为空，则为 new Block
    * @return local node of writer (not chosen node)
    */
   private Node chooseTarget(int numOfReplicas,
@@ -408,26 +417,33 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
                             final int maxNodesPerRack,
                             final List<DatanodeStorageInfo> results,
                             final boolean avoidStaleNodes,
-                            final BlockStoragePolicy storagePolicy,
+                            final BlockStoragePolicy storagePolicy,  //副本置放策略
                             final EnumSet<StorageType> unavailableStorages,
-                            final boolean newBlock) {
+                            final boolean newBlock) { //如果 results 为空，则为 new Block
+    //如果副本需求为 0 且集群存活的节点个数为 0
     if (numOfReplicas == 0 || clusterMap.getNumOfLeaves()==0) {
+      // 如果writer请求者在其中一个datanode上则返回此节点,否则直接返回null
       return (writer instanceof DatanodeDescriptor) ? writer : null;
     }
     final int numOfResults = results.size();
     final int totalReplicasExpected = numOfReplicas + numOfResults;
+    //如果 results 中已经有选定的结果，且不是第一个选择的 datanode，则直接从 results 中获取第一个节点作为 writer
     if ((writer == null || !(writer instanceof DatanodeDescriptor)) && !newBlock) {
       writer = results.get(0).getDatanodeDescriptor();
     }
 
     // Keep a copy of original excludedNodes
+    //复制排除的节点集合
     final Set<Node> oldExcludedNodes = new HashSet<>(excludedNodes);
 
     // choose storage types; use fallbacks for unavailable storages
+    //TODO 数据类型存储策略
+    // 根据存储策略获取副本需要满足的存储类型列表,如果有不可用的存储类型,会采用fallback的类型
     final List<StorageType> requiredStorageTypes = storagePolicy
         .chooseStorageTypes((short) totalReplicasExpected,
             DatanodeStorageInfo.toStorageTypes(results),
             unavailableStorages, newBlock);
+    //将存储类型列表进行计数统计,并存于map中
     final EnumMap<StorageType, Integer> storageTypes =
         getRequiredStorageTypes(requiredStorageTypes);
     if (LOG.isTraceEnabled()) {
@@ -435,12 +451,14 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     }
 
     try {
+      //如果 requiredStorageTypes 大小为 0 则抛出异常 ， requiredStorageTypes 能实际满足的数据类型副本个数
       if ((numOfReplicas = requiredStorageTypes.size()) == 0) {
         throw new NotEnoughReplicasException(
             "All required storage types are unavailable: "
             + " unavailableStorages=" + unavailableStorages
             + ", storagePolicy=" + storagePolicy);
       }
+      //按照策略获取副本
       writer = chooseTargetInOrder(numOfReplicas, writer, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, newBlock, storageTypes);
     } catch (NotEnoughReplicasException e) {
@@ -454,6 +472,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       if (LOG.isTraceEnabled()) {
         LOG.trace(message, e);
       } else {
+        //打印异常信息，没有找到 storagePolicy 的副本
         LOG.warn(message + " " + e.getMessage());
       }
 
@@ -509,38 +528,53 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
                                  EnumMap<StorageType, Integer> storageTypes)
                                  throws NotEnoughReplicasException {
     final int numOfResults = results.size();
+    // 如果已选择的目标节点数量为0,则表示3副本一个都还没开始选,首先从选本地节点开始
     if (numOfResults == 0) {
       writer = chooseLocalStorage(writer, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, storageTypes, true)
           .getDatanodeDescriptor();
+      // 如果此时目标需求完成的副本数为降为0,代表选择目标完成,返回第一个节点writer
       if (--numOfReplicas == 0) {
         return writer;
       }
     }
+    //去除 results 列表中第一个节点
     final DatanodeDescriptor dn0 = results.get(0).getDatanodeDescriptor();
     if (numOfResults <= 1) {
+      // 前面的过程已经完成首个本地节点的选择,此时进行不同机架的节点选择,如果其它机架没有足够的节点，回退策略会从同机架节点随机选择一个节点
       chooseRemoteRack(1, dn0, excludedNodes, blocksize, maxNodesPerRack,
           results, avoidStaleNodes, storageTypes);
+      // 如果此时目标需求完成的副本数为降为0,代表选择目标完成,返回第一个节点writer
       if (--numOfReplicas == 0) {
         return writer;
       }
     }
+
+    // 如果经过前面的处理,节点选择数在2个以内,需要选取第3个副本
     if (numOfResults <= 2) {
       final DatanodeDescriptor dn1 = results.get(1).getDatanodeDescriptor();
+      //如果 dn0 与 dn1 同机架，则 dn2 必须选择不同机架
       if (clusterMap.isOnSameRack(dn0, dn1)) {
+        // 则选择1个不同于dn0,dn1所在机架的副本位置
         chooseRemoteRack(1, dn0, excludedNodes, blocksize, maxNodesPerRack,
             results, avoidStaleNodes, storageTypes);
       } else if (newBlock){
+        // 如果是新的block块,，且 dn0  与 dn1 不同机架，则选取1个与 dn1 所在同机房的节点位置
         chooseLocalRack(dn1, excludedNodes, blocksize, maxNodesPerRack,
             results, avoidStaleNodes, storageTypes);
       } else {
+        // 否则选取于 writer 同机架的位置
         chooseLocalRack(writer, excludedNodes, blocksize, maxNodesPerRack,
             results, avoidStaleNodes, storageTypes);
       }
+
+      // 如果此时目标需求完成的副本数为降为0,代表选择目标完成,返回第一个节点writer
       if (--numOfReplicas == 0) {
         return writer;
       }
     }
+    // 如果副本数已经超过2个,说明设置的block的时候,已经设置超过3副本的数量
+    // 则剩余位置在集群中随机选择放置节点
     chooseRandom(numOfReplicas, NodeBase.ROOT, excludedNodes, blocksize,
         maxNodesPerRack, results, avoidStaleNodes, storageTypes);
     return writer;
@@ -552,6 +586,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       EnumMap<StorageType, Integer> storageTypes)
       throws NotEnoughReplicasException {
     // if no local machine, randomly choose one node
+    //如果 localMachine 为空则降级随机选择一个节点
     if (localMachine == null) {
       return chooseRandom(NodeBase.ROOT, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, storageTypes);
@@ -563,6 +598,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       if (excludedNodes.add(localMachine) // was not in the excluded list
           && isGoodDatanode(localDatanode, maxNodesPerRack, false,
               results, avoidStaleNodes)) {
+        // 遍历本地节点可用的存储目录
         for (Iterator<Map.Entry<StorageType, Integer>> iter = storageTypes
             .entrySet().iterator(); iter.hasNext(); ) {
           Map.Entry<StorageType, Integer> entry = iter.next();
@@ -596,6 +632,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       List<DatanodeStorageInfo> results, boolean avoidStaleNodes,
       EnumMap<StorageType, Integer> storageTypes, boolean fallbackToLocalRack)
       throws NotEnoughReplicasException {
+    //选择当前节点为 写入目标节点
     DatanodeStorageInfo localStorage = chooseLocalStorage(localMachine,
         excludedNodes, blocksize, maxNodesPerRack, results,
         avoidStaleNodes, storageTypes);
@@ -606,7 +643,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (!fallbackToLocalRack) {
       return null;
     }
-    // try a node on local rack
+    // try a node on local rack 如果还本地节点选择失败，则选择 local 节点的同机架节点
     return chooseLocalRack(localMachine, excludedNodes, blocksize,
         maxNodesPerRack, results, avoidStaleNodes, storageTypes);
   }
@@ -646,7 +683,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     final String localRack = localMachine.getNetworkLocation();
       
     try {
-      // choose one from the local rack
+      // choose one from the local rack  从同机架中随机选择一个节点
       return chooseRandom(localRack, excludedNodes,
           blocksize, maxNodesPerRack, results, avoidStaleNodes, storageTypes);
     } catch (NotEnoughReplicasException e) {
@@ -669,6 +706,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             + "); the second replica is not found, retry choosing randomly", e);
       }
       //the second replica is not found, randomly choose one from the network
+      //如果同机架节点选择失败，则随机选择一个节点
       return chooseRandom(NodeBase.ROOT, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, storageTypes);
     }
@@ -722,6 +760,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
         LOG.debug("Failed to choose remote rack (location = ~"
             + localMachine.getNetworkLocation() + "), fallback to local rack", e);
       }
+      //TODO 策略回退
       chooseRandom(numOfReplicas-(results.size()-oldNumOfReplicas),
                    localMachine.getNetworkLocation(), excludedNodes, blocksize, 
                    maxReplicasPerRack, results, avoidStaleNodes, storageTypes);
@@ -995,7 +1034,9 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
    * The pipeline is formed finding a shortest path that 
    * starts from the writer and traverses all <i>nodes</i>
    * This is basically a traveling salesman problem.
-   * TSP旅行商问题： 从writer所在节点开始,总是寻找相对路径最短的目标节点,最终形成pipeline
+   * TSP旅行商问题：
+   * - 从writer所在节点开始,总是寻找相对路径最短的目标节点,最终形成pipeline
+   * - 每两个节点距离是最短的，整个 pipeline 距离总是最近的
    */
   private DatanodeStorageInfo[] getPipeline(Node writer,
       DatanodeStorageInfo[] storages) {
