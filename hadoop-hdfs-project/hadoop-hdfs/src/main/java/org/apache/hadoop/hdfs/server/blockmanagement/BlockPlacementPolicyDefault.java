@@ -286,7 +286,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     // nodes can be obtained, it falls back to the default block placement
     // policy
     /**
-     * 如果客户端建议排查本地节点存储，当发现没有足够节点时，则回退到默认置放策略
+     * 如果客户端建议排除本地节点存储，当发现没有足够节点时，则回退到默认置放策略
      *  todo
      * */
     if (avoidLocalNode) {
@@ -311,11 +311,12 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           storagePolicy, EnumSet.noneOf(StorageType.class), results.isEmpty());
     }
 
+    // 如果不返回初始选中的目标节点,则进行移除
     if (!returnChosenNodes) {
       results.removeAll(chosenStorage);
     }
       
-    // sorting nodes to form a pipeline  根据网络拓关系返回一个  pipeline 结果
+    // sorting nodes to form a pipeline  根据网络拓关系返回一个  pipeline 结果  （与 Client 的远近关系）
     return getPipeline(
         (writer != null && writer instanceof DatanodeDescriptor) ? writer
             : localNode,
@@ -994,6 +995,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
    * The pipeline is formed finding a shortest path that 
    * starts from the writer and traverses all <i>nodes</i>
    * This is basically a traveling salesman problem.
+   * TSP旅行商问题： 从writer所在节点开始,总是寻找相对路径最短的目标节点,最终形成pipeline
    */
   private DatanodeStorageInfo[] getPipeline(Node writer,
       DatanodeStorageInfo[] storages) {
@@ -1003,14 +1005,20 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
     synchronized(clusterMap) {
       int index=0;
+      // 首先如果writer请求方本身不在一个datanode上,则默认选取第一个 datanode 作为起始节点
+      //  TODO 跨Az 的情况就得注意，不能随意这样获取
       if (writer == null || !clusterMap.contains(writer)) {
         writer = storages[0].getDatanodeDescriptor();
       }
       for(; index < storages.length; index++) {
+        // 获取当前index下标所属的Storage为最近距离的目标storage
         DatanodeStorageInfo shortestStorage = storages[index];
+        //计算 index 的 datanode 与 writer 的距离  ， TODO 跨 Az 的场景该怎么计算距离
         int shortestDistance = clusterMap.getDistance(writer,
             shortestStorage.getDatanodeDescriptor());
         int shortestIndex = index;
+
+        //遍历计算对比后面的 storage，获取距离近的 storage
         for(int i = index + 1; i < storages.length; i++) {
           int currentDistance = clusterMap.getDistance(writer,
               storages[i].getDatanodeDescriptor());
@@ -1020,11 +1028,13 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             shortestIndex = i;
           }
         }
+        //找到距离最近的 storage  代替 index
         //switch position index & shortestIndex
         if (index != shortestIndex) {
           storages[shortestIndex] = storages[index];
           storages[index] = shortestStorage;
         }
+        //执行一轮完毕后，再更新 writer 并进行下一次迭代
         writer = shortestStorage.getDatanodeDescriptor();
       }
     }

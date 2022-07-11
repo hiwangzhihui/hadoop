@@ -314,6 +314,7 @@ public class NetworkTopology {
   }
 
   /** Return the distance between two nodes
+   *  返回两个节点之间的距离
    * It is assumed that the distance from one node to its parent is 1
    * The distance between two nodes is calculated by summing up their distances
    * to their closest common ancestor.
