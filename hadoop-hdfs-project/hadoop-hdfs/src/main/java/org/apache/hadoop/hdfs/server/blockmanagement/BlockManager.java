@@ -2127,7 +2127,7 @@ public class BlockManager implements BlockStatsMXBean {
 
   /**
    * Choose target datanodes for creating a new block.
-   * 
+   *  为一个新块申请副本节点
    * @throws IOException
    *           if the number of targets < minimum replication.
    * @see BlockPlacementPolicy#chooseTarget(String, int, Node,

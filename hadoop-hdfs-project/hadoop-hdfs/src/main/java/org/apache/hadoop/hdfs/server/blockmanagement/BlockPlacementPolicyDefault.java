@@ -315,7 +315,8 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (!returnChosenNodes) {
       results.removeAll(chosenStorage);
     }
-      
+
+
     // sorting nodes to form a pipeline  根据网络拓关系返回一个  pipeline 结果  （与 Client 的远近关系）
     return getPipeline(
         (writer != null && writer instanceof DatanodeDescriptor) ? writer
@@ -596,16 +597,18 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       DatanodeDescriptor localDatanode = (DatanodeDescriptor) localMachine;
       // otherwise try local machine first
       if (excludedNodes.add(localMachine) // was not in the excluded list
+             // 判断是否为可以保存数据块的节点
           && isGoodDatanode(localDatanode, maxNodesPerRack, false,
               results, avoidStaleNodes)) {
         // 遍历本地节点可用的存储目录
         for (Iterator<Map.Entry<StorageType, Integer>> iter = storageTypes
             .entrySet().iterator(); iter.hasNext(); ) {
           Map.Entry<StorageType, Integer> entry = iter.next();
+          //判定节点是否足够的 StorageType 资源余量分配给当前块
           DatanodeStorageInfo localStorage = chooseStorage4Block(
               localDatanode, blocksize, results, entry.getKey());
           if (localStorage != null) {
-            // add node and related nodes to excludedNode
+            // add node and related nodes to excludedNode 分配成功，同时将入 excludedNodes 列表
             addToExcludedNodes(localDatanode, excludedNodes);
             int num = entry.getValue();
             if (num == 1) {
@@ -843,7 +846,6 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           if (includeType != null && entry.getKey() != includeType) {
             continue;
           }
-
           storage = chooseStorage4Block(
               chosenNode, blocksize, results, entry.getKey());
           if (storage != null) {
@@ -920,7 +922,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
   /**
    * Choose a good storage of given storage type from datanode, and add it to
    * the result list.
-   *
+   *  从节点选择一个合适的 storage 分配，并加入到 result 列表中
    * @param dnd datanode descriptor
    * @param blockSize requested block size
    * @param results the result storages
@@ -936,6 +938,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (storage != null) {
       results.add(storage);
     } else {
+      //如果没有分配到，打印日志没有足够的空间分配给 block
       logNodeIsNotChosen(dnd, NodeNotChosenReason.NOT_ENOUGH_STORAGE_SPACE,
           " for storage type " + storageType);
     }
@@ -972,7 +975,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
   /**
    * Determine if a datanode is good for placing block.
-   *
+   * 判断是否为可以保存数据块的节点
    * @param node The target datanode
    * @param maxTargetPerRack Maximum number of targets per rack. The value of
    *                       this parameter depends on the number of racks in

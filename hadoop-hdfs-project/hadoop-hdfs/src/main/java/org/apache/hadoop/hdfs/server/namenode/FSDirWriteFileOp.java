@@ -781,6 +781,7 @@ class FSDirWriteFileOp {
     BlockInfo b = addBlock(fsn.dir, src, inodesInPath, newBlock, targets,
         blockType);
     logAllocatedBlock(src, b);
+    //成功分配到块，同时会更新对应节点存储空间预分配量信息
     DatanodeStorageInfo.incrementBlocksScheduled(targets);
   }
 

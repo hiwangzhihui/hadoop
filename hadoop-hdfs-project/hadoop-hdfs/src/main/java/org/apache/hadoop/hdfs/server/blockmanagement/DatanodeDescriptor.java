@@ -215,8 +215,10 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   private EnumCounters<StorageType> currApproxBlocksScheduled
       = new EnumCounters<>(StorageType.class);
+
   private EnumCounters<StorageType> prevApproxBlocksScheduled
       = new EnumCounters<>(StorageType.class);
+
   private long lastBlocksScheduledRollTime = 0;
   private int volumeFailures = 0;
   private VolumeFailureSummary volumeFailureSummary = null;
@@ -748,9 +750,13 @@ public class DatanodeDescriptor extends DatanodeInfo {
    */
   public DatanodeStorageInfo chooseStorage4Block(StorageType t,
       long blockSize) {
+    //首先必须满足一个块的大小
     final long requiredSize =
         blockSize * HdfsServerConstants.MIN_BLOCKS_FOR_WRITE;
+    //该节点对于 StorageType 预计会写入的数据量
     final long scheduledSize = blockSize * getBlocksScheduled(t);
+
+    //计算节点当前资源类型剩余量
     long remaining = 0;
     DatanodeStorageInfo storage = null;
     for (DatanodeStorageInfo s : getStorageInfos()) {
@@ -764,19 +770,23 @@ public class DatanodeDescriptor extends DatanodeInfo {
         }
       }
     }
+    //如果 余量 - 预计分配的量<  requiredSize ,则说明无法再分配出存储资源
     if (requiredSize > remaining - scheduledSize) {
       BlockPlacementPolicy.LOG.debug(
           "The node {} does not have enough {} space (required={},"
           + " scheduled={}, remaining={}).",
           this, t, requiredSize, scheduledSize, remaining);
+      //打印日志说明原因，返回null
       return null;
     }
+    //否则返回 storage 表示还可在分配一个块的空间
     return storage;
   }
 
   /**
    * @return Approximate number of blocks currently scheduled to be written 
    * to the given storage type of this datanode.
+   * 当 StorageType 预计会在在节点写入的数据量
    */
   public int getBlocksScheduled(StorageType t) {
     return (int)(currApproxBlocksScheduled.get(t)
