@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A block storage policy describes how to select the storage types
  * for the replicas of a block.
+ * 块数据存储类型置放策略
  */
 @InterfaceAudience.Private
 public class BlockStoragePolicy implements BlockStoragePolicySpi {

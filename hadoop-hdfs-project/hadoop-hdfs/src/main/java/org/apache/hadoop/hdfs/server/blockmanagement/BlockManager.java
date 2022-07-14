@@ -2144,8 +2144,11 @@ public class BlockManager implements BlockStatsMXBean {
       final EnumSet<AddBlockFlag> flags) throws IOException {
     List<DatanodeDescriptor> favoredDatanodeDescriptors = 
         getDatanodeDescriptors(favoredNodes);
+
+    //块存储类型置放策略
     final BlockStoragePolicy storagePolicy =
         storagePolicySuite.getPolicy(storagePolicyID);
+    //节点选择置放策略
     final BlockPlacementPolicy blockplacement =
         placementPolicies.getPolicy(blockType);
     final DatanodeStorageInfo[] targets = blockplacement.chooseTarget(src,

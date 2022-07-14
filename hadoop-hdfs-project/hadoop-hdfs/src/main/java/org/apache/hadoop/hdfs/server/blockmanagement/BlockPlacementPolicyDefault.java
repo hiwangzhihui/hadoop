@@ -161,6 +161,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     try {
       if (favoredNodes == null || favoredNodes.size() == 0) {
         // Favored nodes not specified, fall back to regular block placement.
+        //未指定"优先分配的节点" 则执行该常规逻辑
         return chooseTarget(src, numOfReplicas, writer,
             new ArrayList<DatanodeStorageInfo>(numOfReplicas), false, 
             excludedNodes, blocksize, storagePolicy, flags);
@@ -256,7 +257,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       return DatanodeStorageInfo.EMPTY_ARRAY;
     }
 
-    //如果 "黑名单" 为空则为其创建一个集合存放，打通后续的逻辑
+    //如果 "excludedNodes" 为空则为其创建一个集合存放 excluded 节点
     if (excludedNodes == null) {
       excludedNodes = new HashSet<>();
     }
@@ -265,7 +266,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     numOfReplicas = result[0];
     int maxNodesPerRack = result[1];
 
-    //将以分配的节点加入到 excludedNodes 黑名单中，避免再次被分配到
+    //将已经分配的节点加入到 excludedNodes 名单中，避免再次被分配到
     for (DatanodeStorageInfo storage : chosenStorage) {
       // add localMachine and related nodes to excludedNodes
       addToExcludedNodes(storage.getDatanodeDescriptor(), excludedNodes);
@@ -285,11 +286,8 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     // Attempt to exclude local node if the client suggests so. If no enough
     // nodes can be obtained, it falls back to the default block placement
     // policy
-    /**
-     * 如果客户端建议排除本地节点存储，当发现没有足够节点时，则回退到默认置放策略
-     *  todo
-     * */
-    if (avoidLocalNode) {
+
+    if (avoidLocalNode) { //不期望数据写入local 节点逻辑
       results = new ArrayList<>(chosenStorage);
       Set<Node> excludedNodeCopy = new HashSet<>(excludedNodes);
       excludedNodeCopy.add(writer);
@@ -306,6 +304,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     //走默认置放策略
     if (results == null) {
       results = new ArrayList<>(chosenStorage);
+      // localNode 为第一个选取的节点
       localNode = chooseTarget(numOfReplicas, writer, excludedNodes,
           blocksize, maxNodesPerRack, results, avoidStaleNodes,
           storagePolicy, EnumSet.noneOf(StorageType.class), results.isEmpty());
@@ -428,7 +427,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     }
     final int numOfResults = results.size();
     final int totalReplicasExpected = numOfReplicas + numOfResults;
-    //如果 results 中已经有选定的结果，且不是第一个选择的 datanode，则直接从 results 中获取第一个节点作为 writer
+    //如果 results 中已经有选定的结果，则直接从 results 中获取第一个节点作为 writer
     if ((writer == null || !(writer instanceof DatanodeDescriptor)) && !newBlock) {
       writer = results.get(0).getDatanodeDescriptor();
     }
@@ -440,11 +439,13 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     // choose storage types; use fallbacks for unavailable storages
     //TODO 数据类型存储策略
     // 根据存储策略获取副本需要满足的存储类型列表,如果有不可用的存储类型,会采用fallback的类型
+    // requiredStorageTypes 期望存储的数据类型，unavailableStorages 不可用的存储类型
     final List<StorageType> requiredStorageTypes = storagePolicy
         .chooseStorageTypes((short) totalReplicasExpected,
             DatanodeStorageInfo.toStorageTypes(results),
             unavailableStorages, newBlock);
-    //将存储类型列表进行计数统计,并存于map中
+
+    //将存储类型列表进行计数统计,并存于map中 todo
     final EnumMap<StorageType, Integer> storageTypes =
         getRequiredStorageTypes(requiredStorageTypes);
     if (LOG.isTraceEnabled()) {
