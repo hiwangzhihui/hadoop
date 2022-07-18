@@ -304,6 +304,7 @@ public class ContainerLocalizer {
         LocalizerHeartbeatResponse response = nodemanager.heartbeat(status);
         switch (response.getLocalizerAction()) {
         case LIVE:
+          //TODO 应该是提交作业的时候，计算引擎就已经指定了哪些包是那些 level 的资源
           List<ResourceLocalizationSpec> newRsrcs = response.getResourceSpecs();
           for (ResourceLocalizationSpec newRsrc : newRsrcs) {
             if (!pendingResources.containsKey(newRsrc.getResource())) {

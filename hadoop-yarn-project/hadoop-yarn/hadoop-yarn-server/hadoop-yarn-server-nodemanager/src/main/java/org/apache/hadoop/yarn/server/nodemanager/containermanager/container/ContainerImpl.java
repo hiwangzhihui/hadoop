@@ -251,7 +251,7 @@ public class ContainerImpl implements Container {
     this.windowRetryContext = new SlidingWindowRetryPolicy
         .RetryContext(containerRetryContext);
     this.retryPolicy = new SlidingWindowRetryPolicy(clock);
-
+    //Container 事件处理状态机
     stateMachine = stateMachineFactory.make(this, ContainerState.NEW,
         context.getContainerStateTransitionListener());
     this.context = context;
@@ -1171,6 +1171,7 @@ public class ContainerImpl implements Container {
 
       container.containerLocalizationStartTime = clock.getTime();
 
+      //根据 Container 启动上下文件文件程序运行资源下载操作
       // Send requests for public, private resources
       Map<String,LocalResource> cntrRsrc = ctxt.getLocalResources();
       if (!cntrRsrc.isEmpty()) {
@@ -1186,6 +1187,7 @@ public class ContainerImpl implements Container {
           container.metrics.endInitingContainer();
           return ContainerState.LOCALIZATION_FAILED;
         }
+        //状态转换到 LOCALIZING
         return ContainerState.LOCALIZING;
       } else {
         container.sendScheduleEvent();

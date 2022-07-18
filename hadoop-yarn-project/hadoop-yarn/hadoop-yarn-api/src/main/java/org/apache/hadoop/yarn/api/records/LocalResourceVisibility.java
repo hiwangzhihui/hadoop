@@ -49,16 +49,20 @@ import org.apache.hadoop.yarn.api.ContainerManagementProtocol;
 public enum LocalResourceVisibility {
   /** 
    * Shared by all users on the node.
+   * 节点级别共享，节点用户共享
+   *
    */
   PUBLIC, 
   
   /** 
    * Shared among all applications of the <em>same user</em> on the node.
+   * 用户级别共享，同一节点上用户的所有应用程序共享
    */
   PRIVATE, 
   
   /** 
    * Shared only among containers of the <em>same application</em> on the node.
+   * 应用级别共享，同一节点上相同程序的 Container 共享
    */
   APPLICATION
 }

@@ -145,6 +145,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+/**
+ *
+ * - ResourceLocalizationService 为 LocalizationEvent 事件处理器，NodeManager 所有应用程序文件下载都其处理，handler 为事件处理入口
+ * - LocalizerTracker 子程序为单独的进程，其处理不同可见性文件、同时下载文件期间会与 NodeManager 进行心跳汇报
+ * */
 public class ResourceLocalizationService extends CompositeService
     implements EventHandler<LocalizationEvent>, LocalizationProtocol {
 
