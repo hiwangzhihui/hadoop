@@ -33,7 +33,7 @@ import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.Reso
  */
 public class ContainerLocalizationRequestEvent extends
     ContainerLocalizationEvent {
-
+  //不同的可见资源请求级别放入到 rsrc 中
   private final Map<LocalResourceVisibility, Collection<LocalResourceRequest>> 
     rsrc;
 

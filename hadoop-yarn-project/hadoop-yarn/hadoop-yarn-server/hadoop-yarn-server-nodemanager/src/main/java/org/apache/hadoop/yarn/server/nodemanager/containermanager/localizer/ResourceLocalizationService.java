@@ -145,6 +145,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+/**
+ *
+ * - ResourceLocalizationService 为 LocalizationEvent 事件处理器，NodeManager 所有应用程序文件下载都其处理，handler 为事件处理入口
+ * - LocalizerTracker 子程序为单独的进程，其处理不同可见性文件、同时下载文件期间会与 NodeManager 进行心跳汇报
+ * */
 public class ResourceLocalizationService extends CompositeService
     implements EventHandler<LocalizationEvent>, LocalizationProtocol {
 
@@ -432,7 +437,7 @@ public class ResourceLocalizationService extends CompositeService
       handleInitApplicationResources(
           ((ApplicationLocalizationEvent)event).getApplication());
       break;
-    case LOCALIZE_CONTAINER_RESOURCES:
+    case LOCALIZE_CONTAINER_RESOURCES: //下载 Container 运行时资源
       handleInitContainerResources((ContainerLocalizationRequestEvent) event);
       break;
     case CONTAINER_RESOURCES_LOCALIZED:
@@ -496,15 +501,19 @@ public class ResourceLocalizationService extends CompositeService
         CacheBuilder.newBuilder().build(FSDownload.createStatusCacheLoader(getConfig()));
     LocalizerContext ctxt = new LocalizerContext(
         c.getUser(), c.getContainerId(), c.getCredentials(), statCache);
+    //处理不同可见级别的资源
     Map<LocalResourceVisibility, Collection<LocalResourceRequest>> rsrcs =
       rsrcReqs.getRequestedResources();
     for (Map.Entry<LocalResourceVisibility, Collection<LocalResourceRequest>> e :
          rsrcs.entrySet()) {
+      //将不同的级别的资源交个对应的 LocalResourcesTracker 服务执行下载操作 （Public、User、Application）
       LocalResourcesTracker tracker =
           getLocalResourcesTracker(e.getKey(), c.getUser(),
               c.getContainerId().getApplicationAttemptId()
                   .getApplicationId());
+
       for (LocalResourceRequest req : e.getValue()) {
+        //执行下载任务，tracker 将 REQUEST 交给 LocalizedResource 处理
         tracker.handle(new ResourceRequestEvent(req, e.getKey(), ctxt));
         if (LOG.isDebugEnabled()) {
           LOG.debug("Localizing " + req.getPath() +
@@ -771,11 +780,12 @@ public class ResourceLocalizationService extends CompositeService
         LocalizerResourceRequestEvent req =
           (LocalizerResourceRequestEvent)event;
         switch (req.getVisibility()) {
+          //根据不同可见级别交给不同的线程、进程处理
         case PUBLIC:
-          publicLocalizer.addResource(req);
+          publicLocalizer.addResource(req); //public 级别交给 publicLocalizer 线程处理
           break;
-        case PRIVATE:
-        case APPLICATION:
+        case PRIVATE: //TODO 用户级别不处理？
+        case APPLICATION: //Application 级别交给 LocalizerRunner 处理
           synchronized (privLocalizers) {
             LocalizerRunner localizer = privLocalizers.get(locId);
             if (localizer != null && localizer.killContainerLocalizer.get()) {
@@ -1203,9 +1213,9 @@ public class ResourceLocalizationService extends CompositeService
 
         // 0) init queue, etc.
         // 1) write credentials to private dir
-        writeCredentials(nmPrivateCTokensPath);
+        writeCredentials(nmPrivateCTokensPath);//写入 token 信息
         // 2) exec initApplication and wait
-        if (dirsHandler.areDisksHealthy()) {
+        if (dirsHandler.areDisksHealthy()) { //执行启动下载进程 ContainerLocalizer
           exec.startLocalizer(new LocalizerStartContext.Builder()
               .setNmPrivateContainerTokens(nmPrivateCTokensPath)
               .setNmAddr(localizationServerAddress)

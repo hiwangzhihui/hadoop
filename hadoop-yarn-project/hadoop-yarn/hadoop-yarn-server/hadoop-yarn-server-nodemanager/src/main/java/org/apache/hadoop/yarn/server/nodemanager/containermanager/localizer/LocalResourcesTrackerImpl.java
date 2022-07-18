@@ -140,13 +140,14 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
       }
       break;
     case REQUEST:
+      //处理资源请求，isResourcePresent 判断资源是否已经存在, 且在 localrsrc 列中，则从请求资源列表中移除
       if (rsrc != null && (!isResourcePresent(rsrc))) {
         LOG.info("Resource " + rsrc.getLocalPath()
             + " is missing, localizing it again");
         removeResource(req);
         rsrc = null;
       }
-      if (null == rsrc) {
+      if (null == rsrc) { //否则新建 LocalizedResource 加入到 localrsrc 列表中的等待处理
         rsrc = new LocalizedResource(req, dispatcher);
         localrsrc.put(req, rsrc);
       }
@@ -185,6 +186,7 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
           + " but localized resource is missing");
       return;
     }
+    //根据  rsrc 状态转换到下一个流程
     rsrc.handle(event);
 
     // Remove the resource if its downloading and its reference count has
@@ -328,21 +330,25 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
 /**
    * This module checks if the resource which was localized is already present
    * or not
-   * 
+   *
    * @param rsrc
    * @return true/false based on resource is present or not
+   * 判断资源文件是否已经存在：true ：存在， false：不存在
    */
   public boolean isResourcePresent(LocalizedResource rsrc) {
     boolean ret = true;
+    //如果资源状态为 LOCALIZED 已经下载
     if (rsrc.getState() == ResourceState.LOCALIZED) {
       File file = new File(rsrc.getLocalPath().toUri().getRawPath().
         toString());
-      if (!file.exists()) {
+
+      if (!file.exists()) { // 如果文件不存在则返回 fasle
         ret = false;
       } else if (dirsHandler != null) {
-        ret = checkLocalResource(rsrc);
+        ret = checkLocalResource(rsrc); //如果文件存在，还需要检测文件所在目录盘是否正常
       }
     }
+    //其它都是需要下载
     return ret;
   }
 
@@ -481,6 +487,7 @@ class LocalResourcesTrackerImpl implements LocalResourcesTracker {
     }
 
     while (true) {
+      //TODO 目录生成规则 uniqueNumberGenerator 随机数
       Path uniquePath = new Path(rPath,
           Long.toString(uniqueNumberGenerator.incrementAndGet()));
       File file = new File(uniquePath.toUri().getRawPath());

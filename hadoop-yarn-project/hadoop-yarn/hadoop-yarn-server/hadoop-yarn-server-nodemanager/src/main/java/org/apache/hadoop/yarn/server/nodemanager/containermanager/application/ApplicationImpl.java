@@ -437,6 +437,7 @@ public class ApplicationImpl implements Application {
   @SuppressWarnings("unchecked")
   static class InitContainerTransition implements
       SingleArcTransition<ApplicationImpl, ApplicationEvent> {
+    //根据 Application 各种状态处理  InitContainer
     @Override
     public void transition(ApplicationImpl app, ApplicationEvent event) {
       ApplicationContainerInitEvent initEvent =
@@ -448,6 +449,7 @@ public class ApplicationImpl implements Application {
       
       switch (app.getApplicationState()) {
       case RUNNING:
+        // 转发到 ContainerEventType.INIT_CONTAINER 事件 交给 RequestResourcesTransition 处理
         app.dispatcher.getEventHandler().handle(new ContainerInitEvent(
             container.getContainerId()));
         break;

@@ -1080,6 +1080,7 @@ public class ContainerManagerImpl extends CompositeService implements
         YarnServerSecurityUtils.parseCredentials(launchContext);
 
     long containerStartTime = SystemClock.getInstance().getTime();
+    // 新创建一个状态为 new 的 Container
     Container container =
         new ContainerImpl(getConfig(), this.dispatcher,
             launchContext, credentials, metrics, containerTokenIdentifier,
@@ -1141,6 +1142,7 @@ public class ContainerManagerImpl extends CompositeService implements
 
         this.context.getNMStateStore().storeContainer(containerId,
             containerTokenIdentifier.getVersion(), containerStartTime, request);
+        //开始触发 INIT_CONTAINER ，转换到 InitContainerTransition
         dispatcher.getEventHandler().handle(
           new ApplicationContainerInitEvent(container));
 
