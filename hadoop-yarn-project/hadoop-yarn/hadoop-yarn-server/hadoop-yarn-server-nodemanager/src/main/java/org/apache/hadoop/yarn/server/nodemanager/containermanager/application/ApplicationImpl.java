@@ -469,7 +469,7 @@ public class ApplicationImpl implements Application {
       SingleArcTransition<ApplicationImpl, ApplicationEvent> {
     @Override
     public void transition(ApplicationImpl app, ApplicationEvent event) {
-      // Start all the containers waiting for ApplicationInit
+      // Start all the containers waiting for ApplicationInit   ApplicationInit 完成后，开始初始化等待的 Container
       for (Container container : app.containers.values()) {
         app.dispatcher.getEventHandler().handle(new ContainerInitEvent(
               container.getContainerId()));

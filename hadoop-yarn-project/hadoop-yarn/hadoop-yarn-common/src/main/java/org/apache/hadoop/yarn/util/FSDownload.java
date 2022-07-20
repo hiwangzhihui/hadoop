@@ -267,11 +267,13 @@ public class FSDownload implements Callable<Path> {
     }
     FileSystem sourceFs = sCopy.getFileSystem(conf);
     FileStatus sStat = sourceFs.getFileStatus(sCopy);
+    //下载资源文件有变更，则抛出异常
     if (sStat.getModificationTime() != resource.getTimestamp()) {
       throw new IOException("Resource " + sCopy +
           " changed on src filesystem (expected " + resource.getTimestamp() +
           ", was " + sStat.getModificationTime());
     }
+    //处理 PUBLIC 级别的问题
     if (resource.getVisibility() == LocalResourceVisibility.PUBLIC) {
       if (!isPublic(sourceFs, sCopy, sStat, statCache)) {
         throw new IOException("Resource " + sCopy +
@@ -279,7 +281,7 @@ public class FSDownload implements Callable<Path> {
             " public cache.");
       }
     }
-
+    //下载文件并解压
     downloadAndUnpack(sCopy, destination);
   }
 
@@ -406,7 +408,7 @@ public class FSDownload implements Callable<Path> {
         files.makeQualified(new Path(destinationTmp, sCopy.getName()));
     try {
       if (userUgi == null) {
-        verifyAndCopy(dFinal);
+        verifyAndCopy(dFinal); // 执行具体的下载逻辑
       } else {
         userUgi.doAs(new PrivilegedExceptionAction<Void>() {
           @Override

@@ -1176,6 +1176,8 @@ public class ContainerImpl implements Container {
       Map<String,LocalResource> cntrRsrc = ctxt.getLocalResources();
       if (!cntrRsrc.isEmpty()) {
         try {
+          //根据不同的资源可见级别，将资源信息封装到 req 中，转发到 ContainerLocalizationRequestEvent
+          //交给 ResourceLocalizationService 处理 LOCALIZE_CONTAINER_RESOURCES
           Map<LocalResourceVisibility, Collection<LocalResourceRequest>> req =
               container.resourceSet.addResources(ctxt.getLocalResources());
           container.dispatcher.getEventHandler().handle(
@@ -1190,6 +1192,7 @@ public class ContainerImpl implements Container {
         //状态转换到 LOCALIZING
         return ContainerState.LOCALIZING;
       } else {
+        //如果没有没有需要再下载的资源则进入 SCHEDULED 状态 ， TODO 如何确定文件下载好了
         container.sendScheduleEvent();
         container.metrics.endInitingContainer();
         return ContainerState.SCHEDULED;
