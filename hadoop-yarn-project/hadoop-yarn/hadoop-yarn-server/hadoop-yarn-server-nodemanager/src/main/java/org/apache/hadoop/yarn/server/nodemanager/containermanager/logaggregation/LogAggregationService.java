@@ -192,6 +192,7 @@ public class LogAggregationService extends AbstractService implements
       long recoveredLogInitedTime) {
     ApplicationEvent eventResponse;
     try {
+      //初始化作业日志聚合，为其在 HDFS 创建日志目录，启动日志聚合线程
       initAppAggregator(appId, user, credentials, appAcls,
           logAggregationContext, recoveredLogInitedTime);
       eventResponse = new ApplicationEvent(appId,

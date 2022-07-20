@@ -192,7 +192,7 @@ public class ContainerLocalizer {
 
     ExecutorService exec = null;
     try {
-      exec = createDownloadThreadPool();
+      exec = createDownloadThreadPool(); //创建下载线程池
       CompletionService<Path> ecs = createCompletionService(exec);
       localizeFiles(nodeManager, ecs, ugi);
     } catch (Throwable e) {
@@ -243,12 +243,12 @@ public class ContainerLocalizer {
     }
 
   }
-
+   //执行具体的下载
   Callable<Path> download(Path destDirPath, LocalResource rsrc,
       UserGroupInformation ugi) throws IOException {
     // For private localization FsDownload creates folder in destDirPath. Parent
     // directories till user filecache folder is created here.
-    if (rsrc.getVisibility() == LocalResourceVisibility.PRIVATE) {
+    if (rsrc.getVisibility() == LocalResourceVisibility.PRIVATE) {  //创建用户级别目录
       createParentDirs(destDirPath);
     }
     diskValidator.checkStatus(new File(destDirPath.toUri().getRawPath()));

@@ -195,6 +195,7 @@ public class LocalDirsHandlerService extends AbstractService {
     diskHealthCheckInterval = conf.getLong(
         YarnConfiguration.NM_DISK_HEALTH_CHECK_INTERVAL_MS,
         YarnConfiguration.DEFAULT_NM_DISK_HEALTH_CHECK_INTERVAL_MS);
+    //monitoringTimerTask 初始化加载目录， 监控目录的健康状况
     monitoringTimerTask = new MonitoringTimerTask(conf);
     isDiskHealthCheckerEnabled = conf.getBoolean(
         YarnConfiguration.NM_DISK_HEALTH_CHECK_ENABLE, true);
@@ -211,6 +212,7 @@ public class LocalDirsHandlerService extends AbstractService {
       throw new YarnRuntimeException("Unable to get the local filesystem", e);
     }
     FsPermission perm = new FsPermission((short)0755);
+    //创建不存在的目录
     boolean createSucceeded = localDirs.createNonExistentDirs(localFs, perm);
     createSucceeded &= logDirs.createNonExistentDirs(localFs, perm);
     if (!createSucceeded) {

@@ -1126,15 +1126,18 @@ public class ContainerManagerImpl extends CompositeService implements
                   applicationID, credentials, context);
           if (context.getApplications().putIfAbsent(applicationID,
               application) == null) {
+            //在 NodeManager 上新创建一个 App 管理起来
             LOG.info("Creating a new application reference for app "
                 + applicationID);
             LogAggregationContext logAggregationContext =
                 containerTokenIdentifier.getLogAggregationContext();
+            //将 App 信息存放到 内存和本地存储
             Map<ApplicationAccessType, String> appAcls =
                 container.getLaunchContext().getApplicationACLs();
             context.getNMStateStore().storeApplication(applicationID,
                 buildAppProto(applicationID, user, credentials, appAcls,
                     logAggregationContext, flowContext));
+            //Init App 开始事件扭转
             dispatcher.getEventHandler().handle(new ApplicationInitEvent(
                 applicationID, appAcls, logAggregationContext));
           }
