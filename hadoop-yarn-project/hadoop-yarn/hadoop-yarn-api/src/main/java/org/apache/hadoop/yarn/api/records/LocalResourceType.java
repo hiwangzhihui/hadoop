@@ -51,11 +51,15 @@ public enum LocalResourceType {
   
   /**
    * Archive, which is automatically unarchived by the <code>NodeManager</code>.
+   * 归档类文件：包含 jar、zip、tar.gz、tgz、tar
+   * 会对这 5 类文件下载后自动解压
    */
   ARCHIVE,
   
   /**
    * Regular file i.e. uninterpreted bytes.
+   * 普通文件：将文件下载后不做任何处理
+   *
    */
   FILE,
   
@@ -65,6 +69,7 @@ public enum LocalResourceType {
    * unarchived part.  The part that is unarchived is determined by pattern
    * in #{@link LocalResource}.  Currently only jars support pattern, all
    * others will be treated like a #{@link LocalResourceType#ARCHIVE}.
+   * 匹配模式文件：以文件后缀作匹配，支持 ARCHIVE 中五中类型文件的处理，其它文件作为 FILE 处理
    */
   PATTERN
 }
