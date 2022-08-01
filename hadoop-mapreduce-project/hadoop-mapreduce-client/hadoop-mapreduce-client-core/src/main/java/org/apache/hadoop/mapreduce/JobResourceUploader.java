@@ -193,20 +193,26 @@ class JobResourceUploader {
 
 
     Map<URI, FileStatus> statCache = new HashMap<URI, FileStatus>();
+    //检测文件是否在分布式缓存中
+    //TODO 确定哪些不需上传？
     checkLocalizationLimits(conf, files, libjars, archives, jobJar, statCache);
 
     Map<String, Boolean> fileSCUploadPolicies =
         new LinkedHashMap<String, Boolean>();
     Map<String, Boolean> archiveSCUploadPolicies =
         new LinkedHashMap<String, Boolean>();
-
+    //上传 files
     uploadFiles(job, files, submitJobDir, mapredSysPerms, replication,
         fileSCUploadPolicies, statCache);
+    //上传 libjars
     uploadLibJars(job, libjars, submitJobDir, mapredSysPerms, replication,
         fileSCUploadPolicies, statCache);
+    //上传 archives
     uploadArchives(job, archives, submitJobDir, mapredSysPerms, replication,
         archiveSCUploadPolicies, statCache);
+    //上传运行时的 job jar
     uploadJobJar(job, jobJar, submitJobDir, replication, statCache);
+    //上传 log4j 配置
     addLog4jToDistributedCache(job, submitJobDir);
 
     // Note, we do not consider resources in the distributed cache for the

@@ -326,6 +326,7 @@ public class YARNRunner implements ClientProtocol {
 
     // Submit to ResourceManager
     try {
+      // 向 RM 提交 App
       ApplicationId applicationId =
           resMgrDelegate.submitApplication(appContext);
 
@@ -383,13 +384,15 @@ public class YARNRunner implements ClientProtocol {
     rsrc.setShouldBeUploadedToSharedCache(uploadToSharedCache);
     return rsrc;
   }
-
+  //设置作业运行时的资源文件信息
   private Map<String, LocalResource> setupLocalResources(Configuration jobConf,
       String jobSubmitDir) throws IOException {
+    //资源名称 ，资源对应详细信息
     Map<String, LocalResource> localResources = new HashMap<>();
-
+    //jobSubmitDir 上传到 HDFS 的资源文件
     Path jobConfPath = new Path(jobSubmitDir, MRJobConfig.JOB_CONF_FILE);
 
+    // job.xml 设置为 FILE 类型、 Application 可见级别的资源、资源存放在 HDFS 位置
     URL yarnUrlForJobSubmitDir = URL.fromPath(defaultFileContext
         .getDefaultFileSystem().resolvePath(
             defaultFileContext.makeQualified(new Path(jobSubmitDir))));
@@ -405,11 +408,13 @@ public class YARNRunner implements ClientProtocol {
       // job.jar to be named that way.
       FileContext fccc =
           FileContext.getFileContext(jobJarPath.toUri(), jobConf);
+      //job jar 默认资源可见性为： APPLICATION 级别
       LocalResourceVisibility jobJarViz =
           jobConf.getBoolean(MRJobConfig.JOBJAR_VISIBILITY,
               MRJobConfig.JOBJAR_VISIBILITY_DEFAULT)
                   ? LocalResourceVisibility.PUBLIC
                   : LocalResourceVisibility.APPLICATION;
+      // job.jar 设置为 app 级别
       LocalResource rc = createApplicationResource(
           FileContext.getFileContext(jobJarPath.toUri(), jobConf), jobJarPath,
           MRJobConfig.JOB_JAR, LocalResourceType.PATTERN, jobJarViz,
@@ -428,7 +433,7 @@ public class YARNRunner implements ClientProtocol {
     }
 
     // TODO gross hack
-    for (String s : new String[] {
+    for (String s : new String[] {// job.split 文件
         MRJobConfig.JOB_SPLIT,
         MRJobConfig.JOB_SPLIT_METAINFO }) {
       localResources.put(
@@ -540,8 +545,10 @@ public class YARNRunner implements ClientProtocol {
     MRApps.setEnvFromInputString(environment,
         conf.get(MRJobConfig.MR_AM_ENV), conf);
 
-    // Parse distributed cache
+    // Parse distributed cache  设置引擎 chache 文件 TODO
     MRApps.setupDistributedCache(jobConf, localResources);
+
+    //token、localResources 、环境参数、访问作业acls、启动参数放入 Container启动上下文中
 
     Map<ApplicationAccessType, String> acls = new HashMap<>(2);
     acls.put(ApplicationAccessType.VIEW_APP, jobConf.get(
@@ -567,10 +574,11 @@ public class YARNRunner implements ClientProtocol {
       throws IOException {
     ApplicationId applicationId = resMgrDelegate.getApplicationId();
 
-    // Setup LocalResources
+    // Setup LocalResources      准备运行时文件， TODO 外部 jar 是如何提交的，默认是什么级别
     Map<String, LocalResource> localResources =
         setupLocalResources(jobConf, jobSubmitDir);
 
+    // TODO 根据引擎执行逻辑决定，文件什么时候上传的呢？
     // Setup security tokens
     DataOutputBuffer dob = new DataOutputBuffer();
     ts.writeTokenStorageToStream(dob);

@@ -98,7 +98,7 @@ class JobSubmitter {
     boolean useWildcards = conf.getBoolean(Job.USE_WILDCARD_FOR_LIBJARS,
         Job.DEFAULT_USE_WILDCARD_FOR_LIBJARS);
     JobResourceUploader rUploader = new JobResourceUploader(jtFs, useWildcards);
-
+    //上传运行时的资源文件
     rUploader.uploadResources(job, jobSubmitDir);
 
     // Get the working directory. If not set, sets it to filesystem working dir
@@ -147,7 +147,9 @@ class JobSubmitter {
 
     Configuration conf = job.getConfiguration();
     addMRFrameworkToDistributedCache(conf);
-
+    //引擎统一存放作业信息的 "Staging" 临时目录
+    // yarn.app.mapreduce.am.staging-dir
+    // 默认：/{user}/.staging
     Path jobStagingArea = JobSubmissionFiles.getStagingDir(cluster, conf);
     //configure the command line options correctly on the submitting dfs
     InetAddress ip = InetAddress.getLocalHost();
@@ -159,6 +161,7 @@ class JobSubmitter {
     }
     JobID jobId = submitClient.getNewJobID();
     job.setJobID(jobId);
+    //job 运行时文件存放位置
     Path submitJobDir = new Path(jobStagingArea, jobId.toString());
     JobStatus status = null;
     try {
@@ -194,6 +197,8 @@ class JobSubmitter {
                 "data spill is enabled");
       }
 
+      //将本地文件上传到 hdfs    -libjars, -files, -archives  指定的文件，
+      // TODO 那 MR 引擎的文件怎么发布的呢？
       copyAndConfigureFiles(job, submitJobDir);
 
       Path submitJobFile = JobSubmissionFiles.getJobConfPath(submitJobDir);
