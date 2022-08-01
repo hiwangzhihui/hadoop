@@ -330,7 +330,7 @@ public class FSDownload implements Callable<Path> {
       File dst = new File(destination.toUri());
       String lowerDst = StringUtils.toLowerCase(dst.getName());
       switch (resource.getType()) {
-      case ARCHIVE:
+      case ARCHIVE: //处理归档文件，自动将其解压
         if (lowerDst.endsWith(".jar")) {
           RunJar.unJar(inputStream, dst, RunJar.MATCH_ANY);
         } else if (lowerDst.endsWith(".zip")) {
@@ -373,7 +373,7 @@ public class FSDownload implements Callable<Path> {
           }
         }
         break;
-      case FILE:
+      case FILE:  //为普通文件不做任何处理
       default:
         try (OutputStream outputStream =
                  destinationFileSystem.create(destination, true)) {
