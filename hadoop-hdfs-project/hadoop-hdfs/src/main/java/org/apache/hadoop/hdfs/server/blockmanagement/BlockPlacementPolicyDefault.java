@@ -261,7 +261,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (excludedNodes == null) {
       excludedNodes = new HashSet<>();
     }
-    //返回二维数组 ：{允许分配的总节点个数，每个机架允许分配的最大节点个数}
+    //返回二维数组 ：{允许分配的总节点个数，每个机架允许分配最多副本个数}
     int[] result = getMaxNodesPerRack(chosenStorage.size(), numOfReplicas);
     numOfReplicas = result[0];
     int maxNodesPerRack = result[1];
@@ -290,7 +290,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     if (avoidLocalNode) { //不期望数据写入local 节点逻辑
       results = new ArrayList<>(chosenStorage);
       Set<Node> excludedNodeCopy = new HashSet<>(excludedNodes);
-      excludedNodeCopy.add(writer);
+      excludedNodeCopy.add(writer); // local 节点排除掉
       localNode = chooseTarget(numOfReplicas, writer,
           excludedNodeCopy, blocksize, maxNodesPerRack, results,
           avoidStaleNodes, storagePolicy,
@@ -427,7 +427,9 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     }
     final int numOfResults = results.size();
     final int totalReplicasExpected = numOfReplicas + numOfResults;
+    //如果 writer 存在于集群 datanode 中，则第一个副本的位置就在本地节点上
     //如果 results 中已经有选定的结果，则直接从 results 中获取第一个节点作为 writer
+    //如果 result 没有值，则随机从集群中选取一个节点，作为 localNode 即 writer
     if ((writer == null || !(writer instanceof DatanodeDescriptor)) && !newBlock) {
       writer = results.get(0).getDatanodeDescriptor();
     }

@@ -70,7 +70,7 @@ public abstract class BlockPlacementPolicy {
    * @param returnChosenNodes decide if the chosenNodes are returned.
    * @param excludedNodes datanodes that should not be considered as targets.
    * @param blocksize size of the data to be written.
-   * @param flags Block placement flags.
+   * @param flags Block placement flags.  是否优先本分配到本地节点
    * @return array of DatanodeDescriptor instances chosen as target
    * and sorted as a pipeline.
    */

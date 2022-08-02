@@ -286,7 +286,7 @@ class FSDirWriteFileOp {
     }
     List<String> favoredNodesList = (favoredNodes == null) ? null
         : Arrays.asList(favoredNodes);
-    // choose targets for the new block to be allocated.
+    // choose targets for the new block to be allocated. 新申请一个块
     return bm.chooseTarget4NewBlock(src, r.numTargets, clientNode,
                                     excludedNodesSet, r.blockSize,
                                     favoredNodesList, r.storagePolicyID,
