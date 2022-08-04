@@ -228,6 +228,7 @@ class BlockReaderLocal implements BlockReader {
    * for dataBuf.limit().
    *
    * This may be null if we don't need it.
+   * 数据缓冲区
    */
   private ByteBuffer dataBuf;
 
@@ -236,6 +237,7 @@ class BlockReaderLocal implements BlockReader {
    * for checksumBuf.limit().
    *
    * This may be null if we don't need it.
+   * 校验和缓冲区
    */
   private ByteBuffer checksumBuf;
 
@@ -412,9 +414,7 @@ class BlockReaderLocal implements BlockReader {
     /**
      * 如果关闭了数据校验直接返回 ture
      * transient storage 临时存储的副本（内存中）不需要进行校验
-     * 如果已经开启了数据校验，则在 共享内存的 Solt 中创建一个免校验的锚
-     *  DataNode 将数据放入到内存缓存也是需要校验的，所以该情况不需要重复校验
-     *
+     * 如果已经开启了数据校验，则在 共享内存的 Solt 中创建一个免校验的锚，DataNode 将数据放入到内存缓存时校验了，所以该情况不需要重复校验
      * */
     return !verifyChecksum ||
         // Checksums are not stored for replicas on transient storage.  We do
@@ -553,7 +553,7 @@ class BlockReaderLocal implements BlockReader {
         int nRead;
         try {
           buf.limit(buf.position() + maxReadaheadLength);
-          nRead = fillBuffer(buf, canSkipChecksum);
+          nRead = fillBuffer(buf, canSkipChecksum);//写入校验和
         } finally {
           buf.limit(oldLimit);
         }
@@ -566,7 +566,7 @@ class BlockReaderLocal implements BlockReader {
         total += nRead;
       } else {
         // Slow lane: refill bounce buffer. 否则先将数据读入到 dataBuf 中，再将 dataBuf 数据写入buf 中
-        if (fillDataBuf(canSkipChecksum)) {
+        if (fillDataBuf(canSkipChecksum)) { //写入数据
           done = true;
         }
         bb = drainDataBuf(buf); // drain bounce buffer if possible

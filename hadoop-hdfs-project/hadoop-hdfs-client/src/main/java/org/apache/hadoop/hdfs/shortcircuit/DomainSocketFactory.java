@@ -137,7 +137,7 @@ public class DomainSocketFactory {
       throws IOException {
     // If there is no domain socket path configured, we can't use domain
     // sockets.
-    //dfs.domain.socket.path Datanode和DFSClient之间沟通的Socket的本地路径套接口文件
+    //dfs.domain.socket.path Datanode 和 DFSClient 之间沟通的Socket的本地路径套接口文件
     if (conf.getDomainSocketPath().isEmpty()) return PathInfo.NOT_CONFIGURED;
     // If we can't do anything with the domain socket, don't create it.
     //必须开启 domianSocket 配置

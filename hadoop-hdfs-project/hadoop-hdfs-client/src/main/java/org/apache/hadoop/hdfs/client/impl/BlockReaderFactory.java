@@ -491,7 +491,6 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
         + " reads.", this);
     if (pathInfo == null) {
       //inetSocketAddress 为目标节点的 address
-      //为期创建
       pathInfo = clientContext.getDomainSocketFactory()
           .getPathInfo(inetSocketAddress, conf.getShortCircuitConf());
     }
@@ -505,7 +504,7 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
     ShortCircuitCache cache = clientContext.getShortCircuitCache();
     ExtendedBlockId key = new ExtendedBlockId(block.getBlockId(),
         block.getBlockPoolId());
-    //向 DN 申请短路读取数据的共享内存插槽
+    //向 DN 申请 block 对应的文件描述符信息
     ShortCircuitReplicaInfo info = cache.fetchOrCreate(key, this);
     InvalidToken exc = info.getInvalidTokenException();
     if (exc != null) {
@@ -614,6 +613,7 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
     final DataOutputStream out =
         new DataOutputStream(new BufferedOutputStream(peer.getOutputStream()));
     SlotId slotId = slot == null ? null : slot.getSlotId();
+    //向 DataNode 获取对应数据块的文件描述符信息
     new Sender(out).requestShortCircuitFds(block, token, slotId, 1,
         failureInjector.getSupportsReceiptVerification());
     DataInputStream in = new DataInputStream(peer.getInputStream());
@@ -634,6 +634,7 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
           LOG.trace("Sending receipt verification byte for slot {}", slot);
           sock.getOutputStream().write(0);
         }
+        //从数据流中获取 ShortCircuitReplica
         replica = new ShortCircuitReplica(key, fis[0], fis[1], cache,
             Time.monotonicNow(), slot);
         return new ShortCircuitReplicaInfo(replica);
