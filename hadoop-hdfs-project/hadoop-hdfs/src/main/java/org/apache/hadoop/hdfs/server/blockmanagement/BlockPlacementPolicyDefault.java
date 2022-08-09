@@ -559,7 +559,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       final DatanodeDescriptor dn1 = results.get(1).getDatanodeDescriptor();
       //如果 dn0 与 dn1 同机架，则 dn2 必须选择不同机架
       if (clusterMap.isOnSameRack(dn0, dn1)) {
-        // 则选择1个不同于dn0,dn1所在机架的副本位置
+        // 则选择一个不同于dn0,dn1所在机架的副本位置
         chooseRemoteRack(1, dn0, excludedNodes, blocksize, maxNodesPerRack,
             results, avoidStaleNodes, storageTypes);
       } else if (newBlock){
