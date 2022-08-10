@@ -60,7 +60,11 @@ import static org.apache.hadoop.io.erasurecode.ErasureCodeConstants.REPLICATION_
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
-/** I-node for closed file. */
+/** I-node for closed file.
+ *  抽象了具体的文件信息：
+ *    - 记录文件拥有的数据块信息
+ *    - 记录文件存储类型、存储策略、当前的状态
+ * */
 @InterfaceAudience.Private
 public class INodeFile extends INodeWithAdditionalFields
     implements INodeFileAttributes, BlockCollection {
