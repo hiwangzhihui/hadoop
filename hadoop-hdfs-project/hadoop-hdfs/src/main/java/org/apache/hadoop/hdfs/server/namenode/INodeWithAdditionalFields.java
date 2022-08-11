@@ -29,6 +29,7 @@ import com.google.common.base.Preconditions;
 /**
  * {@link INode} with additional fields including id, name, permission,
  * access time and modification time.
+ * 该类主要实现文件权限、修改记录的功能、使用 features 字段记录当前文件具体的特性
  */
 @InterfaceAudience.Private
 public abstract class INodeWithAdditionalFields extends INode

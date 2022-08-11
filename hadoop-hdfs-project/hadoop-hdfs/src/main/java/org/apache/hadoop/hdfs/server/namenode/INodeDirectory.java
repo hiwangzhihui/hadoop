@@ -48,6 +48,7 @@ import static org.apache.hadoop.hdfs.protocol.HdfsConstants.BLOCK_STORAGE_POLICY
 
 /**
  * Directory INode class.
+ * 实现了对子目录项的管理功能
  */
 public class INodeDirectory extends INodeWithAdditionalFields
     implements INodeDirectoryAttributes {
@@ -70,7 +71,7 @@ public class INodeDirectory extends INodeWithAdditionalFields
   public static final int DEFAULT_FILES_PER_DIRECTORY = 2;
 
   static final byte[] ROOT_NAME = DFSUtil.string2Bytes("");
-
+  //记录子目录项目的 Inode
   private List<INode> children = null;
   
   /** constructor */

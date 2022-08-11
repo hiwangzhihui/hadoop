@@ -559,7 +559,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       final DatanodeDescriptor dn1 = results.get(1).getDatanodeDescriptor();
       //如果 dn0 与 dn1 同机架，则 dn2 必须选择不同机架
       if (clusterMap.isOnSameRack(dn0, dn1)) {
-        // 则选择1个不同于dn0,dn1所在机架的副本位置
+        // 则选择一个不同于dn0,dn1所在机架的副本位置
         chooseRemoteRack(1, dn0, excludedNodes, blocksize, maxNodesPerRack,
             results, avoidStaleNodes, storageTypes);
       } else if (newBlock){
@@ -686,6 +686,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       return chooseRandom(NodeBase.ROOT, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, storageTypes);
     }
+    // 获取本地机架名
     final String localRack = localMachine.getNetworkLocation();
       
     try {
@@ -808,6 +809,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       builder.setLength(0);
       builder.append("[");
     }
+    //记录选择节点失败原因
     CHOOSE_RANDOM_REASONS.get().clear();
     boolean badTarget = false;
     DatanodeStorageInfo firstChosen = null;
@@ -817,6 +819,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       DatanodeDescriptor chosenNode = null;
       if (clusterMap instanceof DFSNetworkTopology) {
         for (StorageType type : storageTypes.keySet()) {
+          //根据网络拓扑和存储类型、scope 选择一个节点
           chosenNode = chooseDataNode(scope, excludedNodes, type);
 
           if (chosenNode != null) {
@@ -825,6 +828,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           }
         }
       } else {
+        // clusterMap 不属于网络拓扑，则根据 scope 选取节点, 存储类型不管了?
         chosenNode = chooseDataNode(scope, excludedNodes);
       }
 
@@ -838,6 +842,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             .append(" [");
       }
       DatanodeStorageInfo storage = null;
+      //检查是否满足存储条件
       if (isGoodDatanode(chosenNode, maxNodesPerRack, considerLoad,
           results, avoidStaleNodes)) {
         for (Iterator<Map.Entry<StorageType, Integer>> iter = storageTypes
@@ -849,6 +854,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           if (includeType != null && entry.getKey() != includeType) {
             continue;
           }
+          //在节点分配对应的存储类型空间
           storage = chooseStorage4Block(
               chosenNode, blocksize, results, entry.getKey());
           if (storage != null) {
@@ -876,7 +882,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
         badTarget = (storage == null);
       }
     }
-    if (numOfReplicas>0) {
+    if (numOfReplicas>0) {//如果还没有副本被分配，则打印和记录对应的失败原因
       String detail = enableDebugLogging;
       if (LOG.isDebugEnabled() && builder != null) {
         detail = builder.toString();
@@ -893,7 +899,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       }
       final HashMap<NodeNotChosenReason, Integer> reasonMap =
           CHOOSE_RANDOM_REASONS.get();
-      if (!reasonMap.isEmpty()) {
+      if (!reasonMap.isEmpty()) { //打印失败原因，抛出异常
         LOG.info("Not enough replicas was chosen. Reason:{}", reasonMap);
       }
       throw new NotEnoughReplicasException(detail);
