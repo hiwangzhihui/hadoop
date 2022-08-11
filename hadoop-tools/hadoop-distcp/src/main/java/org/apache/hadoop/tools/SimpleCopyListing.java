@@ -352,7 +352,7 @@ public class SimpleCopyListing extends CopyListing {
 
         FileStatus rootStatus = sourceFS.getFileStatus(path);
         Path sourcePathRoot = computeSourceRootPath(rootStatus, context);
-
+       //将文件目录信息写入 切片文件中
         FileStatus[] sourceFiles = sourceFS.listStatus(path);
         boolean explore = (sourceFiles != null && sourceFiles.length > 0);
         if (!explore || rootStatus.isDirectory()) {
@@ -377,9 +377,11 @@ public class SimpleCopyListing extends CopyListing {
                     context.getBlocksPerChunk());
             for (CopyListingFileStatus fs : sourceCopyListingStatus) {
               if (randomizeFileListing) {
+                //文件信息加入到 writer 列表
                 addToFileListing(statusList,
                     new FileStatusInfo(fs, sourcePathRoot), fileListWriter);
               } else {
+                //文件信息落盘
                 writeToFileListing(fileListWriter, fs, sourcePathRoot);
               }
             }
@@ -387,9 +389,11 @@ public class SimpleCopyListing extends CopyListing {
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Adding source dir for traverse: " + sourceStatus.getPath());
               }
+              //目录信息加入到 sourceDirs
               sourceDirs.add(sourceStatus);
             }
           }
+          //递归目录下的子文件
           traverseDirectory(fileListWriter, sourceFS, sourceDirs,
               sourcePathRoot, context, null, statusList);
         }

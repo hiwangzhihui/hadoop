@@ -245,6 +245,7 @@ public class OptionsParser {
    *
    * @param command command line arguments
    * @return        DistCpOptions
+   * 解析 sourcePath 和 Target path
    */
   private static DistCpOptions.Builder parseSourceAndTargetPaths(
       CommandLine command) {
@@ -256,9 +257,11 @@ public class OptionsParser {
       throw new IllegalArgumentException("Target path not specified");
     }
 
+    //targetPath 为参数最后一个文件目录
     //Last Argument is the target path
     targetPath = new Path(leftOverArgs[leftOverArgs.length - 1].trim());
 
+    // sourcePaths 可以有多个
     //Copy any source paths in the arguments to the list
     for (int index = 0; index < leftOverArgs.length - 1; index++) {
       sourcePaths.add(new Path(leftOverArgs[index].trim()));
