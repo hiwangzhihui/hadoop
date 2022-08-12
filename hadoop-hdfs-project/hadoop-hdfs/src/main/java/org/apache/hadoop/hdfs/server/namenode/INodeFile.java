@@ -324,11 +324,13 @@ public class INodeFile extends INodeWithAdditionalFields
   }
 
   /** Is this file under construction? */
-  @Override // BlockCollection
+  @Override // BlockisUCollection
   public boolean isUnderConstruction() {
     return getFileUnderConstructionFeature() != null;
   }
-
+ /**
+  * 当对文件追加写时为 NodeFile 新增 FileUnderConstructionFeature 表文件处于写状态中
+  * */
   INodeFile toUnderConstruction(String clientName, String clientMachine) {
     Preconditions.checkState(!isUnderConstruction(),
         "file is already under construction");

@@ -294,7 +294,7 @@ public interface HdfsServerConstants {
     // 租约正在进行恢复的副本
     /** Replica is under recovery. */
     RUR(3),
-    //ReplicaInPipeline  类描述， DataNode 直接去传输副本时，正在传输的副本所处的状态
+    //ReplicaInPipeline  类描述， DataNode 之间去传输副本时，正在传输的副本所处的状态
     //该副本时不可读的
     /** Temporary replica: created for replication and relocation only. */
     TEMPORARY(4);
@@ -354,7 +354,14 @@ public interface HdfsServerConstants {
      * When a file lease expires its last block may not be {@link #COMPLETE}
      * and needs to go through a recovery procedure, 
      * which synchronizes the existing replicas contents.
-     * 块租约恢复或者在进行副本同步时就会进入该状态
+     * 文件的最后一个块数据处于 UNDER_CONSTRUCTION 状态时，客户端异常退出
+     *  例如: 该文件的租约到期，该数据块就需要进行租约恢复和数据块恢复
+     *   在租约恢复和数据块恢复流程 BLOCK 就会处于该状态
+     *  TODO:
+     *    HDFS 如何感知异常退出
+     *    Client 如何修复
+     *    如何 Client 修复不了Block 会出现什么情况？
+     *
      */
     UNDER_RECOVERY,
     /**
@@ -365,6 +372,7 @@ public interface HdfsServerConstants {
      * replicas has yet been reported by data-nodes themselves.
      * 客户端在写完一个块文件时，会带上一个commit 请求，且所有的 DataNode 已经回复 Client Ack，
      * 但是NameNode 目前没有收到任何一个 DataNode 汇报副本为 FINALIZED 状态
+     * 等待 DataNode 汇报后状态就会转为 COMPLETE
      */
     COMMITTED
   }

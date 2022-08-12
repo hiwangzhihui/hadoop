@@ -30,6 +30,9 @@ import org.apache.hadoop.util.LightWeightGSet;
  * This class maintains the map from a block to its metadata.
  * block's metadata currently includes blockCollection it belongs to and
  * the datanodes that store the block.
+ * 该类维护了所有数据块的元数据信息，
+ *  块属于哪个问题件
+ *  块存放在哪些 datanode 上
  */
 class BlocksMap {
 

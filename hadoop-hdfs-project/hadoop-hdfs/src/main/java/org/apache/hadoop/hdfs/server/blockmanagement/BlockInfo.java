@@ -46,11 +46,16 @@ public abstract class BlockInfo extends Block
 
   /**
    * Replication factor.
+   * block 副本个数
    */
   private short replication;
 
   /**
    * Block collection ID.
+   *
+   * 对应 BlockCollection 的 Id
+   * BlockCollection 实现类为 INodeFile
+   * 最终指向的是块所属的文件
    */
   private long bcId;
 
@@ -59,8 +64,9 @@ public abstract class BlockInfo extends Block
 
 
   // Storages this block is replicated on
+  // Block 副本存放的位置信息
   protected DatanodeStorageInfo[] storages;
-
+ // 记录块的状态
   private BlockUnderConstructionFeature uc;
 
   /**
@@ -270,6 +276,7 @@ public abstract class BlockInfo extends Block
 
   /**
    * Add/Update the under construction feature.
+   *  更新块的构建状态，一般在
    */
   public void convertToBlockUnderConstruction(BlockUCState s,
       DatanodeStorageInfo[] targets) {

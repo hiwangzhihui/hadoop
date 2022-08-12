@@ -88,9 +88,11 @@ public class Block implements Writable, Comparable<Block> {
     Matcher m = metaOrBlockFilePattern.matcher(metaOrBlockFile);
     return m.matches() ? Long.parseLong(m.group(1)) : 0;
   }
-
+  // block 的唯一标识
   private long blockId;
+  // block 数据块的大小
   private long numBytes;
+  // block 生成时间
   private long generationStamp;
 
   public Block() {this(0, 0, 0);}

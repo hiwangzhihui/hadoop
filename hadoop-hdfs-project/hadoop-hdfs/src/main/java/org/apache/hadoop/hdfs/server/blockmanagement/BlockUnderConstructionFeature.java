@@ -33,6 +33,7 @@ import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCSt
 /**
  * Represents the under construction feature of a Block.
  * This is usually the last block of a file opened for write or append.
+ *
  */
 public class BlockUnderConstructionFeature {
   private BlockUCState blockUCState;
@@ -41,6 +42,7 @@ public class BlockUnderConstructionFeature {
 
   /**
    * Block replicas as assigned when the block was allocated.
+   * 副本列表
    */
   private ReplicaUnderConstruction[] replicas = NO_REPLICAS;
 

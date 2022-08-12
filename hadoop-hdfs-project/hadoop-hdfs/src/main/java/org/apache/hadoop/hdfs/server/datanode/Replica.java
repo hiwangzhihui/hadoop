@@ -22,6 +22,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 
 /** 
  * This represents block replicas which are stored in DataNode.
+ *  datanode 中保存的数据块称为副本
  */
 @InterfaceAudience.Private
 public interface Replica {
