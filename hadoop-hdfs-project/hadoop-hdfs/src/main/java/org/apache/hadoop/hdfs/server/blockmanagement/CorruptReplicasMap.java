@@ -38,7 +38,8 @@ import com.google.common.annotations.VisibleForTesting;
  * corrupt. While reporting replicas of a Block, we hide any corrupt
  * copies. These copies are removed once Block is found to have 
  * expected number of good replicas.
- * Mapping: Block -> TreeSet<DatanodeDescriptor> 
+ * Mapping: Block -> TreeSet<DatanodeDescriptor>
+ *
  */
 
 @InterfaceAudience.Private

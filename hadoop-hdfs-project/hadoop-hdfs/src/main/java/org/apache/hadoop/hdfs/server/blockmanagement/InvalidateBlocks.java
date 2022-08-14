@@ -50,15 +50,15 @@ import org.slf4j.Logger;
  */
 @InterfaceAudience.Private
 class InvalidateBlocks {
-  //  常规的块副本
+  //  常规块副本, 保存的是节点上待删除的所有块的副本
   private final Map<DatanodeInfo, LightWeightHashSet<Block>>
       nodeToBlocks = new HashMap<>();
-  //Erasure Code 块副本
+  //Erasure Code EC 块副本
   private final Map<DatanodeInfo, LightWeightHashSet<Block>>
       nodeToECBlocks = new HashMap<>();
   private final LongAdder numBlocks = new LongAdder();
   private final LongAdder numECBlocks = new LongAdder();
-  //定时任务 每次删除的 副本个数
+  //定时任务 每次删除的 副本个数 dfs.block.invalidate.limit 默认 1000
   private final int blockInvalidateLimit;
 
   /**
@@ -275,7 +275,9 @@ class InvalidateBlocks {
     statsAdder.add(polledBlocks.size() * -1);
     return remainingLimit;
   }
-
+ /**
+  * 由 RedundancyMonitor 线程定时发起，批量处理某个节点上待删除数据块副本
+  * */
   synchronized List<Block> invalidateWork(final DatanodeDescriptor dn) {
     final long delay = getInvalidationDelay();
     if (delay > 0) {

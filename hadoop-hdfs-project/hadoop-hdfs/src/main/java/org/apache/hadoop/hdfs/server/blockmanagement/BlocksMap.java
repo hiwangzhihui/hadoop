@@ -31,8 +31,9 @@ import org.apache.hadoop.util.LightWeightGSet;
  * block's metadata currently includes blockCollection it belongs to and
  * the datanodes that store the block.
  * 该类维护了所有数据块的元数据信息，
- *  块属于哪个问题件
+ *  块属于哪个文件
  *  块存放在哪些 datanode 上
+ *  数据块副本与数据节点之间的对应关系
  */
 class BlocksMap {
 

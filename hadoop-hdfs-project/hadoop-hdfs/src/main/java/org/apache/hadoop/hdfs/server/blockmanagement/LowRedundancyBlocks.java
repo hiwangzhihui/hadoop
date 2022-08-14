@@ -67,21 +67,44 @@ import org.apache.hadoop.hdfs.util.LightWeightLinkedSet;
 class LowRedundancyBlocks implements Iterable<BlockInfo> {
   /** The total number of queues : {@value} */
   static final int LEVEL = 5;
-  /** The queue with the highest priority: {@value} */
+
+  /** The queue with the highest priority: {@value}
+   *  需要立即备份副本的数据块
+   *  这个数据块副本只有一个，或这个数据块存没有活的副本且有一个可拷贝副本的节点正在下线；
+   *   这种类型的数据块，如果所在的服务节点和磁盘故障，则会有丢失数据的风险
+   * */
   static final int QUEUE_HIGHEST_PRIORITY = 0;
-  /** The queue for blocks that are way below their expected value : {@value} */
+
+  /** The queue for blocks that are way below their expected value : {@value}
+   *  副本个数低于期望个数的数据块
+   *  存活的副本数据与期望副本数比例小于 1:3 则加入该队列
+   * */
   static final int QUEUE_VERY_LOW_REDUNDANCY = 1;
   /**
    * The queue for "normally" without sufficient redundancy blocks : {@value}.
+   * 优先级未达到 QUEUE_VERY_LOW_REDUNDANCY（1），但是副本个数每个达到期望个数的数据块
    */
   static final int QUEUE_LOW_REDUNDANCY = 2;
   /** The queue for blocks that have the right number of replicas,
    * but which the block manager felt were badly distributed: {@value}
+   * 数据块的副本个数已经达到期望值，但是副本分并不很很好，如果一个机架或交换机宕机就可能导致数据丢失
    */
   static final int QUEUE_REPLICAS_BADLY_DISTRIBUTED = 3;
-  /** The queue for corrupt blocks: {@value} */
+  /** The queue for corrupt blocks: {@value}
+   * 保存已经彻底损坏的数据块
+   *  就是数据块所有的副本都损坏了，这里的策略是将损坏的块加入这个队列中，对未损坏的数据块给予更高的优先级
+   *
+   *  TODO 损坏的块数据 HDFS 是如何处理的？
+   * */
   static final int QUEUE_WITH_CORRUPT_BLOCKS = 4;
-  /** the queues themselves */
+
+  /** the queues themselves
+   * priorityQueues 保存了所有待复制的数块副本集合，它将待复制的数据块拆分为 5 个不同等级的子队列
+   * 每一个队列对应一个优先级
+   * 0 为最高优先级
+   * 4 为最低优先级
+   * */
+
   private final List<LightWeightLinkedSet<BlockInfo>> priorityQueues
       = new ArrayList<>(LEVEL);
 

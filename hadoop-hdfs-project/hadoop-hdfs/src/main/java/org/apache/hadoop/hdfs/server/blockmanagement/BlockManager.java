@@ -153,6 +153,7 @@ import org.slf4j.LoggerFactory;
  * Another safety property is to satisfy the block placement policy. While the
  * policy is configurable, the replicas the policy is applied to are the live
  * replicas + maintenance replicas.
+ * 维护所有数据块的操作，以及数块和副本状态的转移
  */
 @InterfaceAudience.Private
 public class BlockManager implements BlockStatsMXBean {
@@ -318,9 +319,8 @@ public class BlockManager implements BlockStatsMXBean {
   private final BlockReportProcessingThread blockReportThread =
       new BlockReportProcessingThread();
 
-  // 存放损坏的块
-  // DN 汇报块副本状态判断块是否正常
-  // 什么时候会将其加入修复列表中，立即但是会pending
+  // 损坏的数据块副本集合
+  // 什么时候会将其加入修复列表中，立即但是会pending ，心跳汇报时加入
   // 什么时候从 corruptReplicas 中移除，开始修复时、块被删除、多余的副本
   /** Store blocks -> datanodedescriptor(s) map of corrupt replicas */
   final CorruptReplicasMap corruptReplicas = new CorruptReplicasMap();
@@ -329,7 +329,11 @@ public class BlockManager implements BlockStatsMXBean {
    * Blocks to be invalidated.
    * For a striped block to invalidate, we should track its individual internal
    * blocks.
-   * 等待删除移除的块列表
+   * 等待删除的数据块副本集合
+   * 数据来源
+   *  - 删除的文件的数据块副本
+   *  - corruptReplicas 损坏的副本
+   *  - excessRedundancyMap 过量的副本
    */
   private final InvalidateBlocks invalidateBlocks;
   
@@ -342,10 +346,12 @@ public class BlockManager implements BlockStatsMXBean {
    * 在NN 故障转移后，在所有副本未被完全汇报之前，无法处理的过量副本都放到该集合中
    * 避免在故障转移时导致误删过量的块
    * 包含心跳滞后的DN 汇报上来得块副本，将会滞后处理
-   * 被推迟处理的异常块数量
+   *
+   * 推迟操作的有过量副本的数据块集合
    */
   private final Set<Block> postponedMisreplicatedBlocks =
       new LinkedHashSet<Block>();
+
   private final int blocksPerPostpondedRescan;
   //一轮处理 postponedMisreplicatedBlocks 留下来还需继续监控的块
   private final ArrayList<Block> rescannedMisreplicatedBlocks;
@@ -353,7 +359,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Maps a StorageID to the set of blocks that are "extra" for this
    * DataNode. We'll eventually remove these extras.
-   *  记录有 "过量" 副本的块
+   *  多余的数据块副本集合
    */
   private final ExcessRedundancyMap excessRedundancyMap =
       new ExcessRedundancyMap();
@@ -361,7 +367,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * Store set of Blocks that need to be replicated 1 or more times.
    * We also store pending reconstruction-orders.
-   * 等待修复的块
+   * 等待修复的数据块集合
    * 从损坏的块列表中获取
    * 1、什么时候修复
    * 2、块什么时候移除
@@ -369,7 +375,7 @@ public class BlockManager implements BlockStatsMXBean {
   public final LowRedundancyBlocks neededReconstruction =
       new LowRedundancyBlocks();
 
-  //正在被修复的块
+  //正在被修复的块集合
   @VisibleForTesting
   final PendingReconstructionBlocks pendingReconstruction;
 
