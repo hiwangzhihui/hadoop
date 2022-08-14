@@ -90,10 +90,10 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
    * 数据块的副本个数已经达到期望值，但是副本分并不很很好，如果一个机架或交换机宕机就可能导致数据丢失
    */
   static final int QUEUE_REPLICAS_BADLY_DISTRIBUTED = 3;
+
   /** The queue for corrupt blocks: {@value}
    * 保存已经彻底损坏的数据块
    *  就是数据块所有的副本都损坏了，这里的策略是将损坏的块加入这个队列中，对未损坏的数据块给予更高的优先级
-   *
    *  TODO 损坏的块数据 HDFS 是如何处理的？
    * */
   static final int QUEUE_WITH_CORRUPT_BLOCKS = 4;
@@ -498,7 +498,7 @@ class LowRedundancyBlocks implements Iterable<BlockInfo> {
     int count = 0;
     int priority = 0;
     for (; count < blocksToProcess && priority < LEVEL; priority++) {
-      if (priority == QUEUE_WITH_CORRUPT_BLOCKS) {
+      if (priority == QUEUE_WITH_CORRUPT_BLOCKS) { //不处理所有副本都损坏的数据块
         // do not choose corrupted blocks.
         continue;
       }

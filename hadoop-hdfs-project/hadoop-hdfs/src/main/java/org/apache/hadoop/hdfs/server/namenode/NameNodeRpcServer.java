@@ -1557,6 +1557,9 @@ public class NameNodeRpcServer implements NamenodeProtocols {
     return null;
   }
 
+  /**
+   * 接收 datanode 新增块副本汇报和块副本删除的操作
+   * */
   @Override // DatanodeProtocol
   public void blockReceivedAndDeleted(final DatanodeRegistration nodeReg,
       String poolId, StorageReceivedDeletedBlocks[] receivedAndDeletedBlocks)

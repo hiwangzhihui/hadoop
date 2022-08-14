@@ -58,7 +58,7 @@ class InvalidateBlocks {
       nodeToECBlocks = new HashMap<>();
   private final LongAdder numBlocks = new LongAdder();
   private final LongAdder numECBlocks = new LongAdder();
-  //定时任务 每次删除的 副本个数 dfs.block.invalidate.limit 默认 1000
+  //定时任务 每个节点每次删除的 副本个数 dfs.block.invalidate.limit 默认 1000
   private final int blockInvalidateLimit;
 
   /**
@@ -286,14 +286,16 @@ class InvalidateBlocks {
               + "The deletion will start after {} ms.", delay);
       return null;
     }
-
+    // 一个节点一次允许删除的副本个数 dfs.block.invalidate.limit 默认 1000
     int remainingLimit = blockInvalidateLimit;
     final List<Block> toInvalidate = new ArrayList<>();
 
     if (nodeToBlocks.get(dn) != null) {
+      //获取节点上可以删除的副本列表
       remainingLimit = getBlocksToInvalidateByLimit(nodeToBlocks.get(dn),
           toInvalidate, numBlocks, remainingLimit);
     }
+
     if ((remainingLimit > 0) && (nodeToECBlocks.get(dn) != null)) {
       getBlocksToInvalidateByLimit(nodeToECBlocks.get(dn),
           toInvalidate, numECBlocks, remainingLimit);
@@ -302,6 +304,7 @@ class InvalidateBlocks {
       if (getBlockSetsSize(dn) == 0) {
         remove(dn);
       }
+      //将即将删除副本加入invalidateBlocks 列表 ，生成删除指令，放入 datanode 心跳中
       dn.addBlocksToBeInvalidated(toInvalidate);
     }
     return toInvalidate;

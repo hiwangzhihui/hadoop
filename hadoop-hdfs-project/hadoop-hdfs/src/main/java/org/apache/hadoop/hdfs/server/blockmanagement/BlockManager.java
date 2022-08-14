@@ -353,7 +353,7 @@ public class BlockManager implements BlockStatsMXBean {
       new LinkedHashSet<Block>();
 
   private final int blocksPerPostpondedRescan;
-  //一轮处理 postponedMisreplicatedBlocks 留下来还需继续监控的块
+  //存放 postponedMisreplicatedBlocks 一轮处理留下来，还需要继续监控处理的损坏块
   private final ArrayList<Block> rescannedMisreplicatedBlocks;
 
   /**
@@ -1811,6 +1811,7 @@ public class BlockManager implements BlockStatsMXBean {
 
     int blockCnt = 0;
     for (DatanodeInfo dnInfo : nodes) {
+      //选择删除数据块副本的节点
       int blocks = invalidateWorkForOneNode(dnInfo);
       if (blocks > 0) {
         blockCnt += blocks;
@@ -1836,13 +1837,13 @@ public class BlockManager implements BlockStatsMXBean {
     List<List<BlockInfo>> blocksToReconstruct = null;
     namesystem.writeLock();
     try {
-      // Choose the blocks to be reconstructed  按照优先级选择需要重构的块
+      // Choose the blocks to be reconstructed  1、按照优先级选择需要修复的块列表
       blocksToReconstruct = neededReconstruction
           .chooseLowRedundancyBlocks(blocksToProcess);
     } finally {
       namesystem.writeUnlock();
     }
-    //交给work并发叫个 DN 处理
+
     return computeReconstructionWorkForBlocks(blocksToReconstruct);
   }
 
@@ -1867,6 +1868,7 @@ public class BlockManager implements BlockStatsMXBean {
         for (int priority = 0; priority < blocksToReconstruct
             .size(); priority++) {
           for (BlockInfo block : blocksToReconstruct.get(priority)) {
+
             BlockReconstructionWork rw = scheduleReconstruction(block,
                 priority);
             if (rw != null) {
@@ -1880,12 +1882,13 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     // Step 2: choose target nodes for each reconstruction task
-    // 为每个任务分配，副本修复节点
+    //1、为每个任务分配，副本修复节点
     final Set<Node> excludedNodes = new HashSet<>();
     for(BlockReconstructionWork rw : reconWork){
       // Exclude all of the containing nodes from being targets.
       // This list includes decommissioning or corrupt nodes.
       excludedNodes.clear();
+      //排查该数据块副本已在的节点
       for (DatanodeDescriptor dn : rw.getContainingNodes()) {
         excludedNodes.add(dn);
       }
@@ -1893,11 +1896,11 @@ public class BlockManager implements BlockStatsMXBean {
       // choose replication targets: NOT HOLDING THE GLOBAL LOCK
       final BlockPlacementPolicy placementPolicy =
           placementPolicies.getPolicy(rw.getBlock().getBlockType());
-      //  选择分配新副本存放节点
+      //  选择目标节点
       rw.chooseTargets(placementPolicy, storagePolicySuite, excludedNodes);
     }
 
-    // Step 3: add tasks to the DN 将任务分配给 DataNode
+    // Step 3: add tasks to the DN 将复制任务发送给 souece datanode
     namesystem.writeLock();
     try {
       for(BlockReconstructionWork rw : reconWork){
@@ -1962,6 +1965,7 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     // get a source data-node
+    //1、获取 source DataNode
     List<DatanodeDescriptor> containingNodes = new ArrayList<>();
     List<DatanodeStorageInfo> liveReplicaNodes = new ArrayList<>();
     NumberReplicas numReplicas = new NumberReplicas();
@@ -1991,11 +1995,14 @@ public class BlockManager implements BlockStatsMXBean {
       return null;
     }
 
+    //2、计算需要复制的副本个数
     int additionalReplRequired;
     if (numReplicas.liveReplicas() < requiredRedundancy) {
       additionalReplRequired = requiredRedundancy - numReplicas.liveReplicas()
           - pendingNum;
     } else {
+      //如果是副本个数满足期望，但是都分布在同一机架上需要处理
+      // TODO 跨 AZ 也需要注意该逻辑
       additionalReplRequired = 1; // Needed on a new rack
     }
 
@@ -2099,7 +2106,7 @@ public class BlockManager implements BlockStatsMXBean {
         + "pendingReconstruction", block);
 
     int numEffectiveReplicas = numReplicas.liveReplicas() + pendingNum;
-    // remove from neededReconstruction
+    // remove from neededReconstruction 从需要修复的列表中删除
     if(numEffectiveReplicas + targets.length >= requiredRedundancy) {
       neededReconstruction.remove(block, priority);
     }
@@ -2343,6 +2350,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * If there were any reconstruction requests that timed out, reap them
    * and put them back into the neededReconstruction queue
+   *  将 pendingReconstruction 列表中修复超时的数据块重新放入 ，neededReconstruction 列表中排队下一次修复
    */
   void processPendingReconstructions() {
      //拿取所有超时的 修复任务，并清空 timedOutItems 集合
@@ -2640,7 +2648,7 @@ public class BlockManager implements BlockStatsMXBean {
 
   /**
    * Rescan the list of blocks which were previously postponed.
-   * 重新扫描之前推迟汇报的块列表
+   * 重新扫描之前延迟汇报的数据块
    */
   void rescanPostponedMisreplicatedBlocks() {
     if (getPostponedMisreplicatedBlocksCount() == 0) {
@@ -2662,9 +2670,11 @@ public class BlockManager implements BlockStatsMXBean {
               "in block map.", b);
           continue;
         }
+        //获取该块"错误原因"
         MisReplicationResult res = processMisReplicatedBlock(bi);
         LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
             "Re-scanned block {}, result is {}", b, res);
+        //这里只关心副本还存放在 statle 节点的数据块
         if (res == MisReplicationResult.POSTPONE) {
           //如果 scan 发现块还是有副本在 stale 状态的节点上 ，则再次加入到 rescannedMisreplicatedBlocks 后面重试
           rescannedMisreplicatedBlocks.add(b);
@@ -3561,12 +3571,11 @@ public class BlockManager implements BlockStatsMXBean {
   }
 
   /**
-   * 处理单个的可能错误的块副本
    * Process a single possibly misreplicated block. This adds it to the
-   * 如果有必要的话，会将其将加入到   neededReconstruction 队列中处理
    * appropriate queues if necessary, and returns a result code indicating
    * what happened with it.
-   * 最终会返回状态码回去，表达发生了什么
+   * 处理 misreplicated block ，并根据错误原因加入对应的队列中，
+   * 同时返回"错误码"表明数据块的错误原因
    *
    */
   private MisReplicationResult processMisReplicatedBlock(BlockInfo block) {
@@ -3575,7 +3584,8 @@ public class BlockManager implements BlockStatsMXBean {
       addToInvalidates(block);
       return MisReplicationResult.INVALID;
     }
-    if (!block.isComplete()) {//不完整的块会认为是错误的块，可以直接不管了
+    if (!block.isComplete()) {
+      //Block 正在被创建 或 正在被追加写,可以忽略不处理, 等待写关闭再处理
       // Incomplete blocks are never considered mis-replicated --
       // they'll be reached when they are completed or recovered.
       return MisReplicationResult.UNDER_CONSTRUCTION;
@@ -3601,16 +3611,18 @@ public class BlockManager implements BlockStatsMXBean {
         // already been deleted. So, we cannot safely act on the
         // over-replication until a later point in time, when
         // the "stale" nodes have block reported.
-        // 如果在 stale 节点上块有副本，则不能立即删除
-        // 直到 stale 节点过时，就可以删除
+        // 如果在 stale 节点上块有副本，则不能立即删除，防止数据丢失
+        // 直到 stale 节点汇报副本状态或改节点超时，就可以删除
+        // 1、正常汇报后会进入 OVER_REPLICATED 流程
+        // TODO 2、如果节点超时呢？该怎么处理
         return MisReplicationResult.POSTPONE;
       }
       
-      // extra redundancy block     处理副本数超过配置的数据块
+      // extra redundancy block     处理副本数超过期望值的数据块
       processExtraRedundancyBlock(block, expectedRedundancy, null, null);
       return MisReplicationResult.OVER_REPLICATED;
     }
-    //  当前块没有在 "stale" 节点的副本了
+    //  正常的数据块
     return MisReplicationResult.OK;
   }
   
@@ -4036,6 +4048,7 @@ public class BlockManager implements BlockStatsMXBean {
    * received, or deleted.
    * 
    * This method must be called with FSNamesystem lock held.
+   *  处理  datanode 新增块副本汇报和块副本删除
    */
   public void processIncrementalBlockReport(final DatanodeID nodeID,
       final StorageReceivedDeletedBlocks srdb) throws IOException {
@@ -4597,10 +4610,14 @@ public class BlockManager implements BlockStatsMXBean {
         try {
           // Process recovery work only when active NN is out of safe mode.
           if (isPopulatingReplQueues()) {
+            //执行修复和删除数据块操作
             computeDatanodeWork();
+            //扫描修复超时的数据块，从新放入等待列表中
             processPendingReconstructions();
+            //扫描之前延迟汇报的数据块
             rescanPostponedMisreplicatedBlocks();
           }
+
           TimeUnit.MILLISECONDS.sleep(redundancyRecheckIntervalMs);
         } catch (Throwable t) {
           if (!namesystem.isRunning()) {
@@ -4712,8 +4729,15 @@ public class BlockManager implements BlockStatsMXBean {
    * Compute block replication and block invalidation work that can be scheduled
    * on data-nodes. The datanode will be informed of this work at the next
    * heartbeat.
-   * 
+   *
    * @return number of blocks scheduled for replication or removal.
+   *
+   * 主要做两件事：
+   * 1、修复数据块操作：
+   *   从待修复数据块集合 neededReconstruction 中选取若干个数据块执行复制修复任务，
+   *   然后将这些数据块副本的复制操作选出 source 节点和 target 节点，最后构造复制命令放入 resource 节点心跳中让 source 节点执行复制操作
+   * 2、删除数据块副本操作：
+   *    从待删除的数据块副本中选出若干个副本，最后构造删除命令放入目标节点心跳中让目标节点执行删除操作
    */
   int computeDatanodeWork() {
     // Blocks should not be replicated or removed if in safe mode.
@@ -4724,13 +4748,19 @@ public class BlockManager implements BlockStatsMXBean {
       return 0;
     }
 
-    //允许并发修复的块的个数
     final int numlive = heartbeatManager.getLiveDatanodeCount();
+
+    //允许并发修复的块的个数，dfs.namenode.replication.work.multiplier.per.iteration 默认值 2
     final int blocksToProcess = numlive
         * this.blocksReplWorkMultiplier;
+
+    // 并发执行删除块副本任务的节点个数
+    // numlive * dfs.namenode.invalidate.work.pct.per.iteration （默认 0.32 ）
+    // dfs.block.invalidate.limit 每个节点可以一次删除的块个数 (默认 1000)
     final int nodesToProcess = (int) Math.ceil(numlive
         * this.blocksInvalidateWorkPct);
 
+    //执行修复任务
     int workFound = this.computeBlockReconstructionWork(blocksToProcess);
 
     // Update counters
@@ -4741,6 +4771,7 @@ public class BlockManager implements BlockStatsMXBean {
     } finally {
       namesystem.writeUnlock();
     }
+    //执行删除任务
     workFound += this.computeInvalidateWork(nodesToProcess);
     return workFound;
   }
@@ -4798,17 +4829,24 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * A simple result enum for the result of
    * {@link BlockManager#processMisReplicatedBlock(BlockInfo)}.
+   * 副本错误原因
    */
   enum MisReplicationResult {
-    /** The block should be invalidated since it belongs to a deleted file. */
+    /** The block should be invalidated since it belongs to a deleted file.
+     *  无效的数据块，因为属于已经删除的文件
+     * */
     INVALID,
-    /** The block is currently under-replicated. */
+    /** The block is currently under-replicated.
+     *
+     *  */
     UNDER_REPLICATED,
     /** The block is currently over-replicated. */
     OVER_REPLICATED,
     /** A decision can't currently be made about this block. */
     POSTPONE,
-    /** The block is under construction, so should be ignored. */
+    /** The block is under construction, so should be ignored.
+     * Block 正在被创建 或 正在被追加写,可以忽略不处理
+     * */
     UNDER_CONSTRUCTION,
     /** The block is properly replicated. */
     OK

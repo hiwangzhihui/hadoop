@@ -41,7 +41,9 @@ abstract class BlockReconstructionWork {
    * A replication task only has 1 source node, stored on top of the array
    */
   private final DatanodeDescriptor[] srcNodes; //已经存储块副本的节点
-  /** Nodes containing the block; avoid them in choosing new targets */
+  /** Nodes containing the block; avoid them in choosing new targets
+   *   该数据块已经包含的节点
+   * */
   private final List<DatanodeDescriptor> containingNodes;
   /** Required by {@link BlockPlacementPolicy#chooseTarget} */
   private  final List<DatanodeStorageInfo> liveReplicaStorages;

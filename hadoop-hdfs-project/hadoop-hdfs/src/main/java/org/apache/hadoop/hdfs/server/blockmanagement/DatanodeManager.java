@@ -1703,7 +1703,7 @@ public class DatanodeManager {
       }
     }
 
-    // check block invalidation
+    // check block invalidation 生成删除数据块副本指令
     Block[] blks = nodeinfo.getInvalidateBlocks(blockInvalidateLimit);
     if (blks != null) {
       cmds.add(new BlockCommand(DatanodeProtocol.DNA_INVALIDATE, blockPoolId,
