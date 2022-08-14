@@ -235,6 +235,7 @@ class PendingReconstructionBlocks {
   /*
    * A periodic thread that scans for blocks that never finished
    * their reconstruction request.
+   * 计算超时修复的副本
    */
   class PendingReconstructionMonitor implements Runnable {
     @Override

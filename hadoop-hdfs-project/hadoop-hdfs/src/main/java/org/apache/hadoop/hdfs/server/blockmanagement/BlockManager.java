@@ -3618,7 +3618,7 @@ public class BlockManager implements BlockStatsMXBean {
         return MisReplicationResult.POSTPONE;
       }
       
-      // extra redundancy block     处理副本数超过期望值的数据块
+      // extra redundancy block   处理副本数超过期望值的数据块 TODO 跨 AZ 该如何处理？
       processExtraRedundancyBlock(block, expectedRedundancy, null, null);
       return MisReplicationResult.OVER_REPLICATED;
     }
