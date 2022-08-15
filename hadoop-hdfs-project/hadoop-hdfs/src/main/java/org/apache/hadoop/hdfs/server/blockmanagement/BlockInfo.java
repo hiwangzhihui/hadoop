@@ -276,7 +276,7 @@ public abstract class BlockInfo extends Block
 
   /**
    * Add/Update the under construction feature.
-   *  更新块的构建状态，一般在
+   *  更新块的构建状态，一般在客户端对数块进行追加写操作时会调用该方法
    */
   public void convertToBlockUnderConstruction(BlockUCState s,
       DatanodeStorageInfo[] targets) {
