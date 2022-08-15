@@ -150,13 +150,14 @@ public class DatanodeDescriptor extends DatanodeInfo {
   // Stores status of decommissioning.
   // If node is not decommissioning, do not use this object for anything.
   private final LeavingServiceStatus leavingServiceStatus =
-      new LeavingServiceStatus();
+      new LeavingServiceStatus(); //节点退役状态
 
   protected final Map<String, DatanodeStorageInfo> storageMap =
       new HashMap<>();
 
   /**
    * The blocks which we want to cache on this DataNode.
+   * 在该节点缓存的数据块
    */
   private final CachedBlocksList pendingCached = 
       new CachedBlocksList(this, CachedBlocksList.Type.PENDING_CACHED);
@@ -192,18 +193,23 @@ public class DatanodeDescriptor extends DatanodeInfo {
   // following 'bandwidth' variable gets updated with the new value for each
   // node. Once the heartbeat command is issued to update the value on the
   // specified datanode, this value will be set back to 0.
-  private long bandwidth;// balance 带宽限制
+  private long bandwidth;// balance 带宽限制，设置新的带宽值则将会通过心跳下发到指定的 datanode
 
   /** A queue of blocks to be replicated by this datanode
-   *  在这个 DataNode 需要修复的副本，BlockTargetPair 包含块信息已经目标节点信息
+   * replicateBlocks
+   *  保存了当前 datanode 要准备要复制的副本列表
+   *  BlockTargetPair ： 包含了要被复制的数据块和要被操作的目标数据节点列表
    * */
   private final BlockQueue<BlockTargetPair> replicateBlocks =
       new BlockQueue<>();
+
   /** A queue of blocks to be erasure coded by this datanode */
   private final BlockQueue<BlockECReconstructionInfo> erasurecodeBlocks =
       new BlockQueue<>();
+
   /** A queue of blocks to be recovered by this datanode
-   *
+   * TODO
+   * 当前 datanode 上进行数据块恢复操作的副本队列
    * */
   private final BlockQueue<BlockInfo> recoverBlocks = new BlockQueue<>();
   /** A set of blocks to be invalidated by this datanode
@@ -212,11 +218,12 @@ public class DatanodeDescriptor extends DatanodeInfo {
   private final LightWeightHashSet<Block> invalidateBlocks =
       new LightWeightHashSet<>();
 
-  // datannode 负载情况
   /* Variables for maintaining number of blocks scheduled to be written to
    * this storage. This count is approximate and might be slightly bigger
    * in case of errors (e.g. datanode does not report if an error occurs
    * while writing the block).
+   * dataNode 负载评估属性
+   *  TODO 如何评估负载
    */
   private EnumCounters<StorageType> currApproxBlocksScheduled
       = new EnumCounters<>(StorageType.class);
