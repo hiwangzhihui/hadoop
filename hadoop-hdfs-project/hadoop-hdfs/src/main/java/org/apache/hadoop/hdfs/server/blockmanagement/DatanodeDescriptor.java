@@ -182,7 +182,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
 
   // isAlive == heartbeats.contains(this)
   // This is an optimization, because contains takes O(n) time on Arraylist
-  private boolean isAlive = false;
+  private boolean isAlive = false; //是否为正常的节点
   private boolean needKeyUpdate = false;
   private boolean forceRegistration = false;
 
@@ -192,22 +192,27 @@ public class DatanodeDescriptor extends DatanodeInfo {
   // following 'bandwidth' variable gets updated with the new value for each
   // node. Once the heartbeat command is issued to update the value on the
   // specified datanode, this value will be set back to 0.
-  private long bandwidth;
+  private long bandwidth;// balance 带宽限制
 
   /** A queue of blocks to be replicated by this datanode
-   *  需要这个DN 修复的副本，BlockTargetPair 包含块信息已经目标节点信息
+   *  在这个 DataNode 需要修复的副本，BlockTargetPair 包含块信息已经目标节点信息
    * */
   private final BlockQueue<BlockTargetPair> replicateBlocks =
       new BlockQueue<>();
   /** A queue of blocks to be erasure coded by this datanode */
   private final BlockQueue<BlockECReconstructionInfo> erasurecodeBlocks =
       new BlockQueue<>();
-  /** A queue of blocks to be recovered by this datanode */
+  /** A queue of blocks to be recovered by this datanode
+   *
+   * */
   private final BlockQueue<BlockInfo> recoverBlocks = new BlockQueue<>();
-  /** A set of blocks to be invalidated by this datanode */
+  /** A set of blocks to be invalidated by this datanode
+   *  datanode 需要删除的副本队列
+   * */
   private final LightWeightHashSet<Block> invalidateBlocks =
       new LightWeightHashSet<>();
 
+  // datannode 负载情况
   /* Variables for maintaining number of blocks scheduled to be written to
    * this storage. This count is approximate and might be slightly bigger
    * in case of errors (e.g. datanode does not report if an error occurs

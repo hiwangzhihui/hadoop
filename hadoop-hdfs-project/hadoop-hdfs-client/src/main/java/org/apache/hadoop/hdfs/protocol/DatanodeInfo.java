@@ -41,22 +41,22 @@ import static org.apache.hadoop.hdfs.DFSUtilClient.percent2String;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class DatanodeInfo extends DatanodeID implements Node {
-  private long capacity;
-  private long dfsUsed;
-  private long nonDfsUsed;
-  private long remaining;
-  private long blockPoolUsed;
-  private long cacheCapacity;
-  private long cacheUsed;
-  private long lastUpdate;
-  private long lastUpdateMonotonic;
-  private int xceiverCount;
-  private volatile String location = NetworkTopology.DEFAULT_RACK;
-  private String softwareVersion;
+  private long capacity; //容量
+  private long dfsUsed; //已使用空间
+  private long nonDfsUsed; //节点中非 dataNode 程序所被使用的空间
+  private long remaining; //剩余空间
+  private long blockPoolUsed;  //使用的 blockPool 个数
+  private long cacheCapacity;//缓存容量
+  private long cacheUsed; //缓存使用量
+  private long lastUpdate; //上次更新时间  TODO 与  lastUpdateMonotonic 的区别
+  private long lastUpdateMonotonic;//上次心跳汇报时间
+  private int xceiverCount; //xceiver 数量
+  private volatile String location = NetworkTopology.DEFAULT_RACK; //网络拓扑位置信息
+  private String softwareVersion; //软件版本号
   private List<String> dependentHostNames = new LinkedList<>();
-  private String upgradeDomain;
+  private String upgradeDomain;//TODO
   public static final DatanodeInfo[] EMPTY_ARRAY = {};
-  private int numBlocks;
+  private int numBlocks; //数据块个数
 
   // Datanode administrative states
   public enum AdminStates {
@@ -86,9 +86,9 @@ public class DatanodeInfo extends DatanodeID implements Node {
   }
 
   protected AdminStates adminState;  // Datanode 处于的状态
-  private long maintenanceExpireTimeInMS;
-  private long lastBlockReportTime;
-  private long lastBlockReportMonotonic;
+  private long maintenanceExpireTimeInMS;// DatanNode  运维操作超时时间
+  private long lastBlockReportTime; //最后一次汇报数据块的时间
+  private long lastBlockReportMonotonic; // TODO
 
   protected DatanodeInfo(DatanodeInfo from) {
     super(from);

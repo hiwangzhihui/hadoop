@@ -43,21 +43,21 @@ public class DatanodeID implements Comparable<DatanodeID> {
   public static final DatanodeID EMPTY_DATANODE_ID = new DatanodeID("null",
       "null", "null", 0, 0, 0, 0);
 
-  private String ipAddr;     // IP address
-  private String hostName;   // hostname claimed by datanode
-  private String peerHostName; // hostname from the actual connection
-  private int xferPort;      // data streaming port
-  private int infoPort;      // info server port
-  private int infoSecurePort; // info server port
-  private int ipcPort;       // IPC server port
-  private String xferAddr;
+  private String ipAddr;     // IP address IP 地址
+  private String hostName;   // hostname claimed by datanode  datanode 声明的 hostname
+  private String peerHostName; // hostname from the actual connection  真实连接的 hostname
+  private int xferPort;      // data streaming port 数据传输端口
+  private int infoPort;      // info server port http 服务端口
+  private int infoSecurePort; // info server port https 服务端口
+  private int ipcPort;       // IPC server port ipc 服务端口
+  private String xferAddr;  // ipAddr + ":" + xferPort  输出传输服务地址
 
   /**
    * UUID identifying a given datanode. For upgraded Datanodes this is the
    * same as the StorageID that was previously used by this Datanode.
    * For newly formatted Datanodes it is a UUID.
    */
-  private final String datanodeUuid;
+  private final String datanodeUuid; //集群用于唯一标识 datanode 的 Id
 
   public DatanodeID(DatanodeID from) {
     this(from.getDatanodeUuid(), from);
