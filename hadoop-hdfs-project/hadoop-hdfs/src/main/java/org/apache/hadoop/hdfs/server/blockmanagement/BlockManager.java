@@ -3255,6 +3255,7 @@ public class BlockManager implements BlockStatsMXBean {
    * Modify (block-->datanode) map. Remove block from set of
    * needed reconstruction if this takes care of the problem.
    * @return the block that is stored in blocksMap.
+   * DataNode 向 NameNode 汇报新增一个 block
    */
   private Block addStoredBlock(final BlockInfo block,
                                final Block reportedBlock,

@@ -35,6 +35,8 @@ import com.google.common.annotations.VisibleForTesting;
 /**
  * A Datanode has one or more storages. A storage in the Datanode is represented
  * by this class.
+ * 该类描述了 DataNode 上的一个存储 （Storage）
+ * DataNode 根据  dfs.datanode.data.dir 可配置多个存储目录，来保存数据块
  */
 public class DatanodeStorageInfo {
   public static final DatanodeStorageInfo[] EMPTY_ARRAY = {};
@@ -87,25 +89,33 @@ public class DatanodeStorageInfo {
     storageType = storage.getStorageType();
   }
 
-  private final DatanodeDescriptor dn;
-  private final String storageID;
-  private StorageType storageType;
-  private State state;
+  //storage 元数据
+  private final DatanodeDescriptor dn; // 当前存储所在的 datanode
+  private final String storageID;  // 存储在集群为的唯一标识符
+  private StorageType storageType; //当前存储的存储类型
+  private State state; //当前存储的状态
 
-  private long capacity;
-  private long dfsUsed;
-  private long nonDfsUsed;
-  private volatile long remaining;
-  private long blockPoolUsed;
-
+  //storage  数据量信息
+  private long capacity;  //存储的容量
+  private long dfsUsed; //存储的使用量
+  private long nonDfsUsed; //存储非 dataNode 已使用的存储
+  private volatile long remaining;//存储的剩余量
+  private long blockPoolUsed; //TODO 池块的使用量
+  //记录当前的存储的数据块列表
   private final FoldedTreeSet<BlockInfo> blocks = new FoldedTreeSet<>();
 
-  /** The number of block reports received */
+  /** The number of block reports received
+   *   收到 dataNode 汇报该存储数据块的次数
+   * */
   private int blockReportCount = 0;
 
   /**
    * Set to false on any NN failover, and reset to true
    * whenever a block report is received.
+   *  当 NameNode 出现失败时，将这个字段设置为 false
+   *     NameNode 刚启动时会将所有的 datanode 上面的存储状态设置为   statle
+   *  当 NameNode 正常接收这个存储的心跳后，就会将这个字段设置为 true
+   *  TODO 重要结合 postponedMisreplicatedBlocks 解读
    */
   private boolean heartbeatedSinceFailover = false;
 
@@ -116,6 +126,9 @@ public class DatanodeStorageInfo {
    * storage is considered as stale, the replicas on it are also considered as
    * stale. If any block has at least one stale replica, then no invalidations
    * will be processed for this block. See HDFS-1972.
+   * 当 NameNode 出现失败或则正在启动时，dataNode 会挂起上一次 NameNode 发起的删除操作，当前存储状为 stale 状态
+   * 直到 NameNode 收到了这个存储的块汇报
+   * TODO 存储 stale 状态详解
    */
   private boolean blockContentsStale = true;
 
@@ -247,22 +260,27 @@ public class DatanodeStorageInfo {
   public AddBlockResult addBlock(BlockInfo b, Block reportedBlock) {
     // First check whether the block belongs to a different storage
     // on the same DN.
+    //检查这个数据块是否属于同一个 dataNode 上的另外一个存储
     AddBlockResult result = AddBlockResult.ADDED;
+
     DatanodeStorageInfo otherStorage =
         b.findStorageInfo(getDatanodeDescriptor());
 
     if (otherStorage != null) {
       if (otherStorage != this) {
+        //如果当前数据块数据另外一个存储，则先从该存储上删除这个数据块
         // The block belongs to a different storage. Remove it first.
         otherStorage.removeBlock(b);
         result = AddBlockResult.REPLACED;
       } else {
         // The block is already associated with this storage.
+         //否数据块已经添加到当前存储上，不需要再添加了
         return AddBlockResult.ALREADY_EXIST;
       }
     }
-
+     //首先将当前存储添加到数据块所属的存储列表中
     b.addStorage(this, reportedBlock);
+    //再讲当前数据块添加到存储管理的数据块列表中
     blocks.add(b);
     return result;
   }
