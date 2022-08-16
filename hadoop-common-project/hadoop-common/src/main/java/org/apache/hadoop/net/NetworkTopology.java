@@ -135,12 +135,14 @@ public class NetworkTopology {
             ": You cannot have a rack and a non-rack node at the same " +
             "level of the network topology.");
       }
+      //获取该节点对应的 Rack
       Node rack = getNodeForNetworkLocation(node);
       if (rack != null && !(rack instanceof InnerNode)) {
         throw new IllegalArgumentException("Unexpected data node " 
                                            + node.toString() 
                                            + " at an illegal network location");
       }
+       //将解析出来的 Node 添加到网络拓扑中
       if (clusterMap.add(node)) {
         LOG.info("Adding a new node: "+NodeBase.getPath(node));
         if (rack == null) {

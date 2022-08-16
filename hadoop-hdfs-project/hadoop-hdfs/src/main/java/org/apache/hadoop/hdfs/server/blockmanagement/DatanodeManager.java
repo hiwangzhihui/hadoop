@@ -880,6 +880,8 @@ public class DatanodeManager {
    *  then this method guarantees default rack location. 
    *  @param node to resolve to network location
    *  @return network location path
+   *   首先通过 dnsToSwitchMapping 获取节点的 networkLocation
+   *   如果获取不到则默认使用 DEFAULT_RACK
    */
   private String resolveNetworkLocationWithFallBackToDefaultLocation (
       DatanodeID node) {
@@ -906,9 +908,9 @@ public class DatanodeManager {
       throws UnresolvedTopologyException {
     List<String> names = new ArrayList<>(1);
     if (dnsToSwitchMapping instanceof CachedDNSToSwitchMapping) {
-      names.add(node.getIpAddr());
+      names.add(node.getIpAddr()); //如果属于 CachedDNSToSwitchMapping 根据 IP 获取网络拓扑地址
     } else {
-      names.add(node.getHostName());
+      names.add(node.getHostName()); //否则根据 hostname 获取网络拓扑地址
     }
     
     List<String> rName = resolveNetworkLocation(names);

@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
  * <p/>
  * This DNS mapper's {@link #isSingleSwitch()} predicate returns
  * true if and only if a script is defined.
+ * 根据 net.topology.script.file.name 配置的脚本解析网络拓扑
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
@@ -217,7 +218,7 @@ public class ScriptBasedMapping extends CachedDNSToSwitchMapping {
      * @return null if the number of arguments is out of range,
      * or the output of the command.
      */
-    protected String runResolveCommand(List<String> args, 
+    protected String runResolveCommand(List<String> args,
         String commandScriptName) {
       int loopCount = 0;
       if (args.size() == 0) {

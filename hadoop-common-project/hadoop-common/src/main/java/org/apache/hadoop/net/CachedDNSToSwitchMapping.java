@@ -106,20 +106,22 @@ public class CachedDNSToSwitchMapping extends AbstractDNSToSwitchMapping {
   @Override
   public List<String> resolve(List<String> names) {
     // normalize all input names to be in the form of IP addresses
+    // 统一格式化为 IP
     names = NetUtils.normalizeHostNames(names);
 
     List <String> result = new ArrayList<String>(names.size());
     if (names.isEmpty()) {
       return result;
     }
-
+   //返回未缓存的 IP 列表
     List<String> uncachedHosts = getUncachedHosts(names);
 
     // Resolve the uncached hosts
+    //解析未缓存的IP 列表
     List<String> resolvedHosts = rawMapping.resolve(uncachedHosts);
-    //cache them
+    //cache them  将IP 对应的网络拓扑缓存起来
     cacheResolvedHosts(uncachedHosts, resolvedHosts);
-    //now look up the entire list in the cache
+    //now look up the entire list in the cache  统一从缓存中获取网络拓扑
     return getCachedHosts(names);
 
   }

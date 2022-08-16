@@ -31,6 +31,7 @@ import org.apache.hadoop.crypto.OpensslAesCtrCryptoCodec;
  * this class should not be used directly (use CommonConfigurationKeys
  * instead)
  *
+ *  net.topology.table.file.name 根据配置文件获取网络拓扑地址
  */
 
 @InterfaceAudience.Public
