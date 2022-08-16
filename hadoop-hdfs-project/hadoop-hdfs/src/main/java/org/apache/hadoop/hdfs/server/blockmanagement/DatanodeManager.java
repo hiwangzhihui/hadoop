@@ -76,6 +76,8 @@ public class DatanodeManager {
   private final Namesystem namesystem;
   private final BlockManager blockManager;
   private final DatanodeAdminManager datanodeAdminManager;
+  //datanode 与 NameNode 心跳管理器，里面会有一个 Monitor 线程定时
+  //监控心跳是否超时
   private final HeartbeatManager heartbeatManager;
   private final FSClusterStats fsClusterStats;
 
@@ -97,14 +99,20 @@ public class DatanodeManager {
    * </ul> <br> 
    * <p>
    * Mapping: StorageID -> DatanodeDescriptor
+   * 维护 StorageID -> DatanodeDescriptor 的映射关系
    */
   private final Map<String, DatanodeDescriptor> datanodeMap
       = new HashMap<>();
 
-  /** Cluster network topology. */
+  /** Cluster network topology.
+   *  维护整个集群网络拓扑结构
+   *  TODO 如何维护拓扑结构，跨 AZ 怎么处理？
+   * */
   private final NetworkTopology networktopology;
 
-  /** Host names to datanode descriptors mapping. */
+  /** Host names to datanode descriptors mapping.
+   *  维护 host --> DatanodeDescriptor 的映射关系
+   *  */
   private final Host2NodesMap host2DatanodeMap = new Host2NodesMap();
 
   private final DNSToSwitchMapping dnsToSwitchMapping;
@@ -1035,7 +1043,8 @@ public class DatanodeManager {
       nodeReg.setExportedKeys(blockManager.getBlockKeys());
   
       // Checks if the node is not on the hosts list.  If it is not, then
-      // it will be disallowed from registering. 
+      // it will be disallowed from registering.
+      //确认是否在 Included 列表中
       if (!hostConfigManager.isIncluded(nodeReg)) {
         throw new DisallowedDatanodeException(nodeReg);
       }
@@ -1121,11 +1130,12 @@ public class DatanodeManager {
         return;
       }
 
+      //第一次注册,为其创建一个 DatanodeDescriptor 对象
       DatanodeDescriptor nodeDescr 
         = new DatanodeDescriptor(nodeReg, NetworkTopology.DEFAULT_RACK);
       boolean success = false;
       try {
-        // resolve network location
+        // resolve network location 更新网络拓扑
         if(this.rejectUnresolvedTopologyDN) {
           nodeDescr.setNetworkLocation(resolveNetworkLocation(nodeDescr));
           nodeDescr.setDependentHostNames(getNetworkDependencies(nodeDescr));
@@ -1145,8 +1155,10 @@ public class DatanodeManager {
         // also treat the registration message as a heartbeat
         // no need to update its timestamp
         // because its is done when the descriptor is created
+        //加入到 heartbeat 列表
         heartbeatManager.addDatanode(nodeDescr);
         heartbeatManager.updateDnStat(nodeDescr);
+        //datanode 版本信息统计
         incrementVersionCount(nodeReg.getSoftwareVersion());
         startAdminOperationIfNecessary(nodeDescr);
         success = true;
@@ -1224,17 +1236,19 @@ public class DatanodeManager {
       } else {
         long maintenanceExpireTimeInMS =
             hostConfigManager.getMaintenanceExpirationTimeInMS(node);
-        if (node.maintenanceNotExpired(maintenanceExpireTimeInMS)) { //节点维护状态相关
+        if (node.maintenanceNotExpired(maintenanceExpireTimeInMS)) {
+          // 如果节点处于维护状态 TODO 维护状态新特性？
           datanodeAdminManager.startMaintenance(
               node, maintenanceExpireTimeInMS);
         } else if (hostConfigManager.isExcluded(node)) { // 在 exclude 文件中
           datanodeAdminManager.startDecommission(node); // 执行节点下线
         } else {
-          //发现节点不再 维护列表和下线列表中，则停止 维护和 下线操作
+          //发现节点不在 维护列表和下线列表中，则停止 维护和 下线操作
           datanodeAdminManager.stopMaintenance(node);
           datanodeAdminManager.stopDecommission(node);
         }
       }
+      //升级过程中的 datanode
       node.setUpgradeDomain(hostConfigManager.getUpgradeDomain(node));
     }
   }

@@ -1477,6 +1477,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
 
 
   @Override // DatanodeProtocol
+  //dataNode 注册，会为 datanode 分配一个
   public DatanodeRegistration registerDatanode(DatanodeRegistration nodeReg)
       throws IOException {
     checkNNStartup();
@@ -1502,6 +1503,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
   }
 
   @Override // DatanodeProtocol
+  //处理 datanode 的数据块汇报
   public DatanodeCommand blockReport(final DatanodeRegistration nodeReg,
         String poolId, final StorageBlockReport[] reports,
         final BlockReportContext context) throws IOException {
@@ -1615,6 +1617,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
   }
     
   @Override // DatanodeProtocol, NamenodeProtocol
+  //握手操作，返回 NameNode 的 NameSpace 信息
   public NamespaceInfo versionRequest() throws IOException {
     checkNNStartup();
     return namesystem.getNamespaceInfo();
