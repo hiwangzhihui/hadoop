@@ -39,7 +39,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * In a network topology, leaves represent data nodes (computers) and inner
  * nodes represent switches/routers that manage traffic in/out of data centers
  * or racks.  
- * 
+ *  集群拓扑结构组织类
  */
 @InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
 @InterfaceStability.Unstable

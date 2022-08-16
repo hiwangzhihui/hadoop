@@ -116,6 +116,7 @@ public class DatanodeManager {
   private final Host2NodesMap host2DatanodeMap = new Host2NodesMap();
 
   private final DNSToSwitchMapping dnsToSwitchMapping;
+  //不处理未能解析的节点拓扑映射
   private final boolean rejectUnresolvedTopologyDN;
 
   private final int defaultXferPort;
@@ -1138,10 +1139,13 @@ public class DatanodeManager {
         // resolve network location 更新网络拓扑
         if(this.rejectUnresolvedTopologyDN) {
           nodeDescr.setNetworkLocation(resolveNetworkLocation(nodeDescr));
+
           nodeDescr.setDependentHostNames(getNetworkDependencies(nodeDescr));
         } else {
+
           nodeDescr.setNetworkLocation(
               resolveNetworkLocationWithFallBackToDefaultLocation(nodeDescr));
+
           nodeDescr.setDependentHostNames(
               getNetworkDependenciesWithDefault(nodeDescr));
         }
