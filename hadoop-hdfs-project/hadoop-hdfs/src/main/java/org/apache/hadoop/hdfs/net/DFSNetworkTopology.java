@@ -38,6 +38,7 @@ import java.util.Random;
  * remaining parts should be the same.
  *
  * Currently a placeholder to test storage type info.
+ * 对 NetworkTopology 增强支持对异构存储节点的选择
  */
 public class DFSNetworkTopology extends NetworkTopology {
 
@@ -50,14 +51,17 @@ public class DFSNetworkTopology extends NetworkTopology {
 
   /**
    * Randomly choose one node from <i>scope</i>, with specified storage type.
-   *
+   *  根据 scope 表达式随机选择一个节点
+   *  如果 scope 是以 ~ 开头，则从除了 scope 范围的内的节点选择，
+   *  否则从 scope 范围内随机选择一个节点
+   *  如果给定了excludedNodes，请选择不在excludedNodes中的节点。
    * If scope starts with ~, choose one from the all nodes except for the
    * ones in <i>scope</i>; otherwise, choose one from <i>scope</i>.
    * If excludedNodes is given, choose a node that's not in excludedNodes.
    *
-   * @param scope range of nodes from which a node will be chosen
-   * @param excludedNodes nodes to be excluded from
-   * @param type the storage type we search for
+   * @param scope range of nodes from which a node will be chosen 选择表达式
+   * @param excludedNodes nodes to be excluded from   排除的节点列表
+   * @param type the storage type we search for  选择的数据存储类型
    * @return the chosen node
    */
   public Node chooseRandomWithStorageType(final String scope,
@@ -164,9 +168,9 @@ public class DFSNetworkTopology extends NetworkTopology {
    * all it's ancestors' storage counters accordingly, this way the excluded
    * root is out of the picture.
    *
-   * @param scope the scope where we look for node.
-   * @param excludedScope the scope where the node must NOT be from.
-   * @param excludedNodes the returned node must not be in this set
+   * @param scope the scope where we look for node. 选定的范围
+   * @param excludedScope the scope where the node must NOT be from. 排除的范围
+   * @param excludedNodes the returned node must not be in this set 排除的节点列表
    * @return a node with required storage type
    */
   @VisibleForTesting
@@ -181,19 +185,26 @@ public class DFSNetworkTopology extends NetworkTopology {
         excludedScope = null;
       }
     }
+
+    //先根据  scope 获取一个 Node
     Node node = getNode(scope);
     if (node == null) {
       LOG.debug("Invalid scope {}, non-existing node", scope);
       return null;
     }
+
+    //如果返回的是 DatanodeDescriptor ，则直接返回，该情况不支持存储异构，
     if (!(node instanceof DFSTopologyNodeImpl)) {
       // a node is either DFSTopologyNodeImpl, or a DatanodeDescriptor
       return ((DatanodeDescriptor)node).hasStorageType(type) ? node : null;
     }
+    // scope  范围内的 scopeRoot Node
     DFSTopologyNodeImpl root = (DFSTopologyNodeImpl)node;
+    // 根据 excludedScope 表达式获取  excludeRoot node
     Node excludeRoot = excludedScope == null ? null : getNode(excludedScope);
 
     // check to see if there are nodes satisfying the condition at all
+    //按照条件统计符合的 Node 个数
     int availableCount = root.getSubtreeStorageCount(type);
     if (excludeRoot != null && root.isAncestor(excludeRoot)) {
       if (excludeRoot instanceof DFSTopologyNodeImpl) {
@@ -226,6 +237,8 @@ public class DFSNetworkTopology extends NetworkTopology {
         }
       }
     }
+
+
     if (availableCount <= 0) {
       // should never be <0 in general, adding <0 check for safety purpose
       return null;
@@ -234,6 +247,7 @@ public class DFSNetworkTopology extends NetworkTopology {
     // that satisfies the requirement, keep trying until we found one.
     Node chosen;
     do {
+      //如果有符合条件的节点，则在符合条件的节点中随机选择一个
       chosen = chooseRandomWithStorageTypeAndExcludeRoot(root, excludeRoot,
           type);
       if (excludedNodes == null || !excludedNodes.contains(chosen)) {

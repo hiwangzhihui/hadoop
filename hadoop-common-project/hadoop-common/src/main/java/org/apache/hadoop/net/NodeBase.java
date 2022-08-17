@@ -34,10 +34,10 @@ public class NodeBase implements Node {
   /** string representation of root {@value} */
   public final static String ROOT = "";
   
-  protected String name; //host:port#
-  protected String location; //string representation of this node's location
-  protected int level; //which level of the tree the node resides
-  protected Node parent; //its parent
+  protected String name; //host:port#  node 的名称 host:port 组成
+  protected String location; //string representation of this node's location  网络拓扑位置信息
+  protected int level; //which level of the tree the node resides 网络拓扑树的层级
+  protected Node parent; //its parent 网络拓扑树的父节点
   
   /** Default constructor */
   public NodeBase() {
@@ -199,7 +199,10 @@ public class NodeBase implements Node {
   public void setLevel(int level) {
     this.level = level;
   }
-  
+
+  /**
+   * 查询节点所在网络拓扑树层级
+   * */
   public static int locationToDepth(String location) {
     String normalizedLocation = normalize(location);
     int length = normalizedLocation.length();

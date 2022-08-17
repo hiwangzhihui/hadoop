@@ -92,19 +92,26 @@ public class NetworkTopology {
   /**
    * the root cluster map
    */
-  InnerNode clusterMap;
-  /** Depth of all leaf nodes */
+  InnerNode clusterMap; //集群拓扑树
+  /** Depth of all leaf nodes
+   *  拓扑树的深度
+   * */
   private int depthOfAllLeaves = -1;
-  /** rack counter */
+  /** rack counter
+   *  rack 总个数
+   * */
   protected int numOfRacks = 0;
 
   /**
    * Whether or not this cluster has ever consisted of more than 1 rack,
    * according to the NetworkTopology.
+   *
    */
   private boolean clusterEverBeenMultiRack = false;
 
-  /** the lock used to manage access */
+  /** the lock used to manage access
+   *  拓扑结构管理的锁
+   * */
   protected ReadWriteLock netlock = new ReentrantReadWriteLock();
 
   // keeping the constructor because other components like MR still uses this.
@@ -113,7 +120,9 @@ public class NetworkTopology {
     this.clusterMap = factory.newInnerNode(NodeBase.ROOT);
   }
 
-  /** Add a leaf node
+  /**
+   * 添加一个 叶子节点，有必要的话更新机架信息和统计信息
+   * Add a leaf node
    * Update node counter & rack counter if necessary
    * @param node node to be added; can be null
    * @exception IllegalArgumentException if add a node to a leave 
@@ -237,6 +246,7 @@ public class NetworkTopology {
    * 
    * @param node a node
    * @return true if <i>node</i> is already in the tree; false otherwise
+   *  一层层网上找，最终父节点如果是根节点即clusterMap，节点就在拓扑图中.
    */
   public boolean contains(Node node) {
     if (node == null) return false;
@@ -317,6 +327,11 @@ public class NetworkTopology {
 
   /** Return the distance between two nodes
    *  返回两个节点之间的距离
+   *  设定：一个节点到父节点的距离为 1
+   *  则两个节点之间的距离为他们到最近共同祖先的距离之和
+   *   node1 ---> parent
+   *         和
+   *   node2 ---> parent
    * It is assumed that the distance from one node to its parent is 1
    * The distance between two nodes is calculated by summing up their distances
    * to their closest common ancestor.
@@ -324,21 +339,30 @@ public class NetworkTopology {
    * @param node2 another node
    * @return the distance between node1 and node2 which is zero if they are the same
    *  or {@link Integer#MAX_VALUE} if node1 or node2 do not belong to the cluster
+   *  如果 node1 到 node2 的距离为 0 则为同一节点
+   *  如果 node1 到 node2 的距离为  MAX_VALUE 则他们不在同一集群中
    */
   public int getDistance(Node node1, Node node2) {
+    //如果是同一个节点，则距离为 0
     if ((node1 != null && node1.equals(node2)) ||
         (node1 == null && node2 == null))  {
       return 0;
     }
+
     if (node1 == null || node2 == null) {
       LOG.warn("One of the nodes is a null pointer");
       return Integer.MAX_VALUE;
     }
+
     Node n1=node1, n2=node2;
     int dis = 0;
     netlock.readLock().lock();
     try {
+      //找到  node1 -- node2 最近的共同祖先
+
+      //1、先让 node1.Level 和 node2.Level 平级
       int level1=node1.getLevel(), level2=node2.getLevel();
+
       while(n1!=null && level1>level2) {
         n1 = n1.getParent();
         level1--;
@@ -349,6 +373,8 @@ public class NetworkTopology {
         level2--;
         dis++;
       }
+
+      //2、再平级的情况找最近共同祖先
       while(n1!=null && n2!=null && n1.getParent()!=n2.getParent()) {
         n1=n1.getParent();
         n2=n2.getParent();
@@ -357,6 +383,7 @@ public class NetworkTopology {
     } finally {
       netlock.readLock().unlock();
     }
+    //如果找不到则，不再一个集群中
     if (n1==null) {
       LOG.warn("The cluster does not contain node: "+NodeBase.getPath(node1));
       return Integer.MAX_VALUE;
@@ -365,6 +392,7 @@ public class NetworkTopology {
       LOG.warn("The cluster does not contain node: "+NodeBase.getPath(node2));
       return Integer.MAX_VALUE;
     }
+
     return dis+2;
   }
 
@@ -404,6 +432,7 @@ public class NetworkTopology {
   }
 
   /** Check if two nodes are on the same rack
+   *  检查两个节点是否在同一机架上，即检测对应的 parent 是否相等即可
    * @param node1 one node (can be null)
    * @param node2 another node (can be null)
    * @return true if node1 and node2 are on the same rack; false otherwise
@@ -677,7 +706,7 @@ public class NetworkTopology {
   /**
    * Returns an integer weight which specifies how far away {node} is away from
    * {reader}. A lower value signifies that a node is closer.
-   * 
+   *  与 getDistance 一样计算权重
    * @param reader Node where data will be read
    * @param node Replica of data
    * @return weight
@@ -719,9 +748,9 @@ public class NetworkTopology {
    * Returns an integer weight which specifies how far away <i>node</i> is
    * from <i>reader</i>. A lower value signifies that a node is closer.
    * It uses network location to calculate the weight
-   *
-   * @param reader Node where data will be read
-   * @param node Replica of data
+   *  放回距离权重值，数值越小距离越近
+   * @param reader Node where data will be read 读取数据的Client 节点
+   * @param node Replica of data  存放数据的副本节点
    * @return weight
    */
   private static int getWeightUsingNetworkLocation(Node reader, Node node) {
@@ -736,9 +765,9 @@ public class NetworkTopology {
       //same rack
       if(readerPath.equals(nodePath)) {
         if(reader.getName().equals(node.getName())) {
-          weight = 0;
+          weight = 0; //同一节点 0
         } else {
-          weight = 2;
+          weight = 2; // 同一 rack 2
         }
       } else {
         String[] readerPathToken = readerPath.split(PATH_SEPARATOR_STR);
@@ -746,7 +775,7 @@ public class NetworkTopology {
         int maxLevelToCompare = readerPathToken.length > nodePathToken.length ?
             nodePathToken.length : readerPathToken.length;
         int currentLevel = 1;
-        //traverse through the path and calculate the distance
+        //traverse through the path and calculate the distance 递归计算距离
         while(currentLevel < maxLevelToCompare) {
           if(!readerPathToken[currentLevel]
               .equals(nodePathToken[currentLevel])){
@@ -831,27 +860,33 @@ public class NetworkTopology {
 
   /**
    * Sort nodes array by network distance to <i>reader</i>.
+   * 按 reader 节点到 nodes 数组中各节点距离进行排序，构建 pipline
+   *
    * <p/>
+   *  TODO 跨 Az 我们如何排序
    * As an additional twist, we also randomize the nodes at each network
    * distance. This helps with load balancing when there is data skew.
    *
-   * @param reader    Node where data will be read
-   * @param nodes     Available replicas with the requested data
-   * @param activeLen Number of active nodes at the front of the array
-   * @param nonDataNodeReader True if the reader is not a datanode
+   * @param reader    Node where data will be read  读取数据的 Client 节点
+   * @param nodes     Available replicas with the requested data  请求数据的副本节点
+   * @param activeLen Number of active nodes at the front of the array 在数组需要排序的前 n 个节点，后面随机 （既后面得不管了，按照原始顺序排序）
+   * @param nonDataNodeReader True if the reader is not a datanode  读取数据的 Client 节点是否为 datanode节点
    */
   private void sortByDistance(Node reader, Node[] nodes, int activeLen,
       boolean nonDataNodeReader) {
     /** Sort weights for the nodes array */
-    int[] weights = new int[activeLen];
+    int[] weights = new int[activeLen]; //需要排序的前 activeLen 个节点
     for (int i=0; i<activeLen; i++) {
       if(nonDataNodeReader) {
+        //如果 reader 节点不为 datanode ，直接对比 locationLocalPath
         weights[i] = getWeightUsingNetworkLocation(reader, nodes[i]);
       } else {
+        //如果 reader 节点为 datanode 节点则从当前维护的网络拓扑获取排序权重
         weights[i] = getWeight(reader, nodes[i]);
       }
     }
     // Add weight/node pairs to a TreeMap to sort
+    // 权重和Node 信息加入到 TreeMap 中，进行排序
     TreeMap<Integer, List<Node>> tree = new TreeMap<Integer, List<Node>>();
     for (int i=0; i<activeLen; i++) {
       int weight = weights[i];
@@ -867,7 +902,7 @@ public class NetworkTopology {
     int idx = 0;
     for (List<Node> list: tree.values()) {
       if (list != null) {
-        Collections.shuffle(list, r);
+        Collections.shuffle(list, r);     //shuffle 相同权重节点
         for (Node n: list) {
           nodes[idx] = n;
           idx++;

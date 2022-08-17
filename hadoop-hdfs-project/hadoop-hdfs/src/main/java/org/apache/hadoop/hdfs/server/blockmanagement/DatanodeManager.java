@@ -508,6 +508,7 @@ public class DatanodeManager {
     // As it is possible for the separation of node manager and datanode, 
     // here we should get node but not datanode only .
     boolean nonDatanodeReader = false;
+    //构建 Client 对应的网络拓扑信息
     Node client = getDatanodeByHost(targetHost);
     if (client == null) {
       nonDatanodeReader = true;
@@ -531,7 +532,7 @@ public class DatanodeManager {
     Arrays.sort(di, comparator);
 
     // Sort nodes by network distance only for located blocks
-    int lastActiveIndex = di.length - 1; //找到块副本可读的 DN 数
+    int lastActiveIndex = di.length - 1; //需要排序的前 n 个节点个数
     while (lastActiveIndex > 0 && isInactive(di[lastActiveIndex])) {
       --lastActiveIndex;
     }

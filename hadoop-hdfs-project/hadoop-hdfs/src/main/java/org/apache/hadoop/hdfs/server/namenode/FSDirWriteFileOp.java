@@ -295,10 +295,12 @@ class FSDirWriteFileOp {
 
   /**
    * Resolve clientmachine address to get a network location path
+   *
    */
   static Node getClientNode(BlockManager bm, String clientMachine) {
     List<String> hosts = new ArrayList<>(1);
     hosts.add(clientMachine);
+    //获取机架信息
     List<String> rName = bm.getDatanodeManager()
         .resolveNetworkLocation(hosts);
     Node clientNode = null;
