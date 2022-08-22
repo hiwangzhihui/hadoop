@@ -50,7 +50,7 @@ public class DatanodeID implements Comparable<DatanodeID> {
   private int infoPort;      // info server port http 服务端口
   private int infoSecurePort; // info server port https 服务端口
   private int ipcPort;       // IPC server port ipc 服务端口
-  private String xferAddr;  // ipAddr + ":" + xferPort  输出传输服务地址
+  private String xferAddr;  // ipAddr + ":" + xferPort  传输服务地址
 
   /**
    * UUID identifying a given datanode. For upgraded Datanodes this is the

@@ -33,7 +33,13 @@ import org.apache.hadoop.classification.InterfaceStability;
 @InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
 @InterfaceStability.Unstable
 public interface Node {
-  /** @return the string representation of this node's network location */
+  /** @return the string representation of this node's network location
+   *  获取该节点在树中的位置
+   *  eg:  zw/rack1/host1
+   *   zw: 中卫数据中心
+   *   rack1: 机架1
+   *   host1：host1 节点
+   * */
   public String getNetworkLocation();
 
   /** Set this node's network location
@@ -41,10 +47,15 @@ public interface Node {
    */
   public void setNetworkLocation(String location);
 
-  /** @return this node's name */
+  /** @return this node's name
+   *  获取节点名称
+   *  host:port 组成
+   * */
   public String getName();
 
-  /** @return this node's parent */
+  /** @return this node's parent
+   *  当前节点父节点
+   * */
   public Node getParent();
 
   /** Set this node's parent
@@ -54,6 +65,7 @@ public interface Node {
 
   /** @return this node's level in the tree.
    * E.g. the root of a tree returns 0 and its children return 1
+   * 获取该节点在树的中层级
    */
   public int getLevel();
 

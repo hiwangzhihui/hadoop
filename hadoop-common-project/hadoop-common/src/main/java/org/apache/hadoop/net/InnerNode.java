@@ -34,6 +34,7 @@ public interface InnerNode extends Node {
   /** Add node <i>n</i> to the subtree of this node
    * @param n node to be added
    * @return true if the node is added; false otherwise
+   * 添加一个子节点
    */
   boolean add(Node n);
 
@@ -41,10 +42,13 @@ public interface InnerNode extends Node {
    * @param loc string location of the form /rack/node
    * @return null if the node is not found or the childnode is there but
    * not an instance of {@link InnerNodeImpl}
+   * 根据位置获取子节点信息
    */
   Node getLoc(String loc);
 
-  /** @return its children */
+  /** @return its children
+   *  获取所有子节点信息
+   * */
   List<Node> getChildren();
 
   /** @return the number of leave nodes. */
@@ -53,6 +57,7 @@ public interface InnerNode extends Node {
   /** Remove node <i>n</i> from the subtree of this node
    * @param n node to be deleted
    * @return true if the node is deleted; false otherwise
+   * 移除一个字节点
    */
   boolean remove(Node n);
 
@@ -62,6 +67,8 @@ public interface InnerNode extends Node {
    * @param leafIndex an indexed leaf of the node
    * @param excludedNode an excluded node (can be null)
    * @return the leaf node corresponding to the given index.
+   *  获取指定索引的子节点，且节点不在 excludedNode 列表中
    */
   Node getLeaf(int leafIndex, Node excludedNode);
+
 }

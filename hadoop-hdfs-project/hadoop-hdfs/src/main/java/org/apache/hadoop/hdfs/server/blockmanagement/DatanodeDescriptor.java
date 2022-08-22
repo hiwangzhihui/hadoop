@@ -152,6 +152,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
   private final LeavingServiceStatus leavingServiceStatus =
       new LeavingServiceStatus(); //节点退役状态
 
+  // dataNode 上的存储列表，<storageID,DatanodeStorageInfo>
   protected final Map<String, DatanodeStorageInfo> storageMap =
       new HashMap<>();
 
