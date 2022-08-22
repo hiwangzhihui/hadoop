@@ -37,8 +37,11 @@ public class InnerNodeImpl extends NodeBase implements InnerNode {
 
   static final Factory FACTORY = new Factory();
 
+  //子节点列表
   protected final List<Node> children = new ArrayList<>();
+  //子节点 name -> Node 列表
   protected final Map<String, Node> childrenMap = new HashMap<>();
+  //子节点个数
   protected int numOfLeaves;
 
   /** Construct an InnerNode from a path-like string */

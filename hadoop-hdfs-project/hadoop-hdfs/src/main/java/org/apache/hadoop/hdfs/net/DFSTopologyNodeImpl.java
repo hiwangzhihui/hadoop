@@ -77,6 +77,12 @@ public class DFSTopologyNodeImpl extends InnerNodeImpl {
    * (which seems to be the case in current heartbeat) we will not know how to
    * update R. While if we store on R "A has X=1 and Y=1" then we can simply
    * update R by completely replacing the A entry and all will be good.
+   *
+   * 存储了子节点列表和对应的"存储类型" 列表
+   *  <NodeName,  <StorageType, typeCount> >
+   *    NodeName：节点名称
+   *    StorageType：存储类型
+   *    typeCount：当前类型在节点的存储个数
    */
   private final HashMap
       <String, EnumMap<StorageType, Integer>> childrenStorageInfo;
@@ -85,6 +91,10 @@ public class DFSTopologyNodeImpl extends InnerNodeImpl {
    * This map stores storage type counts of the subtree. We can always get this
    * info by iterate over the childrenStorageInfo variable. But for optimization
    * purpose, we store this info directly to avoid the iteration.
+   *  为了优化多异构存储环境下的节点选择速度，新增该避免跌倒查询数据
+   *  <StorageType, typeCount>
+   *   StorageType：存储类型
+   *   typeCount：当前类型在节点的存储个数
    */
   private final EnumMap<StorageType, Integer> storageTypeCounts;
 
