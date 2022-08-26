@@ -40,7 +40,9 @@ import java.util.Set;
  * for subclasses. The constructor of the <code>Configured</code> calls
  * the  {@link #setConf(Configuration)} method, which will call into the
  * subclasses before they have been fully constructed.
- *
+ *  AbstractDNSToSwitchMapping 实现了
+ *    主要 新增 dumpTopology 方法打印节点位置映射，
+ *    并继承 DNSToSwitchMapping、Configurable 的接口定义
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving

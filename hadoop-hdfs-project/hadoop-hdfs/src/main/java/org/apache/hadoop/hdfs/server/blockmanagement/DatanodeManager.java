@@ -220,7 +220,7 @@ public class DatanodeManager {
       final Configuration conf) throws IOException {
     this.namesystem = namesystem;
     this.blockManager = blockManager;
-
+     //是否开启 DFSNetworkTopology 实现组织集群网络拓扑，默认启用
     this.useDfsNetworkTopology = conf.getBoolean(
         DFSConfigKeys.DFS_USE_DFS_NETWORK_TOPOLOGY_KEY,
         DFSConfigKeys.DFS_USE_DFS_NETWORK_TOPOLOGY_DEFAULT);
@@ -270,7 +270,7 @@ public class DatanodeManager {
     } catch (IOException e) {
       LOG.error("error reading hosts files: ", e);
     }
-
+      //默认使用 ScriptBasedMapping
     this.dnsToSwitchMapping = ReflectionUtils.newInstance(
         conf.getClass(DFSConfigKeys.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY, 
             ScriptBasedMapping.class, DNSToSwitchMapping.class), conf);

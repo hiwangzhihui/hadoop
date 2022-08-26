@@ -25,7 +25,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 /**
  * An interface that must be implemented to allow pluggable
  * DNS-name/IP-address to RackID resolvers.
- *
+ *  集群中的node转换成对应的网络位置服务的顶级接口
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving

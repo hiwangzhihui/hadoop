@@ -49,6 +49,7 @@ public class RackResolver {
     } else {
       initCalled = true;
     }
+    //使用哪种实现类解析节点拓扑位置信息
     Class<? extends DNSToSwitchMapping> dnsToSwitchMappingClass =
       conf.getClass(
         CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY, 
