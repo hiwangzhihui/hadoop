@@ -1069,31 +1069,30 @@ public class DatanodeManager {
         wipeDatanode(nodeN);
         nodeN = null;
       }
-  
       if (nodeS != null) {
         if (nodeN == nodeS) {
-          // The same datanode has been just restarted to serve the same data 
+          // The same datanode has been just restarted to serve the same data
           // storage. We do not need to remove old data blocks, the delta will
           // be calculated on the next block report from the datanode
           if(NameNode.stateChangeLog.isDebugEnabled()) {
             NameNode.stateChangeLog.debug("BLOCK* registerDatanode: "
-                + "node restarted.");
+                    + "node restarted.");
           }
         } else {
           // nodeS is found
-          /* The registering datanode is a replacement node for the existing 
+          /* The registering datanode is a replacement node for the existing
             data storage, which from now on will be served by a new node.
-            If this message repeats, both nodes might have same storageID 
+            If this message repeats, both nodes might have same storageID
             by (insanely rare) random chance. User needs to restart one of the
             nodes with its data cleared (or user can just remove the StorageID
             value in "VERSION" file under the data directory of the datanode,
-            but this is might not work if VERSION file format has changed 
-         */        
+            but this is might not work if VERSION file format has changed
+         */
           NameNode.stateChangeLog.info("BLOCK* registerDatanode: " + nodeS
-              + " is replaced by " + nodeReg + " with the same storageID "
-              + nodeReg.getDatanodeUuid());
+                  + " is replaced by " + nodeReg + " with the same storageID "
+                  + nodeReg.getDatanodeUuid());
         }
-        
+
         boolean success = false;
         try {
           // update cluster map
@@ -1112,9 +1111,9 @@ public class DatanodeManager {
             nodeS.setDependentHostNames(getNetworkDependencies(nodeS));
           } else {
             nodeS.setNetworkLocation(
-                resolveNetworkLocationWithFallBackToDefaultLocation(nodeS));
+                    resolveNetworkLocationWithFallBackToDefaultLocation(nodeS));
             nodeS.setDependentHostNames(
-                getNetworkDependenciesWithDefault(nodeS));
+                    getNetworkDependenciesWithDefault(nodeS));
           }
           getNetworkTopology().add(nodeS);
           resolveUpgradeDomain(nodeS);
@@ -1133,6 +1132,7 @@ public class DatanodeManager {
         }
         return;
       }
+
 
       //第一次注册,为其创建一个 DatanodeDescriptor 对象
       DatanodeDescriptor nodeDescr 

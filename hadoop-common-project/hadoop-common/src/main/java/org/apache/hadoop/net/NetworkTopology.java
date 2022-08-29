@@ -130,6 +130,7 @@ public class NetworkTopology {
    */
   public void add(Node node) {
     if (node==null) return;
+    //获取 Node 在拓扑树中的层级
     int newDepth = NodeBase.locationToDepth(node.getNetworkLocation()) + 1;
     netlock.writeLock().lock();
     try {
@@ -137,6 +138,7 @@ public class NetworkTopology {
         throw new IllegalArgumentException(
           "Not allow to add an inner node: "+NodeBase.getPath(node));
       }
+      //如果不满足条件，说明有网络拓扑异构的节点，hdfs 不支持
       if ((depthOfAllLeaves != -1) && (depthOfAllLeaves != newDepth)) {
         LOG.error("Error: can't add leaf node {} at depth {} to topology:{}\n",
             NodeBase.getPath(node), newDepth, this);
@@ -144,21 +146,24 @@ public class NetworkTopology {
             ": You cannot have a rack and a non-rack node at the same " +
             "level of the network topology.");
       }
-      //获取该节点对应的 Rack
+      //获取该节点对应的 Rack Node
       Node rack = getNodeForNetworkLocation(node);
       if (rack != null && !(rack instanceof InnerNode)) {
         throw new IllegalArgumentException("Unexpected data node " 
                                            + node.toString() 
                                            + " at an illegal network location");
       }
-       //将解析出来的 Node 添加到网络拓扑中
+      //将解析出来的 Node 添加到网络拓扑中
+      //TODO 核心结构
       if (clusterMap.add(node)) {
         LOG.info("Adding a new node: "+NodeBase.getPath(node));
+        //如果 rack 在缓存中不存在，则更新rack 个数
         if (rack == null) {
           incrementRacks();
         }
         if (!(node instanceof InnerNode)) {
           if (depthOfAllLeaves == -1) {
+            //如果  depthOfAllLeaves 第一次赋值，则更新当前树层高为 Node 的层级树，固定不变
             depthOfAllLeaves = node.getLevel();
           }
         }

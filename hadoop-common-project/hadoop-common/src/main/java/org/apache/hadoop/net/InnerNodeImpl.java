@@ -117,16 +117,16 @@ public class InnerNodeImpl extends NodeBase implements InnerNode {
 
   @Override
   public boolean add(Node n) {
-    if (!isAncestor(n)) {
+    if (!isAncestor(n)) { //判断是否为根节点
       throw new IllegalArgumentException(n.getName()
           + ", which is located at " + n.getNetworkLocation()
           + ", is not a descendant of " + getPath(this));
     }
-    if (isParent(n)) {
+    if (isParent(n)) { //判断 Node 归属于当前节点
       // this node is the parent of n; add n directly
       n.setParent(this);
-      n.setLevel(this.level+1);
-      Node prev = childrenMap.put(n.getName(), n);
+      n.setLevel(this.level+1); // Node 挂载到当前节点下 ，对于层级 +1
+      Node prev = childrenMap.put(n.getName(), n); //在 childrenMap 数据结构中添加该 Node
       if (prev != null) {
         for(int i=0; i<children.size(); i++) {
           if (children.get(i).getName().equals(n.getName())) {
@@ -135,22 +135,22 @@ public class InnerNodeImpl extends NodeBase implements InnerNode {
           }
         }
       }
-      children.add(n);
+      children.add(n);  //添加到子节点列表中，统计数 + 1
       numOfLeaves++;
       return true;
     } else {
-      // find the next ancestor node
+      // find the next ancestor node   返回当前位置最大的父节点
       String parentName = getNextAncestorName(n);
       InnerNode parentNode = (InnerNode)childrenMap.get(parentName);
-      if (parentNode == null) {
+      if (parentNode == null) {    //如果父节点为空则创建，加入拓扑树中
         // create a new InnerNode
         parentNode = createParentNode(parentName);
         children.add(parentNode);
         childrenMap.put(parentNode.getName(), parentNode);
       }
       // add n to the subtree of the next ancestor node
-      if (parentNode.add(n)) {
-        numOfLeaves++;
+      if (parentNode.add(n)) { //递归添加子节点
+        numOfLeaves++; //统计数+1
         return true;
       } else {
         return false;

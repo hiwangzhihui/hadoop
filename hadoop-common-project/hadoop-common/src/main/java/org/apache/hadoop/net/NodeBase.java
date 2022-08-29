@@ -147,6 +147,8 @@ public class NodeBase implements Node {
   /** Normalize a path by stripping off any trailing {@link #PATH_SEPARATOR}
    * @param path path to normalize.
    * @return the normalised path
+   *   返回上一级的 loc
+   *   TODO 注意多 AZ 此方法不能直接使用
    * If <i>path</i>is null or empty {@link #ROOT} is returned
    * @throws IllegalArgumentException if the first character of a non empty path
    * is not {@link #PATH_SEPARATOR}
