@@ -91,7 +91,7 @@ public class InnerNodeImpl extends NodeBase implements InnerNode {
   }
 
   /** Judge if this node is the parent of node <i>n</i>
-   *
+   *  判断当前节点是否为 Node 的父节点
    * @param n a node
    * @return true if this node is the parent of <i>n</i>
    */

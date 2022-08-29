@@ -80,9 +80,10 @@ public class DFSTopologyNodeImpl extends InnerNodeImpl {
    *
    * 存储了子节点列表和对应的"存储类型" 列表
    *  <NodeName,  <StorageType, typeCount> >
-   *    NodeName：节点名称
-   *    StorageType：存储类型
-   *    typeCount：当前类型在节点的存储个数
+   *    key： NodeName：节点名称
+   *    value:
+   *        key:  StorageType：存储类型
+   *       value: typeCount：当前类型在节点的存储个数
    */
   private final HashMap
       <String, EnumMap<StorageType, Integer>> childrenStorageInfo;
@@ -211,17 +212,18 @@ public class DFSTopologyNodeImpl extends InnerNodeImpl {
           + ", is not a descendant of " + getPath(this));
     }
     // In HDFS topology, the leaf node should always be DatanodeDescriptor
+    // 如果使用的是 HDFSTopologyNodeImpl 传入的 Node 必须是  DatanodeDescriptor
     if (!(n instanceof DatanodeDescriptor)) {
       throw new IllegalArgumentException("Unexpected node type "
           + n.getClass().getName());
     }
     DatanodeDescriptor dnDescriptor = (DatanodeDescriptor) n;
     if (isParent(n)) {
-      // this node is the parent of n; add n directly
+      // this node is the parent of n; add n directly  判断当前节点是否为 Node 的父节点
       n.setParent(this);
       n.setLevel(this.level + 1);
       Node prev = childrenMap.put(n.getName(), n);
-      if (prev != null) {
+      if (prev != null) { //判断是否有注册过，如果有则更新信息
         for(int i=0; i<children.size(); i++) {
           if (children.get(i).getName().equals(n.getName())) {
             children.set(i, n);
@@ -230,28 +232,31 @@ public class DFSTopologyNodeImpl extends InnerNodeImpl {
           }
         }
       }
+      //否则直接添加
       children.add(n);
       numOfLeaves++;
+      //更新存储类型列表
       if (!childrenStorageInfo.containsKey(dnDescriptor.getName())) {
         childrenStorageInfo.put(
             dnDescriptor.getName(), new EnumMap<>(StorageType.class));
       }
+      //更新当前节点对应存储个数
       for (StorageType st : dnDescriptor.getStorageTypes()) {
         childrenStorageInfo.get(dnDescriptor.getName()).put(st, 1);
         incStorageTypeCount(st);
       }
       return true;
     } else {
-      // find the next ancestor node
+      // find the next ancestor node 找到Node 最大的父节点，往下找
       String parentName = getNextAncestorName(n);
       InnerNode parentNode = (InnerNode)childrenMap.get(parentName);
       if (parentNode == null) {
-        // create a new InnerNode
+        // create a new InnerNode 如果节点不存在则创建
         parentNode = createParentNode(parentName);
         children.add(parentNode);
         childrenMap.put(parentNode.getName(), parentNode);
       }
-      // add n to the subtree of the next ancestor node
+      // add n to the subtree of the next ancestor node 添加父节点到当前节点的子节点列表中
       if (parentNode.add(n)) {
         numOfLeaves++;
         if (!childrenStorageInfo.containsKey(parentNode.getName())) {
