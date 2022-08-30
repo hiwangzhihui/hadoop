@@ -1139,7 +1139,8 @@ public class DatanodeManager {
         = new DatanodeDescriptor(nodeReg, NetworkTopology.DEFAULT_RACK);
       boolean success = false;
       try {
-        // resolve network location 更新网络拓扑
+        // resolve network location
+        // 根据节点 IP 或 Host 获取节点对应的网络位置
         if(this.rejectUnresolvedTopologyDN) {
           nodeDescr.setNetworkLocation(resolveNetworkLocation(nodeDescr));
 
@@ -1152,6 +1153,7 @@ public class DatanodeManager {
           nodeDescr.setDependentHostNames(
               getNetworkDependenciesWithDefault(nodeDescr));
         }
+        //加入到网络拓扑中
         networktopology.add(nodeDescr);
         nodeDescr.setSoftwareVersion(nodeReg.getSoftwareVersion());
         resolveUpgradeDomain(nodeDescr);

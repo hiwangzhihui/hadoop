@@ -154,7 +154,6 @@ public class NetworkTopology {
                                            + " at an illegal network location");
       }
       //将解析出来的 Node 添加到网络拓扑中
-      //TODO 核心结构
       if (clusterMap.add(node)) {
         LOG.info("Adding a new node: "+NodeBase.getPath(node));
         //如果 rack 在缓存中不存在，则更新rack 个数
