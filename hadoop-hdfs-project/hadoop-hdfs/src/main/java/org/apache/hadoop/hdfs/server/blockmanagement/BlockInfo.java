@@ -255,6 +255,7 @@ public abstract class BlockInfo extends Block
     return uc;
   }
 
+
   public BlockUCState getBlockUCState() {
     return uc == null ? BlockUCState.COMPLETE : uc.getBlockUCState();
   }
@@ -292,6 +293,7 @@ public abstract class BlockInfo extends Block
 
   /**
    * Convert an under construction block to complete.
+   * 如果块状态已经为 COMPLETE 则直接赋值为 NULL
    */
   void convertToCompleteBlock() {
     assert getBlockUCState() != BlockUCState.COMPLETE :
