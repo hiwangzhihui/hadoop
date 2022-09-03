@@ -177,6 +177,8 @@ public class DFSNetworkTopology extends NetworkTopology {
   Node chooseRandomWithStorageType(final String scope,
       String excludedScope, final Collection<Node> excludedNodes,
       StorageType type) {
+
+
     if (excludedScope != null) {
       if (scope.startsWith(excludedScope)) {
         return null;
@@ -186,7 +188,7 @@ public class DFSNetworkTopology extends NetworkTopology {
       }
     }
 
-    //先根据  scope 获取一个 Node
+    //先根据  scope 获取一个网络拓扑的一个 Node 子树
     Node node = getNode(scope);
     if (node == null) {
       LOG.debug("Invalid scope {}, non-existing node", scope);
@@ -198,13 +200,14 @@ public class DFSNetworkTopology extends NetworkTopology {
       // a node is either DFSTopologyNodeImpl, or a DatanodeDescriptor
       return ((DatanodeDescriptor)node).hasStorageType(type) ? node : null;
     }
-    // scope  范围内的 scopeRoot Node
+
+    //根据 excludedScope 、type 、excludedNodes 条件统计在 scope 范围内可以分配块的节点个数
     DFSTopologyNodeImpl root = (DFSTopologyNodeImpl)node;
     // 根据 excludedScope 表达式获取  excludeRoot node
     Node excludeRoot = excludedScope == null ? null : getNode(excludedScope);
 
     // check to see if there are nodes satisfying the condition at all
-    //按照条件统计符合的 Node 个数
+    //按照条件统计符合的 datanode 个数
     int availableCount = root.getSubtreeStorageCount(type);
     if (excludeRoot != null && root.isAncestor(excludeRoot)) {
       if (excludeRoot instanceof DFSTopologyNodeImpl) {
@@ -239,6 +242,7 @@ public class DFSNetworkTopology extends NetworkTopology {
     }
 
 
+    //如果没有符合条件的节点则直接返回
     if (availableCount <= 0) {
       // should never be <0 in general, adding <0 check for safety purpose
       return null;
