@@ -42,6 +42,7 @@ import com.google.common.collect.Maps;
 
 /**
  * Manage Incremental Block Reports (IBRs).
+ * 增量块汇报管理
  */
 @InterfaceAudience.Private
 class IncrementalBlockReportManager {
@@ -130,6 +131,7 @@ class IncrementalBlockReportManager {
   /**
    * If this flag is set then an IBR will be sent immediately by the actor
    * thread without waiting for the IBR timer to elapse.
+   * 该参数是决定是否立即汇报 block 增量信息的的因素之一
    */
   private volatile boolean readyToSend = false;
 
@@ -148,6 +150,7 @@ class IncrementalBlockReportManager {
     this.dnMetrics = dnMetrics;
   }
 
+  //是否要立即发送 IBR 信息
   boolean sendImmediately() {
     return readyToSend && monotonicNow() - ibrInterval >= lastIBR;
   }
@@ -168,7 +171,7 @@ class IncrementalBlockReportManager {
     for (Map.Entry<DatanodeStorage, PerStorageIBR> entry
         : pendingIBRs.entrySet()) {
       final PerStorageIBR perStorage = entry.getValue();
-
+         // 发送所有新接收的和删除的 blockids 给 NameNode
         // Send newly-received and deleted blockids to namenode
       final ReceivedDeletedBlockInfo[] rdbi = perStorage.removeAll();
       if (rdbi != null) {
@@ -183,16 +186,22 @@ class IncrementalBlockReportManager {
     return reports.toArray(new StorageReceivedDeletedBlocks[reports.size()]);
   }
 
+  /*
+  * 将汇报失败的 block 信息放入到 pendingIBRs 列表中
+  * */
   private synchronized void putMissing(StorageReceivedDeletedBlocks[] reports) {
     for (StorageReceivedDeletedBlocks r : reports) {
       pendingIBRs.get(r.getStorage()).putMissing(r.getBlocks());
     }
+    //如果 reports 不为空则需要立即汇报
     if (reports.length > 0) {
       readyToSend = true;
     }
   }
 
-  /** Send IBRs to namenode. */
+  /** Send IBRs to namenode.
+   *  向 NameNode 汇报增量的块信息
+   * */
   void sendIBRs(DatanodeProtocol namenode, DatanodeRegistration registration,
       String bpid) throws IOException {
     // Generate a list of the pending reports for each storage under the lock
@@ -217,9 +226,11 @@ class IncrementalBlockReportManager {
         dnMetrics.addIncrementalBlockReport(monotonicNow() - startTime);
         lastIBR = startTime;
       } else {
+
         // If we didn't succeed in sending the report, put all of the
         // blocks back onto our queue, but only in the case where we
         // didn't put something newer in the meantime.
+        //如果块信息没有汇报成功则重新放入到队列中 TODO
         putMissing(reports);
       }
     }
