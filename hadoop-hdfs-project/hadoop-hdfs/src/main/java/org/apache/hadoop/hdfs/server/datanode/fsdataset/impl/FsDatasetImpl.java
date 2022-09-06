@@ -565,6 +565,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       String bpid = entry.getKey();
       List<ReplicaInfo> blocks = entry.getValue();
       for (ReplicaInfo block : blocks) {
+        //删除 volumes 上的所有副本
         invalidate(bpid, block);
       }
     }
@@ -915,6 +916,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
   /**
    * Move block files from one storage to another storage.
+   * 将数据块从一个存储移动到另外一个存储
+   * 例如：diskReBalance
    * @return Returns the Old replicaInfo
    * @throws IOException
    */
@@ -950,6 +953,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
           block.getNumBytes());
     }
     try {
+      //移动数据块副本
       moveBlock(block, replicaInfo, volumeRef);
     } finally {
       if (volumeRef != null) {
@@ -972,9 +976,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    */
   private ReplicaInfo moveBlock(ExtendedBlock block, ReplicaInfo replicaInfo,
       FsVolumeReference volumeRef) throws IOException {
+    //将数据块副本移动到目标存储
     ReplicaInfo newReplicaInfo = copyReplicaToVolume(block, replicaInfo,
         volumeRef);
     finalizeNewReplica(newReplicaInfo, block);
+    //将数据块副本从源存储删除
     removeOldReplica(replicaInfo, newReplicaInfo, block.getBlockPoolId());
     return newReplicaInfo;
   }
@@ -2116,7 +2122,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
     // If the block is cached, start uncaching it.
     cacheManager.uncacheBlock(bpid, block.getBlockId());
-
+    //向 NN 发送通知
     datanode.notifyNamenodeDeletedBlock(new ExtendedBlock(bpid, block),
         block.getStorageUuid());
   }
@@ -3017,11 +3023,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         new ExtendedBlock(bpid, newReplicaInfo);
     datanode.getShortCircuitRegistry().processBlockInvalidation(
         ExtendedBlockId.fromExtendedBlock(extendedBlock));
+    //向 NN  发送通知
     datanode.notifyNamenodeReceivedBlock(
         extendedBlock, null, newReplicaInfo.getStorageUuid(),
         newReplicaInfo.isOnTransientStorage());
 
-    // Remove the old replicas
+    // Remove the old replicas 删除副本
     cleanupReplica(bpid, replicaInfo);
 
     // If deletion failed then the directory scanner will cleanup the blocks

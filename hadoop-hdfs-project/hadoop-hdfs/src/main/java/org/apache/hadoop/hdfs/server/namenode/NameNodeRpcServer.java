@@ -1568,6 +1568,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
           throws IOException {
     checkNNStartup();
     verifyRequest(nodeReg);
+    //处理的数据块副本指标统计
     metrics.incrBlockReceivedAndDeletedOps();
     if(blockStateChangeLog.isDebugEnabled()) {
       blockStateChangeLog.debug("*BLOCK* NameNode.blockReceivedAndDeleted: "
@@ -1576,6 +1577,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
     }
     final BlockManager bm = namesystem.getBlockManager();
     for (final StorageReceivedDeletedBlocks r : receivedAndDeletedBlocks) {
+      //创建处理任务加入到队列中异步处理
       bm.enqueueBlockOp(new Runnable() {
         @Override
         public void run() {

@@ -135,7 +135,10 @@ class IncrementalBlockReportManager {
    */
   private volatile boolean readyToSend = false;
 
-  /** The time interval between two IBRs. */
+  /** The time interval between two IBRs.
+   * dfs.blockreport.incremental.intervalMsec 默认值为 0
+   * 有增量块立即汇报
+   * */
   private final long ibrInterval;
 
   /** The timestamp of the last IBR. */
@@ -268,14 +271,18 @@ class IncrementalBlockReportManager {
 
   synchronized void notifyNamenodeBlock(ReceivedDeletedBlockInfo rdbi,
       DatanodeStorage storage, boolean isOnTransientStorage) {
+    //先加入 pendingIBRs 列表中
     addRDBI(rdbi, storage);
 
     final BlockStatus status = rdbi.getStatus();
     if (status == BlockStatus.RECEIVING_BLOCK) {
       // the report will be sent out in the next heartbeat.
+      // 如果是接收一个正在写的块副本，则在下一个心态中汇报上去
       readyToSend = true;
     } else if (status == BlockStatus.RECEIVED_BLOCK) {
-      // the report is sent right away.
+      // the report is sent right away. 如果确认已经写完，则立即向 nn 汇报
+      // isOnTransientStorage  与  StorageType 有关
+      // 默认立即汇报
       triggerIBR(isOnTransientStorage);
     }
   }

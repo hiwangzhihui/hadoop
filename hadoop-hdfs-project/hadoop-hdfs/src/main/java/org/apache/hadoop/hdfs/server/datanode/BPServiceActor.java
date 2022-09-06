@@ -682,6 +682,7 @@ class BPServiceActor implements Runnable {
             }
           }
         }
+        // 默认情况 IBR 会立即发送给 NameNode
         if (ibrManager.sendImmediately() || sendHeartbeat) {
           ibrManager.sendIBRs(bpNamenode, bpRegistration,
               bpos.getBlockPoolId());
@@ -711,6 +712,7 @@ class BPServiceActor implements Runnable {
 
         // There is no work to do;  sleep until hearbeat timer elapses, 
         // or work arrives, and then iterate again.
+        // 等待下次发送 IBR 的间隔时间
         ibrManager.waitTillNextIBR(scheduler.getHeartbeatWaitTime());
       } catch(RemoteException re) {
         String reClass = re.getClassName();

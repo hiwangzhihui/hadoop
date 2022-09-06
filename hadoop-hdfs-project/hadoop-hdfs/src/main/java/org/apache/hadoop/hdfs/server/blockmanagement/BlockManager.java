@@ -5008,6 +5008,7 @@ public class BlockManager implements BlockStatsMXBean {
           // runs dry, or the max lock hold is reached.
           int processed = 0;
           namesystem.writeLock();
+          //增量数据块队列长度,可评估处理速率
           metrics.setBlockOpsQueued(queue.size() + 1);
           try {
             long start = Time.monotonicNow();
