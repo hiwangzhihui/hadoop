@@ -396,7 +396,9 @@ public class BlockManager implements BlockStatsMXBean {
    * at one time.
    */
   int replicationStreamsHardLimit;
-  /** Minimum copies needed or else write is disallowed */
+  /** Minimum copies needed or else write is disallowed
+   * dfs.namenode.replication.min 默认值：1
+   * */
   public final short minReplication;
   /** Default number of replicas */
   public final int defaultReplication;
@@ -968,6 +970,7 @@ public class BlockManager implements BlockStatsMXBean {
       throw new IOException("Commit block with mismatching GS. NN has " +
           block + ", client submits " + commitBlock);
     }
+
     List<ReplicaUnderConstruction> staleReplicas =
         block.commitBlock(commitBlock);
     removeStaleReplicas(staleReplicas, block);
@@ -994,8 +997,10 @@ public class BlockManager implements BlockStatsMXBean {
       return false; // no blocks in file yet
     if(lastBlock.isComplete())
       return false; // already completed (e.g. by syncBlock)
-    
+
+    //状态转换为  COMMITTED
     final boolean committed = commitBlock(lastBlock, commitBlock);
+
     if (committed && lastBlock.isStriped()) {
       // update scheduled size for DatanodeStorages that do not store any
       // internal blocks
@@ -1005,15 +1010,18 @@ public class BlockManager implements BlockStatsMXBean {
 
     // Count replicas on decommissioning nodes, as these will not be
     // decommissioned unless recovery/completing last block has finished
+    // 统计块副本个数
     NumberReplicas numReplicas = countNodes(lastBlock);
     int numUsableReplicas = numReplicas.liveReplicas() +
         numReplicas.decommissioning() +
         numReplicas.liveEnteringMaintenanceReplicas();
 
+    //是否满足最小副本个数
     if (hasMinStorage(lastBlock, numUsableReplicas)) {
       if (committed) {
         addExpectedReplicasToPending(lastBlock);
       }
+
       completeBlock(lastBlock, iip, false);
     } else if (pendingRecoveryBlocks.isUnderRecovery(lastBlock)) {
       // We've just finished recovery for this block, complete
@@ -3961,7 +3969,9 @@ public class BlockManager implements BlockStatsMXBean {
     //
     // Modify the blocks->datanode map and node's map.
     //
+    //更新 blocksMap 里面的内容
     BlockInfo storedBlock = getStoredBlock(block);
+    //如果块信息已经在 blocksMap 中存在，则先尝试更新 pendingReconstructions 列表
     if (storedBlock != null &&
         block.getGenerationStamp() == storedBlock.getGenerationStamp()) {
       if (pendingReconstruction.decrement(storedBlock, node)) {
@@ -3982,6 +3992,7 @@ public class BlockManager implements BlockStatsMXBean {
     LOG.debug("Reported block {} on {} size {} replicaState = {}",
         block, node, block.getNumBytes(), reportedState);
 
+    //延迟汇报的块副本信息
     if (shouldPostponeBlocksFromFuture &&
         isGenStampInFuture(block)) {
       queueReportedBlock(storageInfo, block, reportedState,
@@ -4097,6 +4108,7 @@ public class BlockManager implements BlockStatsMXBean {
         deleted++;
         break;
       case RECEIVED_BLOCK:
+        //汇报提交的块副本状态
         addBlock(storageInfo, rdbi.getBlock(), rdbi.getDelHints());
         received++;
         break;

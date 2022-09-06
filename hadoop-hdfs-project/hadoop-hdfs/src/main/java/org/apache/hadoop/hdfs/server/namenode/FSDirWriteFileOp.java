@@ -719,11 +719,13 @@ class FSDirWriteFileOp {
     }
     // Check the state of the penultimate block. It should be completed
     // before attempting to complete the last one.
+    //先检查倒数第二块的状态，它必须是已经完成的
     if (!fsn.checkFileProgress(src, pendingFile, false)) {
       return false;
     }
 
-    // commit the last block and complete it if it has minimum replicas
+    // commit the last block and complete it if it has minimum
+    // 提交最后一个块，它需要满足最小副本数要求
     fsn.commitOrCompleteLastBlock(pendingFile, iip, last);
 
     if (!fsn.checkFileProgress(src, pendingFile, true)) {
