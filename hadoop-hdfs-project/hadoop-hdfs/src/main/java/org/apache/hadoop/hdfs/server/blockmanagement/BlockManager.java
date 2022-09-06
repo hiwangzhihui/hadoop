@@ -3187,6 +3187,7 @@ public class BlockManager implements BlockStatsMXBean {
           Reason.INVALID_STATE);
     }
   }
+
  //块是否被重构修复
   private boolean isBlockUnderConstruction(BlockInfo storedBlock,
       BlockUCState ucState, ReplicaState reportedState) {
@@ -3290,7 +3291,7 @@ public class BlockManager implements BlockStatsMXBean {
       return block;
     }
 
-    // add block to the datanode
+    // add block to the datanode   向 datanode 中添加副本信息
     AddBlockResult result = storageInfo.addBlock(storedBlock, reportedBlock);
 
     int curReplicaDelta;
@@ -3322,7 +3323,7 @@ public class BlockManager implements BlockStatsMXBean {
     int numLiveReplicas = num.liveReplicas();
     int pendingNum = pendingReconstruction.getNumReplicas(storedBlock);
     int numCurrentReplica = numLiveReplicas + pendingNum;
-
+     //更新数块状态为 COMPLETE
     if(storedBlock.getBlockUCState() == BlockUCState.COMMITTED &&
         hasMinStorage(storedBlock, numLiveReplicas)) {
       addExpectedReplicasToPending(storedBlock);
@@ -4000,7 +4001,7 @@ public class BlockManager implements BlockStatsMXBean {
       return;
     }
 
-    // find block by blockId
+    // find block by blockId 如果没有该块的记录，直接返回，并且从元数据中删除
     BlockInfo storedBlock = getStoredBlock(block);
     if(storedBlock == null) {
       // If blocksMap does not contain reported block id,
@@ -4020,6 +4021,7 @@ public class BlockManager implements BlockStatsMXBean {
       return;
     }
 
+    // 检查是否在损坏的副本列表中
     BlockToMarkCorrupt c = checkReplicaCorrupt(
         block, reportedState, storedBlock, ucState, node);
     if (c != null) {
@@ -4037,7 +4039,7 @@ public class BlockManager implements BlockStatsMXBean {
       }
       return;
     }
-
+    //确认数据块是否正在被写或重构得到块
     if (isBlockUnderConstruction(storedBlock, ucState, reportedState)) {
       addStoredBlockUnderConstruction(
           new StatefulBlockInfo(storedBlock, new Block(block), reportedState),
@@ -4047,6 +4049,7 @@ public class BlockManager implements BlockStatsMXBean {
 
     // Add replica if appropriate. If the replica was previously corrupt
     // but now okay, it might need to be updated.
+    // 如果复制副本以前已损坏但现在好了，它可能需要更新;将其添加
     if (reportedState == ReplicaState.FINALIZED
         && (storedBlock.findStorageInfo(storageInfo) == -1 ||
             corruptReplicas.isReplicaCorrupt(storedBlock, node))) {
