@@ -369,7 +369,7 @@ public class INodeFile extends INodeWithAdditionalFields
   /**
    * Check if the i-th block is COMPLETE;
    * when the i-th block is the last block, it may be allowed to be COMMITTED.
-   *
+   * 检查文件写完成状态
    * @return null if the block passes the check;
    *              otherwise, return an error message.
    */
