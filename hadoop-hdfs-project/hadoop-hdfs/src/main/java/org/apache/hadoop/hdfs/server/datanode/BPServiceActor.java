@@ -676,6 +676,7 @@ class BPServiceActor implements Runnable {
             if (!processCommand(resp.getCommands()))
               continue;
             long endProcessCommands = monotonicNow();
+            //处理 NN 过长的表现
             if (endProcessCommands - startProcessCommands > 2000) {
               LOG.info("Took " + (endProcessCommands - startProcessCommands)
                   + "ms to process " + resp.getCommands().length
