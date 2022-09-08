@@ -5050,11 +5050,14 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     void enqueue(Runnable action) throws InterruptedException {
+      //首先尝试 offer 到队列中，如果返回 false
+      //如果返回true 直接返回，表示成功加入任务队列
       if (!queue.offer(action)) {
         if (!isAlive() && namesystem.isRunning()) {
           ExitUtil.terminate(1, getName()+" is not running");
         }
         long now = Time.monotonicNow();
+        // 4s 一次打印 queue full
         if (now - lastFull > 4000) {
           lastFull = now;
           LOG.info("Block report queue is full");
