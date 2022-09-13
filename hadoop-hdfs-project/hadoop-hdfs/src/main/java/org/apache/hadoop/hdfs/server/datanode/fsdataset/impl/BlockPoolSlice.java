@@ -73,8 +73,10 @@ import com.google.common.annotations.VisibleForTesting;
 class BlockPoolSlice {
   static final Log LOG = LogFactory.getLog(BlockPoolSlice.class);
 
-  private final String bpid;
+  private final String bpid; //池块 Id
+  //所属的 FsVolumeImpl
   private final FsVolumeImpl volume; // volume to which this BlockPool belongs to
+  //当前块池目录
   private final File currentDir; // StorageDirectory/current/bpid/current
   // directory where finalized replicas are stored
   private final File finalizedDir;
@@ -97,6 +99,7 @@ class BlockPoolSlice {
   private final FileIoProvider fileIoProvider;
 
   // TODO:FEDERATION scalability issue - a thread per DU is needed
+  //当前块池目录的磁盘使用情况
   private final GetSpaceUsed dfsUsage;
 
   /**
@@ -117,7 +120,9 @@ class BlockPoolSlice {
     this.finalizedDir = new File(
         currentDir, DataStorage.STORAGE_DIR_FINALIZED);
     this.lazypersistDir = new File(currentDir, DataStorage.STORAGE_DIR_LAZY_PERSIST);
+
     if (!this.finalizedDir.exists()) {
+      //创建 finalized 目录
       if (!this.finalizedDir.mkdirs()) {
         throw new IOException("Failed to mkdirs " + this.finalizedDir);
       }
@@ -147,22 +152,27 @@ class BlockPoolSlice {
     //
     this.tmpDir = new File(bpDir, DataStorage.STORAGE_DIR_TMP);
     if (tmpDir.exists()) {
+      //如果 tmp 目录已经存在则删除
       fileIoProvider.fullyDelete(volume, tmpDir);
     }
     this.rbwDir = new File(currentDir, DataStorage.STORAGE_DIR_RBW);
 
     // create the rbw and tmp directories if they don't exist.
+    //创建  rbw 目录
     fileIoProvider.mkdirs(volume, rbwDir);
+    //创建 tmp 目录
     fileIoProvider.mkdirs(volume, tmpDir);
 
     // Use cached value initially if available. Or the following call will
     // block until the initial du command completes.
+    //初始化  dfsUsage 信息
     this.dfsUsage = new CachingGetSpaceUsed.Builder().setPath(bpDir)
                                                      .setConf(conf)
                                                      .setInitialUsed(loadDfsUsed())
                                                      .build();
 
     // Make the dfs usage to be saved during shutdown.
+    // 钩子程序，当 datanode 进程结束时会保存当前块池所在磁盘使用空间情况
     shutdownHook = new Runnable() {
       @Override
       public void run() {
@@ -202,6 +212,7 @@ class BlockPoolSlice {
     }
   }
 
+  //底层定时调度 du 命令统计块池所在磁盘目录使用情况
   long getDfsUsed() throws IOException {
     return dfsUsage.getUsed();
   }
@@ -313,11 +324,16 @@ class BlockPoolSlice {
     return rbwFile;
   }
 
+  //添加一个 finalized 状态块
   File addFinalizedBlock(Block b, ReplicaInfo replicaInfo) throws IOException {
+    //为副本分配在 finalizedDir 目录存储的路径
     File blockDir = DatanodeUtil.idToBlockDir(finalizedDir, b.getBlockId());
+    //为副本创建存储路径
     fileIoProvider.mkdirsWithExistsCheck(volume, blockDir);
+    //将副本和对应的元数据文件移动到指定存储路径
     File blockFile = FsDatasetImpl.moveBlockFiles(b, replicaInfo, blockDir);
     File metaFile = FsDatasetUtil.getMetaFile(blockFile, b.getGenerationStamp());
+    //根据元数据信息更新快池容量使用信息
     if (dfsUsage instanceof CachingGetSpaceUsed) {
       ((CachingGetSpaceUsed) dfsUsage).incDfsUsed(
           b.getNumBytes() + metaFile.length());
@@ -360,7 +376,8 @@ class BlockPoolSlice {
   }
 
 
-
+  // DataNode 在启动时调用该方法，加载 lazypersistDir、lazypersistDir 目录下的块信息
+  // 分别加入到 volumeMap、 lazyWriteReplicaMap 中维护
   void getVolumeMap(ReplicaMap volumeMap,
                     final RamDiskReplicaTracker lazyWriteReplicaMap)
       throws IOException {
