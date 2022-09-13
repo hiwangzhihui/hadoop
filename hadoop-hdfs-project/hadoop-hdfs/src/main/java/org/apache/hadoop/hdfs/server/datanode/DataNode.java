@@ -2670,6 +2670,7 @@ public class DataNode extends ReconfigurableBase
       printUsage(System.err);
       return null;
     }
+    //dfs.datanode.data.dir 获取数据盘目录列表
     Collection<StorageLocation> dataLocations = getStorageLocations(conf);
     UserGroupInformation.setConfiguration(conf);
     SecurityUtil.login(conf, DFS_DATANODE_KEYTAB_FILE_KEY,

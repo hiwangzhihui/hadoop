@@ -69,6 +69,7 @@ import com.google.common.collect.Maps;
 
 /** 
  * Data storage information file.
+ *  主要负责管理与组织磁盘存储目录
  * <p>
  * @see Storage
  */

@@ -71,7 +71,7 @@ import org.slf4j.LoggerFactory;
  * The servers hold a lock for each storage directory while they run so that 
  * other nodes were not able to startup sharing the same storage.
  * The locks are released when the servers stop (normally or abnormally).
- * 
+ * 管理 dataNode 上的存储目录
  */
 @InterfaceAudience.Private
 public abstract class Storage extends StorageInfo {
