@@ -126,8 +126,8 @@ public abstract class Storage extends StorageInfo {
    */
   @InterfaceAudience.Private
   public interface StorageDirType {
-    public StorageDirType getStorageDirType();
     public boolean isOfType(StorageDirType type);
+    public StorageDirType getStorageDirType();
   }
 
   private final List<StorageDirectory> storageDirs =
@@ -273,22 +273,20 @@ public abstract class Storage extends StorageInfo {
    */
   @InterfaceAudience.Private
   public static class StorageDirectory implements FormatConfirmable {
-    final File root;              // root directory  存储目录的根
+    final File root;              // root directory  当前存储目录 File 类型
     // whether or not this dir is shared between two separate NNs for HA, or
     // between multiple block pools in the case of federation.
-    final boolean isShared; //  ？？
-    final StorageDirType dirType; // storage dir type 目录类型
+    final boolean isShared; // 在 Federation 部署中是否支持不同的池块直接共享存储目录
+    final StorageDirType dirType; // storage dir type 当前存储目录的类型，主要用于 NameNode 区别 fsimage、editlog 存储目录
     /**
      * 目录的 lock 文件避免多个 datanode 进程同时操作一个目录
-     * 在目录在会有一个 in_use.lock ，当 datanode 进程退出是会创建该文件
-     * 当 datanode 时会尝试创建该问题 （如果之前的 datanode 非正常退出，导致文件没删除掉呢？ 详细 tryLock）
      * */
-    FileLock lock;                // storage lock
+    FileLock lock;  // storage lock
 
 
-    private String storageUuid = null;      // Storage directory identifier. ???
+    private String storageUuid = null;   // Storage directory identifier. 当前存储的 ID 号
     
-    private final StorageLocation location; // 目录具体路径
+    private final StorageLocation location; // 当前存储的位置以及存储类型信息 SSD、RAM
     public StorageDirectory(File dir) {
       this(dir, null, false);
     }

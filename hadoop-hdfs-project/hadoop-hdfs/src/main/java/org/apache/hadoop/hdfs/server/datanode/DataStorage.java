@@ -385,8 +385,10 @@ public class DataStorage extends Storage {
         dataDirs.size(), datanode.getConf());
     final ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     try {
+
       final List<StorageLocation> successLocations = loadDataStorage(
           datanode, nsInfo, dataDirs, startOpt, executor);
+
       return loadBlockPoolSliceStorage(
           datanode, nsInfo, successLocations, startOpt, executor);
     } finally {
