@@ -41,6 +41,7 @@ import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
 
 /**
  * This is an interface for the underlying volume.
+ * 该接口定义了对 DataNode 磁盘目录下对数据块的基础操作
  */
 public interface FsVolumeSpi
     extends Checkable<FsVolumeSpi.VolumeCheckContext, VolumeCheckResult> {
@@ -54,16 +55,24 @@ public interface FsVolumeSpi
    */
   FsVolumeReference obtainReference() throws ClosedChannelException;
 
-  /** @return the StorageUuid of the volume */
+  /** @return the StorageUuid of the volume
+   * 获取当前存储目录的 Id ，既 StorageDirectory 的 storageUuid
+   * */
   String getStorageID();
 
-  /** @return a list of block pools. */
+  /** @return a list of block pools.
+   *  获取当前存储目录下的块池列表
+   * */
   String[] getBlockPoolList();
 
-  /** @return the available storage space in bytes. */
+  /** @return the available storage space in bytes.
+   *  获取当前存储目录的可用空间
+   * */
   long getAvailable() throws IOException;
 
-  /** @return the base path to the volume */
+  /** @return the base path to the volume
+   *  获取当前存储目录的根路径
+   * */
   URI getBaseURI();
 
   DF getUsageStats(Configuration conf);
@@ -71,7 +80,9 @@ public interface FsVolumeSpi
   /** @return the {@link StorageLocation} to the volume */
   StorageLocation getStorageLocation();
 
-  /** @return the {@link StorageType} of the volume */
+  /** @return the {@link StorageType} of the volume
+   *   获取当前存储目录存储类型
+   * */
   StorageType getStorageType();
 
   /** Returns true if the volume is NOT backed by persistent storage. */
@@ -80,11 +91,13 @@ public interface FsVolumeSpi
   /**
    * Reserve disk space for a block (RBW or Re-replicating)
    * so a writer does not run out of space before the block is full.
+   * 为 RBW  副本预留的磁盘空间，在写入数据块时就不会出现空间不足的情况
    */
   void reserveSpaceForReplica(long bytesToReserve);
 
   /**
    * Release disk space previously reserved for block opened for write.
+   * 释放预留的空间
    */
   void releaseReservedSpace(long bytesToRelease);
 

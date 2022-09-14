@@ -73,15 +73,20 @@ import com.google.common.annotations.VisibleForTesting;
 class BlockPoolSlice {
   static final Log LOG = LogFactory.getLog(BlockPoolSlice.class);
 
-  private final String bpid; //池块 Id
-  //所属的 FsVolumeImpl
+  //所属块池 Id
+  private final String bpid;
+  //所属块池的 FsVolumeImpl 引用
   private final FsVolumeImpl volume; // volume to which this BlockPool belongs to
-  //当前块池目录
+  //所在目录的 current 子目录
   private final File currentDir; // StorageDirectory/current/bpid/current
   // directory where finalized replicas are stored
+  //所在目录的 finalized 子目录
   private final File finalizedDir;
+  //所在目录的 lazypersist 子目录
   private final File lazypersistDir;
+  //所在目录的 rbw 子目录
   private final File rbwDir; // directory store RBW replica
+  //所在目录的 tmp 子目录
   private final File tmpDir; // directory store Temporary replica
   private final int ioFileBufferSize;
   @VisibleForTesting
@@ -99,7 +104,7 @@ class BlockPoolSlice {
   private final FileIoProvider fileIoProvider;
 
   // TODO:FEDERATION scalability issue - a thread per DU is needed
-  //当前块池目录的磁盘使用情况
+  // 统计当前块池目录的磁盘空间使用情况
   private final GetSpaceUsed dfsUsage;
 
   /**
@@ -120,9 +125,7 @@ class BlockPoolSlice {
     this.finalizedDir = new File(
         currentDir, DataStorage.STORAGE_DIR_FINALIZED);
     this.lazypersistDir = new File(currentDir, DataStorage.STORAGE_DIR_LAZY_PERSIST);
-
     if (!this.finalizedDir.exists()) {
-      //创建 finalized 目录
       if (!this.finalizedDir.mkdirs()) {
         throw new IOException("Failed to mkdirs " + this.finalizedDir);
       }
@@ -212,7 +215,6 @@ class BlockPoolSlice {
     }
   }
 
-  //底层定时调度 du 命令统计块池所在磁盘目录使用情况
   long getDfsUsed() throws IOException {
     return dfsUsage.getUsed();
   }
@@ -324,16 +326,11 @@ class BlockPoolSlice {
     return rbwFile;
   }
 
-  //添加一个 finalized 状态块
   File addFinalizedBlock(Block b, ReplicaInfo replicaInfo) throws IOException {
-    //为副本分配在 finalizedDir 目录存储的路径
     File blockDir = DatanodeUtil.idToBlockDir(finalizedDir, b.getBlockId());
-    //为副本创建存储路径
     fileIoProvider.mkdirsWithExistsCheck(volume, blockDir);
-    //将副本和对应的元数据文件移动到指定存储路径
     File blockFile = FsDatasetImpl.moveBlockFiles(b, replicaInfo, blockDir);
     File metaFile = FsDatasetUtil.getMetaFile(blockFile, b.getGenerationStamp());
-    //根据元数据信息更新快池容量使用信息
     if (dfsUsage instanceof CachingGetSpaceUsed) {
       ((CachingGetSpaceUsed) dfsUsage).incDfsUsed(
           b.getNumBytes() + metaFile.length());
