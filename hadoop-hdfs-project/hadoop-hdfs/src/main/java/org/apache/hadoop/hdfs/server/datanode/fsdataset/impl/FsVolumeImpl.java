@@ -107,10 +107,13 @@ public class FsVolumeImpl implements FsVolumeSpi {
       new ObjectMapper().writerWithDefaultPrettyPrinter();
   private static final ObjectReader READER =
       new ObjectMapper().readerFor(BlockIteratorState.class);
-
+  //主要用于加锁操作
   private final FsDatasetImpl dataset;
+  //  既 StorageDirectory 的 storageUuid
   private final String storageID;
+  // 获取当前存储目录异构存储类型
   private final StorageType storageType;
+  // 当前 FsVolumeImpl 下所有 BlockPoolSlice
   private final Map<String, BlockPoolSlice> bpSlices
       = new ConcurrentHashMap<String, BlockPoolSlice>();
 
@@ -120,11 +123,14 @@ public class FsVolumeImpl implements FsVolumeSpi {
   private final StorageLocation storageLocation;
 
   private final File currentDir;    // <StorageDirectory>/current
+  //当前存储目录的使用情况
   private final DF usage;
+  //当前存储目录预留的磁盘空间大小
   private final long reserved;
   private CloseableReferenceCount reference = new CloseableReferenceCount();
 
   // Disk space reserved for blocks (RBW or Re-replicating) open for write.
+  //为 rbw 块副本预留的空间资源大小
   private AtomicLong reservedForReplicas;
   private long recentReserved = 0;
   private final Configuration conf;

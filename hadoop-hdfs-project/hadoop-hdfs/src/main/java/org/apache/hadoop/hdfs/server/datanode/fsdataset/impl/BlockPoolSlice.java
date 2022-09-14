@@ -73,13 +73,20 @@ import com.google.common.annotations.VisibleForTesting;
 class BlockPoolSlice {
   static final Log LOG = LogFactory.getLog(BlockPoolSlice.class);
 
+  //所属块池 Id
   private final String bpid;
+  //所属块池的 FsVolumeImpl 引用
   private final FsVolumeImpl volume; // volume to which this BlockPool belongs to
+  //所在目录的 current 子目录
   private final File currentDir; // StorageDirectory/current/bpid/current
   // directory where finalized replicas are stored
+  //所在目录的 finalized 子目录
   private final File finalizedDir;
+  //所在目录的 lazypersist 子目录
   private final File lazypersistDir;
+  //所在目录的 rbw 子目录
   private final File rbwDir; // directory store RBW replica
+  //所在目录的 tmp 子目录
   private final File tmpDir; // directory store Temporary replica
   private final int ioFileBufferSize;
   @VisibleForTesting
@@ -97,6 +104,7 @@ class BlockPoolSlice {
   private final FileIoProvider fileIoProvider;
 
   // TODO:FEDERATION scalability issue - a thread per DU is needed
+  // 统计当前块池目录的磁盘空间使用情况
   private final GetSpaceUsed dfsUsage;
 
   /**

@@ -46,19 +46,25 @@ import org.apache.hadoop.util.AutoCloseableLock;
 import org.apache.hadoop.util.Time;
 
 class FsVolumeList {
+  // FsVolumeImpl 列表集合
   private final CopyOnWriteArrayList<FsVolumeImpl> volumes =
       new CopyOnWriteArrayList<>();
   // Tracks volume failures, sorted by volume path.
   // map from volume storageID to the volume failure info
+  //故障的存储目录集合
   private final Map<StorageLocation, VolumeFailureInfo> volumeFailureInfos =
       Collections.synchronizedMap(
           new TreeMap<StorageLocation, VolumeFailureInfo>());
+  //即将要移除的存储目录集合
   private final ConcurrentLinkedQueue<FsVolumeImpl> volumesBeingRemoved =
       new ConcurrentLinkedQueue<>();
   private final AutoCloseableLock checkDirsLock;
   private final Condition checkDirsLockCondition;
 
+  //DataNode 分配数据块存储目录的选择策略：
+  // RoundRobinVolumeChoosingPolic（默认）、AvailableSpaceVolumeChoosingPolicy
   private final VolumeChoosingPolicy<FsVolumeImpl> blockChooser;
+  // DataNode 存储数据目录的数据块 Scanner 集合
   private final BlockScanner blockScanner;
 
   FsVolumeList(List<VolumeFailureInfo> initialVolumeFailureInfos,
