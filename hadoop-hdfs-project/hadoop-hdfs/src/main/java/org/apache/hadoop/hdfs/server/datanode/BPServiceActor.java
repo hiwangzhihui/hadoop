@@ -74,6 +74,11 @@ import com.google.common.base.Joiner;
 
 /**
  * A thread per active or standby namenode to perform:
+ * 会为 active or standby namenode 都启动一个线程
+ * 1、向 NameNode 进行第一次握手祖册
+ * 2、向 NameNode 注册该 datanode
+ * 3、定时向 NameNode 发送心跳
+ * 4、执行 NameNode 回传的指令
  * <ul>
  * <li> Pre-registration handshake with namenode</li>
  * <li> Registration with namenode</li>
@@ -85,33 +90,34 @@ import com.google.common.base.Joiner;
 class BPServiceActor implements Runnable {
   
   static final Logger LOG = DataNode.LOG;
-  final InetSocketAddress nnAddr;
-  HAServiceState state;
+  final InetSocketAddress nnAddr; // 当前 BPServiceActor 对应的 NameNode 地址
+  HAServiceState state; // 当前 BPServiceActor 对应的 NameNode 的状态
 
-  final BPOfferService bpos;
+  final BPOfferService bpos; // 管理 BPServiceActor 的 BPOfferService 对象引用
   
   volatile long lastCacheReport = 0;
-  private final Scheduler scheduler;
+  private final Scheduler scheduler; // 控制 DataNode 块汇报和与 NameNode 直接的心跳
 
-  Thread bpThread;
-  DatanodeProtocolClientSideTranslatorPB bpNamenode;
+  Thread bpThread; // 当前的工作线程
+  DatanodeProtocolClientSideTranslatorPB bpNamenode; //  DataNode 与 NameNode 交互的 Client
 
   enum RunningState {
     CONNECTING, INIT_FAILED, RUNNING, EXITED, FAILED;
   }
-
+  //当前 BPServiceActor 的运行状态
   private volatile RunningState runningState = RunningState.CONNECTING;
   private volatile boolean shouldServiceRun = true;
-  private final DataNode dn;
-  private final DNConf dnConf;
+  private final DataNode dn; //  datanode 对象引用
+  private final DNConf dnConf;  // datanode 的配置
   private long prevBlockReportId;
   private final SortedSet<Integer> blockReportSizes =
       Collections.synchronizedSortedSet(new TreeSet<>());
   private final int maxDataLength;
 
+  //增量数据块汇报管理器
   private final IncrementalBlockReportManager ibrManager;
 
-  private DatanodeRegistration bpRegistration;
+  private DatanodeRegistration bpRegistration; // DataNode 注册的信息
   final LinkedList<BPServiceActorAction> bpThreadQueue 
       = new LinkedList<BPServiceActorAction>();
 
