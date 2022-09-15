@@ -52,6 +52,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * This class manages an instance of {@link BPServiceActor} for each NN,
  * and delegates calls to both NNs. 
  * It also maintains the state about which of the NNs is considered active.
+ * 每个命名空间都会分配一个  BPOfferService 用于管理  BPServiceActor
  */
 @InterfaceAudience.Private
 class BPOfferService {
@@ -62,18 +63,18 @@ class BPOfferService {
    * is registering with. This is assigned after
    * the first phase of the handshake.
    */
-  NamespaceInfo bpNSInfo;
+  NamespaceInfo bpNSInfo; //当前服务的命名空间信息
 
   /**
    * The registration information for this block pool.
    * This is assigned after the second phase of the
    * handshake.
    */
-  volatile DatanodeRegistration bpRegistration;
+  volatile DatanodeRegistration bpRegistration; // 对应块池在 NameNode 上的注册信息
 
-  private final String nameserviceId;
-  private volatile String bpId;
-  private final DataNode dn;
+  private final String nameserviceId; // 命名空间对应集群 Id
+  private volatile String bpId; //服务的块池 ID
+  private final DataNode dn; //当前 datanode 引用对象
 
   /**
    * A reference to the BPServiceActor associated with the currently
@@ -81,14 +82,14 @@ class BPOfferService {
    * this can be null. If non-null, this must always refer to a member
    * of the {@link #bpServices} list.
    */
-  private BPServiceActor bpServiceToActive = null;
+  private BPServiceActor bpServiceToActive = null; // Active 的 NameNode 对应的 BPServiceActor 对象
   
   /**
    * The list of all actors for namenodes in this nameservice, regardless
    * of their active or standby states.
    */
   private final List<BPServiceActor> bpServices =
-    new CopyOnWriteArrayList<BPServiceActor>();
+    new CopyOnWriteArrayList<BPServiceActor>(); //当前命名空间中所有 NameNode 对应的  BPServiceActor 列表
 
   /**
    * Each time we receive a heartbeat from a NN claiming to be ACTIVE,
@@ -98,7 +99,7 @@ class BPOfferService {
    * ACTIVE state but with a too-low transaction ID. See HDFS-2627
    * for details. 
    */
-  private long lastActiveClaimTxId = -1;
+  private long lastActiveClaimTxId = -1; // Active NameNode 心跳传输过来的 transactionId，防止脑裂
 
   private final ReentrantReadWriteLock mReadWriteLock =
       new ReentrantReadWriteLock();

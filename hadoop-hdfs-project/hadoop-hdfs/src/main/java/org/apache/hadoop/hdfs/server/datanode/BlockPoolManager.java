@@ -40,18 +40,22 @@ import org.slf4j.Logger;
  * Manages the BPOfferService objects for the data node.
  * Creation, removal, starting, stopping, shutdown on BPOfferService
  * objects must be done via APIs in this class.
+ * 负责管理所有命名空间的 BPOfferService
  */
 @InterfaceAudience.Private
 class BlockPoolManager {
   private static final Logger LOG = DataNode.LOG;
-  
+
+  // NameserviceId --> BPOfferService
   private final Map<String, BPOfferService> bpByNameserviceId =
     Maps.newHashMap();
+  //poolId ---> BPOfferService
   private final Map<String, BPOfferService> bpByBlockPoolId =
     Maps.newHashMap();
+  //datanode上所有命名空间的 BPOfferService 列表
   private final List<BPOfferService> offerServices =
       new CopyOnWriteArrayList<>();
-
+  //当前 datanode 服务引用
   private final DataNode dn;
 
   //This lock is used only to ensure exclusion of refreshNamenodes

@@ -227,10 +227,14 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
     return info.getMetadataInputStream(0);
   }
-    
+
+  //当前节点 datanode 的引用
   final DataNode datanode;
+  //dataStorage 的引用对象用于，在此主要用于开闭和开启存储空间的回收站功能
   final DataStorage dataStorage;
+  //volumes 引用管理所目录的数据块
   private final FsVolumeList volumes;
+  //storageUuid --> Storage.StorageDirectory
   final Map<String, DatanodeStorage> storageMap;
   final FsDatasetAsyncDiskService asyncDiskService;
   final Daemon lazyWriter;
@@ -238,10 +242,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   private final Configuration conf;
   private final int volFailuresTolerated;
   private volatile boolean fsRunning;
-
+  //记录 DataNode 上所有不同状态的块副本信息
   final ReplicaMap volumeMap;
+  //待删除的块副本列表
   final Map<String, Set<Long>> deletingBlock;
   final RamDiskReplicaTracker ramDiskReplicaTracker;
+  //DataNode 在磁盘上的一些异步 IO 操作：数据块副本从磁盘上删除
   final RamDiskAsyncLazyPersistService asyncLazyPersistService;
 
   private static final int MAX_BLOCK_EVICTIONS_PER_ITERATION = 3;
