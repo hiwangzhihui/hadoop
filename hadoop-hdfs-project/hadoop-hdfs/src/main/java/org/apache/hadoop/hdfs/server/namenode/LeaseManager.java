@@ -75,6 +75,10 @@ import org.slf4j.LoggerFactory;
  * 2.9) Namenode removes f from the lease
  *      and removes the lease once all files have been removed
  * 2.10) Namenode commit changes to edit log
+ *
+ * 租约管理器
+ * 1）维护当前所有租约
+ * 2）定时释放过期的租约对象
  */
 @InterfaceAudience.Private
 public class LeaseManager {
@@ -90,8 +94,10 @@ public class LeaseManager {
 
   // Used for handling lock-leases
   // Mapping: leaseHolder -> Lease
+  //租约持有者与租约的映射关系
   private final SortedMap<String, Lease> leases = new TreeMap<>();
   // Set of: Lease
+  // 按时间进行排序的租约列表
   private final NavigableSet<Lease> sortedLeases = new TreeSet<>(
       new Comparator<Lease>() {
         @Override
@@ -103,6 +109,7 @@ public class LeaseManager {
           }
         }
   });
+  //文件 Id 对租约的映射图
   // INodeID -> Lease
   private final TreeMap<Long, Lease> leasesById = new TreeMap<>();
 
@@ -444,10 +451,10 @@ public class LeaseManager {
    * expire, all the corresponding locks can be released.
    *************************************************************/
   class Lease {
-    private final String holder;
-    private long lastUpdate;
-    private final HashSet<Long> files = new HashSet<>();
-  
+    private final String holder;     // 租约持有者， ClientName
+    private long lastUpdate;  // 最近更新时间
+    private final HashSet<Long> files = new HashSet<>();     // 当前租约持有者打开的文件
+
     /** Only LeaseManager object can create a lease */
     private Lease(String holder) {
       this.holder = holder;
@@ -508,6 +515,8 @@ public class LeaseManager {
   /******************************************************
    * Monitor checks for leases that have expired,
    * and disposes of them.
+   * 如果 Client 程序没有正常关闭文件，导致文件始终处于正在写的状态中，租约也没被释放
+   * 需要该线程定时监控释放过期的租约
    ******************************************************/
   class Monitor implements Runnable {
     final String name = getClass().getSimpleName();
@@ -520,7 +529,9 @@ public class LeaseManager {
         try {
           fsnamesystem.writeLockInterruptibly();
           try {
+            // 如果当前NameNode已经离开安全模式
             if (!fsnamesystem.isInSafeMode()) {
+              //进行租约检测
               needSync = checkLeases();
             }
           } finally {
@@ -530,7 +541,7 @@ public class LeaseManager {
               fsnamesystem.getEditLog().logSync();
             }
           }
-  
+         //默认间隔 2s dfs.namenode.lease-recheck-interval-ms
           Thread.sleep(fsnamesystem.getLeaseRecheckIntervalMs());
         } catch(InterruptedException ie) {
           LOG.debug("{} is interrupted", name, ie);
@@ -552,8 +563,10 @@ public class LeaseManager {
     long start = monotonicNow();
 
     while(!sortedLeases.isEmpty() &&
-        sortedLeases.first().expiredHardLimit()
-        && !isMaxLockHoldToReleaseLease(start)) {
+        sortedLeases.first().expiredHardLimit() //判断最早的租约是否超时
+        && !isMaxLockHoldToReleaseLease(start) // 租约处理时间是否超过 25s  dfs.namenode.max-lock-hold-to-release-lease-ms
+    ) {
+       //获取第一个超过的租约
       Lease leaseToCheck = sortedLeases.first();
       LOG.info("{} has expired hard limit", leaseToCheck);
 
@@ -562,19 +575,23 @@ public class LeaseManager {
       // internalReleaseLease() removes files corresponding to empty files,
       // i.e. it needs to modify the collection being iterated over
       // causing ConcurrentModificationException
+
       Collection<Long> files = leaseToCheck.getFiles();
+      // 获取待释放租约中包含的文件Id
       Long[] leaseINodeIds = files.toArray(new Long[files.size()]);
       FSDirectory fsd = fsnamesystem.getFSDirectory();
       String p = null;
       String newHolder = getInternalLeaseHolder();
       for(Long id : leaseINodeIds) {
         try {
+          // 获取这些文件Id对应的INode path对象
           INodesInPath iip = INodesInPath.fromINode(fsd.getInode(id));
           p = iip.getPath();
           // Sanity check to make sure the path is correct
           if (!p.startsWith("/")) {
             throw new IOException("Invalid path in the lease " + p);
           }
+          //如果文件已经被删除，则直接移除该文件的的租约关系
           final INodeFile lastINode = iip.getLastINode().asFile();
           if (fsnamesystem.isFileDeleted(lastINode)) {
             // INode referred by the lease could have been deleted.
@@ -583,6 +600,7 @@ public class LeaseManager {
           }
           boolean completed = false;
           try {
+            // 进行文件的关闭，在此过程中，此文件Id将从此租约中移除 TODO 详解
             completed = fsnamesystem.internalReleaseLease(
                 leaseToCheck, p, iip, newHolder);
           } catch (IOException e) {
@@ -607,13 +625,14 @@ public class LeaseManager {
               leaseToCheck, e);
           removing.add(id);
         }
+        // 如果发现租约检测时间到了，则终止当前操作
         if (isMaxLockHoldToReleaseLease(start)) {
           LOG.debug("Breaking out of checkLeases after {} ms.",
               fsnamesystem.getMaxLockHoldToReleaseLeaseMs());
           break;
         }
       }
-
+      // 从租约中移除异常文件Id
       for(Long id : removing) {
         removeLease(leaseToCheck, id);
       }

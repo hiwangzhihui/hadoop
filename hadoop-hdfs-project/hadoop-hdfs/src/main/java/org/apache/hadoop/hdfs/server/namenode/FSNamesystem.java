@@ -434,7 +434,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   private final int snapshotDiffReportLimit;
 
   /** Interval between each check of lease to release. */
-  private final long leaseRecheckIntervalMs;
+  private final long             // 如果当前NameNode已经离开安全模式
+          leaseRecheckIntervalMs;
   /** Maximum time the lock is hold to release lease. */
   private final long maxLockHoldToReleaseLeaseMs;
 
