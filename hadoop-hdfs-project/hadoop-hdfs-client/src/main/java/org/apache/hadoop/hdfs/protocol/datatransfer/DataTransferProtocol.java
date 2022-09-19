@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Transfer data to/from datanode using a streaming protocol.
+ *  描述读入、写入 DataNode 上数据的流式接口
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -55,14 +56,15 @@ public interface DataTransferProtocol {
   /**
    * Read a block.
    *
-   * @param blk the block being read.
+   * @param blk the block being read.   需要被读取的块
    * @param blockToken security token for accessing the block.
-   * @param clientName client's name.
-   * @param blockOffset offset of the block.
-   * @param length maximum number of bytes for this read.
+   * @param clientName client's name.  Client 信息
+   * @param blockOffset offset of the block.  读取数据块的起始位置
+   * @param length maximum number of bytes for this read. 一次最多读取数据长度
    * @param sendChecksum if false, the DN should skip reading and sending
-   *        checksums
-   * @param cachingStrategy  The caching strategy to use.
+   *        checksums  读取数据时是否进行 Checksum 校验
+   * @param cachingStrategy  The caching strategy to use. 换策略
+   *   从当前 DataNode读取指定数据块
    */
   void readBlock(final ExtendedBlock blk,
       final Token<BlockTokenIdentifier> blockToken,
@@ -106,6 +108,7 @@ public interface DataTransferProtocol {
    *                  has not been provided.
    * @param targetStorageIDs target StorageIDs corresponding to the target
    *                         datanodes.
+   * 将当前 DataNode 上存储的指定数据块写入数据管道中
    */
   void writeBlock(final ExtendedBlock blk,
       final StorageType storageType,
@@ -129,15 +132,17 @@ public interface DataTransferProtocol {
   /**
    * Transfer a block to another datanode.
    * The block stage must be
+   *  指定数据块复制到另外一个 DataNode 上，主要用于替换故障接的数据块副本
    * either {@link BlockConstructionStage#TRANSFER_RBW}
    * or {@link BlockConstructionStage#TRANSFER_FINALIZED}.
    *
    * @param blk the block being transferred.
-   * @param blockToken security token for accessing the block.
+   * @param blockToken security token for accessing the block. token
    * @param clientName client's name.
-   * @param targets target datanodes.
+   * @param targets target datanodes. 目标 datanode
    * @param targetStorageIDs StorageID designating where to write the
-   *                     block.
+   *                     block.  目标存储
+   *
    */
   void transferBlock(final ExtendedBlock blk,
       final Token<BlockTokenIdentifier> blockToken,
@@ -148,7 +153,7 @@ public interface DataTransferProtocol {
 
   /**
    * Request short circuit access file descriptors from a DataNode.
-   *
+   * 获取一个短路读取数据块的文件描述符
    * @param blk             The block to get file descriptors for.
    * @param blockToken      Security token for accessing the block.
    * @param slotId          The shared memory slot id to use, or null
@@ -165,14 +170,14 @@ public interface DataTransferProtocol {
 
   /**
    * Release a pair of short-circuit FDs requested earlier.
-   *
+   * 释放一个短路读取数据块的文件描述符
    * @param slotId          SlotID used by the earlier file descriptors.
    */
   void releaseShortCircuitFds(final SlotId slotId) throws IOException;
 
   /**
    * Request a short circuit shared memory area from a DataNode.
-   *
+   * 获取保存短路读取数据块的共享内存
    * @param clientName       The name of the client.
    */
   void requestShortCircuitShm(String clientName) throws IOException;
@@ -183,6 +188,8 @@ public interface DataTransferProtocol {
    * to remove the copy from the original datanode.
    * Note that the source datanode and the original datanode can be different.
    * It is used for balancing purpose.
+   *  将从源 DataNode 复制数据块写入本地 DataNode，写入成功后并告诉 NameNode 删除源数据块
+   *  主要用于 balancing 场景
    *
    * @param blk the block being replaced.
    * @param storageType the {@link StorageType} for storing the block.
@@ -202,7 +209,7 @@ public interface DataTransferProtocol {
   /**
    * Copy a block.
    * It is used for balancing purpose.
-   *
+   * 复制当前 dataNode 上的数据块，主要用在   balancing 场景
    * @param blk the block being copied.
    * @param blockToken security token for accessing the block.
    */
@@ -211,7 +218,7 @@ public interface DataTransferProtocol {
 
   /**
    * Get block checksum (MD5 of CRC32).
-   *
+   * 获取指定数据块的校验值
    * @param blk a block.
    * @param blockToken security token for accessing the block.
    * @throws IOException
