@@ -1124,18 +1124,24 @@ public class DataNode extends ReconfigurableBase
     }
   }
 
+  //构造  DataXceiverServer 对象
   private void initDataXceiver() throws IOException {
     // find free port or use privileged port provided
     TcpPeerServer tcpPeerServer;
     if (secureResources != null) {
       tcpPeerServer = new TcpPeerServer(secureResources);
     } else {
+      //监听事件队列长度
       int backlogLength = getConf().getInt(
           CommonConfigurationKeysPublic.IPC_SERVER_LISTEN_QUEUE_SIZE_KEY,
           CommonConfigurationKeysPublic.IPC_SERVER_LISTEN_QUEUE_SIZE_DEFAULT);
+      //创建 TcpPeerServer 对象监听
+      // 默认监控的数据端口 dfs.datanode.address 9866
       tcpPeerServer = new TcpPeerServer(dnConf.socketWriteTimeout,
           DataNode.getStreamingAddr(getConf()), backlogLength);
     }
+    // dfs.datanode.transfer.socket.recv.buffer.size  ReceiveBuffer ,默认值是 0
+    // HDFS-8829  建议设置为 0 使用操作系统网络底层的缓存区配置
     if (dnConf.getTransferSocketRecvBufferSize() > 0) {
       tcpPeerServer.setReceiveBufferSize(
           dnConf.getTransferSocketRecvBufferSize());
@@ -1144,6 +1150,7 @@ public class DataNode extends ReconfigurableBase
     LOG.info("Opened streaming server at {}", streamingAddr);
     this.threadGroup = new ThreadGroup("dataXceiverServer");
     xserver = new DataXceiverServer(tcpPeerServer, getConf(), this);
+    //将 dataXceiverServer 线程组设置为守护线程
     this.dataXceiverServer = new Daemon(threadGroup, xserver);
     this.threadGroup.setDaemon(true); // auto destroy when empty
 
@@ -1154,15 +1161,18 @@ public class DataNode extends ReconfigurableBase
             HdfsClientConfigKeys.DFS_CLIENT_DOMAIN_SOCKET_DATA_TRAFFIC,
             HdfsClientConfigKeys
               .DFS_CLIENT_DOMAIN_SOCKET_DATA_TRAFFIC_DEFAULT)) {
+      //构造 DomainPeerServer ，用于底层 DomianSocket 本地进程间的通信
       DomainPeerServer domainPeerServer =
                 getDomainPeerServer(getConf(), streamingAddr.getPort());
       if (domainPeerServer != null) {
+        //开启短路读功能  dfs.client.domain.socket.data.traffic、dfs.client.read.shortcircuit
         this.localDataXceiverServer = new Daemon(threadGroup,
             new DataXceiverServer(domainPeerServer, getConf(), this));
         LOG.info("Listening on UNIX domain socket: {}",
             domainPeerServer.getBindPath());
       }
     }
+    //创建  shortCircuitRegistry 对象用于短路读
     this.shortCircuitRegistry = new ShortCircuitRegistry(getConf());
   }
 

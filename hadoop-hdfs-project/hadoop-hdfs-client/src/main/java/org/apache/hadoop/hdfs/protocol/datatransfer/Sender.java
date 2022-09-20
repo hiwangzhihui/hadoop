@@ -69,7 +69,9 @@ public class Sender implements DataTransferProtocol {
 
   /** Initialize a operation. */
   private static void op(final DataOutput out, final Op op) throws IOException {
+    //写入 DataTransferProtocol 的版本号
     out.writeShort(DataTransferProtocol.DATA_TRANSFER_VERSION);
+    //写入操作码
     op.write(out);
   }
 
@@ -78,8 +80,11 @@ public class Sender implements DataTransferProtocol {
       final Message proto) throws IOException {
     LOG.trace("Sending DataTransferOp {}: {}",
         proto.getClass().getSimpleName(), proto);
+    //调用 op 方法写入版本号，然后再写入操作码
     op(out, opcode);
+    //写入序列化后的参数
     proto.writeDelimitedTo(out);
+    //flush 发送数据集
     out.flush();
   }
 
@@ -103,7 +108,7 @@ public class Sender implements DataTransferProtocol {
       final long length,
       final boolean sendChecksum,
       final CachingStrategy cachingStrategy) throws IOException {
-
+    //将 readBlock 参数全部序列化发送出去
     OpReadBlockProto proto = OpReadBlockProto.newBuilder()
         .setHeader(DataTransferProtoUtil.buildClientHeader(blk, clientName,
             blockToken))
@@ -112,7 +117,8 @@ public class Sender implements DataTransferProtocol {
         .setSendChecksums(sendChecksum)
         .setCachingStrategy(getCachingStrategy(cachingStrategy))
         .build();
-
+    //调用 send 方法发送  Op.READ_BLOCK 描述当前调用的 readBlock 方法
+    //同事发送序列化后的参数 proto
     send(out, Op.READ_BLOCK, proto);
   }
 

@@ -66,14 +66,19 @@ public abstract class Receiver implements DataTransferProtocol {
     this.in = in;
   }
 
-  /** Read an Op.  It also checks protocol version. */
+  /** Read an Op.  It also checks protocol version.
+   *  Sender 发送的过来的数据结构
+   *  short - DataTransferProtocol 版本号 | byte -Op 操作码 | 序列化方法参数
+   * */
   protected final Op readOp() throws IOException {
+    //从数据流中读取版本号
     final short version = in.readShort();
     if (version != DataTransferProtocol.DATA_TRANSFER_VERSION) {
       throw new IOException( "Version Mismatch (Expected: " +
           DataTransferProtocol.DATA_TRANSFER_VERSION  +
           ", Received: " +  version + " )");
     }
+    //从数据流中读取操作码
     return Op.read(in);
   }
 
@@ -97,7 +102,9 @@ public abstract class Receiver implements DataTransferProtocol {
     return continueTraceSpan(header.getTraceInfo(), description);
   }
 
-  /** Process op by the corresponding method. */
+  /** Process op by the corresponding method.
+   *  //根据 OP 解析不同的参数，针对不同的 OP 调用不同的方法
+   * */
   protected final void processOp(Op op) throws IOException {
     switch(op) {
     case READ_BLOCK:
@@ -145,10 +152,12 @@ public abstract class Receiver implements DataTransferProtocol {
 
   /** Receive OP_READ_BLOCK */
   private void opReadBlock() throws IOException {
+    //从 IO 流中读取序列化的 readBlock 参数
     OpReadBlockProto proto = OpReadBlockProto.parseFrom(vintPrefixed(in));
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      //反序列化参数，然后调用子类 DataXceiver 的 readBlock 方法执行读取操作
       readBlock(PBHelperClient.convert(proto.getHeader().getBaseHeader().getBlock()),
         PBHelperClient.convert(proto.getHeader().getBaseHeader().getToken()),
         proto.getHeader().getClientName(),

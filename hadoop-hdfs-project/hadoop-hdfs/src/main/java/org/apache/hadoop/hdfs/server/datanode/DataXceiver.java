@@ -98,6 +98,7 @@ import static org.apache.hadoop.util.Time.monotonicNow;
 
 /**
  * Thread for processing incoming/outgoing data stream.
+ *  DataXceiver 用于响应 Client Sender 的请求
  */
 class DataXceiver extends Receiver implements Runnable {
   public static final Logger LOG = DataNode.LOG;
@@ -265,6 +266,7 @@ class DataXceiver extends Receiver implements Runnable {
           } else {
             peer.setReadTimeout(dnConf.socketTimeout);
           }
+          //读取来自 Sender 发送过来的 Op
           op = readOp();
         } catch (InterruptedIOException ignored) {
           // Time out while we wait for client rpc
@@ -286,6 +288,7 @@ class DataXceiver extends Receiver implements Runnable {
         }
 
         opStartTime = monotonicNow();
+        //根据 OP 解析不同的参数，针对不同的 OP 调用不同的方法
         processOp(op);
         ++opsProcessed;
       } while ((peer != null) &&

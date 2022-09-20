@@ -40,6 +40,8 @@ import org.slf4j.Logger;
  * This is created to listen for requests from clients or 
  * other DataNodes.  This small server does not use the 
  * Hadoop IPC mechanism.
+ * 用于在DataNode 上监听流式接口的情景，每当有 Client 通过 Sender 发起流式接口请求时候
+ * DataXceiverServer 就会监听并接收这个请求
  */
 class DataXceiverServer implements Runnable {
   public static final Logger LOG = DataNode.LOG;
@@ -121,7 +123,9 @@ class DataXceiverServer implements Runnable {
       DataNode datanode) {
     this.peerServer = peerServer;
     this.datanode = datanode;
-    
+
+    //  dfs.datanode.max.transfer.threads 默认：4096
+    //  最多创建 DataXceiver 个数用于处理Client Sender 请求
     this.maxXceiverCount = 
       conf.getInt(DFSConfigKeys.DFS_DATANODE_MAX_RECEIVER_THREADS_KEY,
                   DFSConfigKeys.DFS_DATANODE_MAX_RECEIVER_THREADS_DEFAULT);
@@ -139,23 +143,27 @@ class DataXceiverServer implements Runnable {
 
   @Override
   public void run() {
+    //链接建立与响应分离的设计
     Peer peer = null;
+    //执行循环逻辑
     while (datanode.shouldRun && !datanode.shutdownForUpgrade) {
       try {
+        //监听接收新的请求连接
         peer = peerServer.accept();
 
-        // Make sure the xceiver count is not exceeded
+        // Make sure the xceiver count is not exceeded 如果处理的链接个数超限这抛出异常
         int curXceiverCount = datanode.getXceiverCount();
         if (curXceiverCount > maxXceiverCount) {
           throw new IOException("Xceiver count " + curXceiverCount
               + " exceeds the limit of concurrent xcievers: "
               + maxXceiverCount);
         }
-
+        //创建一个  DataXceiver 去处理该链接的请求
         new Daemon(datanode.threadGroup,
             DataXceiver.create(peer, datanode, this))
             .start();
       } catch (SocketTimeoutException ignored) {
+        //超时异常直接忽略
         // wake up to see if should continue to run
       } catch (AsynchronousCloseException ace) {
         // another thread closed our listener socket - that's expected during shutdown,
@@ -186,6 +194,7 @@ class DataXceiverServer implements Runnable {
 
     // Close the server to stop reception of more requests.
     try {
+      //清理操作：退出循环，关闭  peerServer
       peerServer.close();
       closed = true;
     } catch (IOException ie) {
@@ -209,7 +218,7 @@ class DataXceiverServer implements Runnable {
         }
       }
     }
-    // Close all peers.
+    // Close all peers. 清理当前 Server 下的所有链接
     closeAllPeers();
   }
 

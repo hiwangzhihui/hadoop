@@ -27,7 +27,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 /** Operation */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public enum Op {
+public enum Op { //操作码枚举类，每个操作码对应 DataTransferProtocol 中的一个方法
   WRITE_BLOCK((byte)80),
   READ_BLOCK((byte)81),
   READ_METADATA((byte)82),
