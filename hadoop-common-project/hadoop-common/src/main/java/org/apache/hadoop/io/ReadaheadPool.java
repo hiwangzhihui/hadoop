@@ -87,6 +87,7 @@ public class ReadaheadPool {
    *        the first call
    * @return an object representing this outstanding request, or null
    *        if no readahead was performed
+   *     调用该方法后为其创建一个 ReadaheadRequestImpl 任务，放到线程池去执行与预读取操作
    */
   public ReadaheadRequest readaheadStream(
       String identifier,
@@ -205,6 +206,7 @@ public class ReadaheadPool {
       // It's also possible that we'll end up requesting readahead on some
       // other FD, which may be wasted work, but won't cause a problem.
       try {
+        //调用   posix_fadvise 系统调用完成预读取
         NativeIO.POSIX.getCacheManipulator().posixFadviseIfPossible(identifier,
             fd, off, len, POSIX_FADV_WILLNEED);
       } catch (IOException ioe) {

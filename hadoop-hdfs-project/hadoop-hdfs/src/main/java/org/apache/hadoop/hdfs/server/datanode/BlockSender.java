@@ -205,6 +205,8 @@ class BlockSender implements java.io.Closeable {
     FsVolumeReference volumeRef = null;
     this.fileIoProvider = datanode.getFileIoProvider();
     try {
+
+      // 赋值数据块基础信息
       this.block = block;
       this.corruptChecksumOk = corruptChecksumOk;
       this.verifyChecksum = verifyChecksum;
@@ -250,6 +252,7 @@ class BlockSender implements java.io.Closeable {
       // is constructed, the last partial checksum maybe overwritten by the
       // append, the BlockSender need to use the partial checksum before
       // the append write.
+
       ChunkChecksum chunkChecksum = null;
       final long replicaVisibleLength;
       try(AutoCloseableLock lock = datanode.data.acquireDatasetLock()) {
@@ -299,6 +302,7 @@ class BlockSender implements java.io.Closeable {
        * True,  False: No verify, e.g., need to read data from a corrupted file 
        * False,  True: will verify checksum
        * False, False: throws IOException file not found
+       *  从 Block 元数据中获取数据块使用校验算法、校验和长度
        */
       DataChecksum csum = null;
       if (verifyChecksum || sendChecksum) {
@@ -365,9 +369,9 @@ class BlockSender implements java.io.Closeable {
             Math.max((int)replicaVisibleLength, 10*1024*1024));
         size = csum.getBytesPerChecksum();        
       }
-      chunkSize = size;
-      checksum = csum;
-      checksumSize = checksum.getChecksumSize();
+      chunkSize = size; //校验块大小
+      checksum = csum; // 校验算法
+      checksumSize = checksum.getChecksumSize(); //校验和长度
       length = length < 0 ? replicaVisibleLength : length;
 
       // end is either last byte on disk or the length for which we have a 
@@ -384,6 +388,7 @@ class BlockSender implements java.io.Closeable {
       }
       
       // Ensure read offset is position at the beginning of chunk
+      // 计算数据块读取的起始位置 offset 和截止位置 endOffset
       offset = startOffset - (startOffset % chunkSize);
       if (length >= 0) {
         // Ensure endOffset points to end of chunk.
@@ -410,11 +415,13 @@ class BlockSender implements java.io.Closeable {
           IOUtils.skipFully(checksumIn, checksumSkip);
         }
       }
+      //packet 的序列号
       seqno = 0;
 
       if (DataNode.LOG.isDebugEnabled()) {
         DataNode.LOG.debug("replica=" + replica);
       }
+      //将数据块文件坐标移动到 offset 位置
       blockIn = datanode.data.getBlockInputStream(block, offset); // seek to offset
       ris = new ReplicaInputStreams(
           blockIn, checksumIn, volumeRef, fileIoProvider);
@@ -466,6 +473,7 @@ class BlockSender implements java.io.Closeable {
         ((dropCacheBehindAllReads) ||
          (dropCacheBehindLargeReads && isLongRead()))) {
       try {
+        //回收缓冲区
         ris.dropCacheBehindReads(block.getBlockName(), lastCacheDropOffset,
             offset - lastCacheDropOffset, POSIX_FADV_DONTNEED);
       } catch (Exception e) {
@@ -477,6 +485,7 @@ class BlockSender implements java.io.Closeable {
     }
 
     try {
+      //关闭数据块文件
       ris.closeStreams();
     } finally {
       IOUtils.closeStream(ris);
@@ -543,12 +552,13 @@ class BlockSender implements java.io.Closeable {
    * @return number of chunks for data of given size
    */
   private int numberOfChunks(long datalen) {
+    // chunkSize 校验块大小
     return (int) ((datalen + chunkSize - 1)/chunkSize);
   }
   
   /**
    * Sends a packet with up to maxChunks chunks of data.
-   * 
+   *  发送 packet 数据
    * @param pkt buffer used for writing packet data
    * @param maxChunks maximum number of chunks to send
    * @param out stream to send data to
@@ -557,11 +567,14 @@ class BlockSender implements java.io.Closeable {
    */
   private int sendPacket(ByteBuffer pkt, int maxChunks, OutputStream out,
       boolean transferTo, DataTransferThrottler throttler) throws IOException {
+
     int dataLen = (int) Math.min(endOffset - offset,
                              (chunkSize * (long) maxChunks));
-    
+    //计算数据包中包含多少个校验块
     int numChunks = numberOfChunks(dataLen); // Number of chunks be sent in the packet
+    //校验块数据长度
     int checksumDataLen = numChunks * checksumSize;
+    //数据包长度
     int packetLen = dataLen + checksumDataLen + 4;
     boolean lastDataPacket = offset + dataLen == endOffset && dataLen > 0;
 
@@ -574,18 +587,20 @@ class BlockSender implements java.io.Closeable {
     // H = header and length prefixes
     // C = checksums
     // D? = data, if transferTo is false.
-    
+
+    //将数据包头域写入缓存中
     int headerLen = writePacketHeader(pkt, dataLen, packetLen);
     
     // Per above, the header doesn't start at the beginning of the
     // buffer
+    //数据包头域在缓存中的位置
     int headerOff = pkt.position() - headerLen;
-    
+    //校验数据在缓存中的位置
     int checksumOff = pkt.position();
     byte[] buf = pkt.array();
     
     if (checksumSize > 0 && ris.getChecksumIn() != null) {
-      readChecksum(buf, checksumOff, checksumDataLen);
+      readChecksum(buf, checksumOff, checksumDataLen); //将校验数据写入缓存中你那个
 
       // write in progress that we need to use to get last checksum
       if (lastDataPacket && lastChunkChecksum != null) {
@@ -599,20 +614,22 @@ class BlockSender implements java.io.Closeable {
     
     int dataOff = checksumOff + checksumDataLen;
     if (!transferTo) { // normal transfer
+      //普通模式下，将实际数据写入缓冲区
       ris.readDataFully(buf, dataOff, dataLen);
 
-      if (verifyChecksum) {
+      if (verifyChecksum) { //确认校验和正确性
         verifyChecksum(buf, dataOff, dataLen, numChunks, checksumOff);
       }
     }
     
     try {
-      if (transferTo) {
+      if (transferTo) {// transferTo 模式
         SocketOutputStream sockOut = (SocketOutputStream)out;
-        // First write header and checksums
+        // First write header and checksums 将头域、校验和写入输出流中
         sockOut.write(buf, headerOff, dataOff - headerOff);
 
         // no need to flush since we know out is not a buffered stream
+        // 使用 transfer 方式，将数据从数据块文件直接零拷贝到 IO 流中
         FileChannel fileCh = ((FileInputStream)ris.getDataIn()).getChannel();
         LongWritable waitTime = new LongWritable();
         LongWritable transferTime = new LongWritable();
@@ -623,7 +640,7 @@ class BlockSender implements java.io.Closeable {
         datanode.metrics.addSendDataPacketTransferNanos(transferTime.get());
         blockInPosition += dataLen;
       } else {
-        // normal transfer
+        // normal transfer 正常模式，将缓存中所有数据 （头域、校验和、实际数据）都写入网络输出流中
         out.write(buf, headerOff, dataOff + dataLen - headerOff);
       }
     } catch (IOException e) {
@@ -657,6 +674,7 @@ class BlockSender implements java.io.Closeable {
     }
 
     if (throttler != null) { // rebalancing so throttle
+      //流量控制器
       throttler.throttle(packetLen);
     }
 
@@ -772,35 +790,43 @@ class BlockSender implements java.io.Closeable {
     }
     
     // Trigger readahead of beginning of file if configured.
+    //1、将块数据提前读取到操作系统缓存中
     manageOsCache();
 
     final long startTime = ClientTraceLog.isDebugEnabled() ? System.nanoTime() : 0;
     try {
+      //2、构造存放数据包（packet）的缓存区
       int maxChunksPerPacket;
-      int pktBufSize = PacketHeader.PKT_MAX_HEADER_LEN; // 6  + 协议长度
+      int pktBufSize = PacketHeader.PKT_MAX_HEADER_LEN; // 6 byte + 协议头长度PacketHeaderProto
       boolean transferTo = transferToAllowed && !verifyChecksum
           && baseStream instanceof SocketOutputStream
           && ris.getDataIn() instanceof FileInputStream;
-      if (transferTo) {
+      if (transferTo) { //transferTo 模式 零拷贝数据
         FileChannel fileChannel =
             ((FileInputStream)ris.getDataIn()).getChannel();
         blockInPosition = fileChannel.position();
         streamForSendChunks = baseStream;
+        // TRANSFERTO_BUFFER_SIZE 默认 64 kb
+        //  maxChunksPerPacket 表示一个数据包最多包含多少个校验块
         maxChunksPerPacket = numberOfChunks(TRANSFERTO_BUFFER_SIZE);
         
         // Smaller packet size to only hold checksum when doing transferTo
+        // 该模式下只需缓冲校验数据即可，实际块数据通过零拷贝传输给 Client
+        // 缓冲区只存放校验数据
         pktBufSize += checksumSize * maxChunksPerPacket;
-      } else {
+      } else { //ioStream 模式 需要通过网络传输所有数据
+
+        // io.file.buffer.size IO_FILE_BUFFER_SIZE 默认大小 4KB
         maxChunksPerPacket = Math.max(1,
-            numberOfChunks(IO_FILE_BUFFER_SIZE)); //一个 Packet 能存放的 chunk 个数
+            numberOfChunks(IO_FILE_BUFFER_SIZE));
         // Packet size includes both checksum and data
-        //
-        pktBufSize += (chunkSize + checksumSize) * maxChunksPerPacket;// 一个数据包的总数据长度
+        //缓冲区存放校验数据以及实际数据
+        pktBufSize += (chunkSize + checksumSize) * maxChunksPerPacket;
       }
-      //为一个 Packet 申请内存
+      //构造缓存区 pktBuf
       ByteBuffer pktBuf = ByteBuffer.allocate(pktBufSize);
 
-      //读取数据将 Packet 数据发送给 Client
+      //循环调用将块数据发送给 Client
       while (endOffset > offset && !Thread.currentThread().isInterrupted()) {
         manageOsCache();
         long len = sendPacket(pktBuf, maxChunksPerPacket, streamForSendChunks,
@@ -829,6 +855,7 @@ class BlockSender implements java.io.Closeable {
         ClientTraceLog.debug(String.format(clientTraceFmt, totalRead,
             initialOffset, endTime - startTime));
       }
+      //调用 close 关闭数据块文件、校验文件以及回收操作紫铜缓冲区
       close();
     }
     return totalRead;
@@ -837,6 +864,9 @@ class BlockSender implements java.io.Closeable {
   /**
    * Manage the OS buffer cache by performing read-ahead
    * and drop-behind.
+   * 通过预读取将数据块文件提前读取的操作系统缓存中，
+   * 并且将不再使用的数据从缓存中丢弃
+   *
    */
   private void manageOsCache() throws IOException {
     // We can't manage the cache for this block if we don't have a file
@@ -846,8 +876,13 @@ class BlockSender implements java.io.Closeable {
     }
 
     // Perform readahead if necessary
+    // 触发预读取的条件
+    // 预读取数据长度 默认 4Mdfs.datanode.readahead.bytes
     if ((readaheadLength > 0) && (datanode.readaheadPool != null) &&
-          (alwaysReadahead || isLongRead())) {
+          (alwaysReadahead ||
+              isLongRead()  //是否为长读（256kb）
+          )) {
+      //满足条件，则调用 readaheadPool.readaheadStream 方法触发与读取
       curReadahead = datanode.readaheadPool.readaheadStream(
           clientTraceFmt, ris.getDataInFd(), offset, readaheadLength,
           Long.MAX_VALUE, curReadahead);
@@ -855,10 +890,13 @@ class BlockSender implements java.io.Closeable {
 
     // Drop what we've just read from cache, since we aren't
     // likely to need it again
+    //丢弃刚才从缓存中读取的数据，因为这些数据不再需要使用
     if (dropCacheBehindAllReads ||
         (dropCacheBehindLargeReads && isLongRead())) {
+      //丢弃的数据位置 ，nextCacheDropOffset = 最后一次缓存位置 + 1MB
       long nextCacheDropOffset = lastCacheDropOffset + CACHE_DROP_INTERVAL_BYTES;
       if (offset >= nextCacheDropOffset) {
+        //如果下一次读取数据的位置大于丢弃数据丢弃的位置，则将读取数据位置之前的缓存数据全部丢弃
         long dropLength = offset - lastCacheDropOffset;
         ris.dropCacheBehindReads(block.getBlockName(), lastCacheDropOffset,
             dropLength, POSIX_FADV_DONTNEED);
@@ -878,6 +916,7 @@ class BlockSender implements java.io.Closeable {
    * 
    * This is also used to determine when to invoke
    * posix_fadvise(POSIX_FADV_SEQUENTIAL).
+   * 判断当前读取是否为长读取，一次读取数据超过  256 kB
    */
   private boolean isLongRead() {
     return (endOffset - initialOffset) > LONG_READ_THRESHOLD_BYTES;
