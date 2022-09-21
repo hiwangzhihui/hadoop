@@ -148,7 +148,7 @@ class DataXceiverServer implements Runnable {
     //执行循环逻辑
     while (datanode.shouldRun && !datanode.shutdownForUpgrade) {
       try {
-        //监听接收新的请求连接
+        //监听接收新的建立的连接
         peer = peerServer.accept();
 
         // Make sure the xceiver count is not exceeded 如果处理的链接个数超限这抛出异常

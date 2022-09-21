@@ -98,7 +98,8 @@ import static org.apache.hadoop.util.Time.monotonicNow;
 
 /**
  * Thread for processing incoming/outgoing data stream.
- *  DataXceiver 用于响应 Client Sender 的请求
+ *  DataXceiverServer 会为每个 Client 链接分配一个
+ *  DataXceiver 用于接收和处理 Client Sender 的请求
  */
 class DataXceiver extends Receiver implements Runnable {
   public static final Logger LOG = DataNode.LOG;
@@ -225,15 +226,20 @@ class DataXceiver extends Receiver implements Runnable {
       synchronized(this) {
         xceiver = Thread.currentThread();
       }
+      //在 dataXceiverServer 添加 peer 与 DataXceiver 的关系
       dataXceiverServer.addPeer(peer, Thread.currentThread(), this);
+
       peer.setWriteTimeout(datanode.getDnConf().socketWriteTimeout);
+
       InputStream input = socketIn;
       try {
+        //获取底层输入流
         IOStreamPair saslStreams = datanode.saslServer.receive(peer, socketOut,
           socketIn, datanode.getXferAddress().getPort(),
           datanode.getDatanodeId());
         input = new BufferedInputStream(saslStreams.in,
             smallBufferSize);
+        //获取底层输出流
         socketOut = saslStreams.out;
       } catch (InvalidMagicNumberException imne) {
         if (imne.isHandshake4Encryption()) {
@@ -250,13 +256,13 @@ class DataXceiver extends Receiver implements Runnable {
         }
         return;
       }
-      
+      //调用父类的 initialize 方法完成 Receiver 初始化操作
       super.initialize(new DataInputStream(input));
       
       // We process requests in a loop, and stay around for a short timeout.
       // This optimistic behaviour allows the other end to reuse connections.
       // Setting keepalive timeout to 0 disable this behavior.
-      do {
+      do {  //循环调用获取 Client 发送过来的 OP 请求
         updateCurrentThreadName("Waiting for operation #" + (opsProcessed + 1));
 
         try {
@@ -600,6 +606,7 @@ class DataXceiver extends Receiver implements Runnable {
 
     try {
       try {
+        //创建 BlockSender 对象
         blockSender = new BlockSender(block, blockOffset, length,
             true, false, sendChecksum, datanode, clientTraceFmt,
             cachingStrategy);
@@ -610,10 +617,12 @@ class DataXceiver extends Receiver implements Runnable {
         throw e;
       }
       
-      // send op status
+      // send op status 发送 BlockOpResponseProto 响应给客户端，通知客户端请求已经成功接收
+      //  并告知 Client 当前数据节点的校验信息  ReadOpChecksumInfoProto （使用的数据校验算法）
       writeSuccessWithChecksumInfo(blockSender, new DataOutputStream(getOutputStream()));
 
       long beginRead = Time.monotonicNow();
+      // 发送数据
       read = blockSender.sendBlock(out, baseStream, null); // send data
       long duration = Time.monotonicNow() - beginRead;
       if (blockSender.didSendEntireByteRange()) {
@@ -636,6 +645,8 @@ class DataXceiver extends Receiver implements Runnable {
       } else {
         IOUtils.closeStream(out);
       }
+
+      //更新 DataNode 读取数据指标
       datanode.metrics.incrBytesRead((int) read);
       datanode.metrics.incrBlocksRead();
       datanode.metrics.incrTotalReadTime(duration);
@@ -659,8 +670,9 @@ class DataXceiver extends Receiver implements Runnable {
       IOUtils.closeStream(blockSender);
     }
 
-    //update metrics
+    //update metrics 更新调用 readBlock 操作时间
     datanode.metrics.addReadBlockOp(elapsed());
+    //读写数据量更新
     datanode.metrics.incrReadsFromClient(peer.isLocal(), read);
   }
 

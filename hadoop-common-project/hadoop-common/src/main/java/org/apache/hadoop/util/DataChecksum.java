@@ -38,13 +38,14 @@ import java.lang.invoke.MethodType;
 /**
  * This class provides interface and utilities for processing checksums for
  * DFS data transfers.
+ * 校验类型
  */
 @InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
 @InterfaceStability.Evolving
 public class DataChecksum implements Checksum {
   
   // checksum types
-  public static final int CHECKSUM_NULL    = 0;
+  public static final int CHECKSUM_NULL    = 0; //不校验
   public static final int CHECKSUM_CRC32   = 1;
   public static final int CHECKSUM_CRC32C  = 2;
   public static final int CHECKSUM_DEFAULT = 3; 
@@ -61,8 +62,8 @@ public class DataChecksum implements Checksum {
     DEFAULT(CHECKSUM_DEFAULT, 0), // This cannot be used to create DataChecksum
     MIXED (CHECKSUM_MIXED, 0); // This cannot be used to create DataChecksum
 
-    public final int id;
-    public final int size;
+    public final int id; //校验类型
+    public final int size;//校验和大小
     
     Type(int id, int size) {
       this.id = id;

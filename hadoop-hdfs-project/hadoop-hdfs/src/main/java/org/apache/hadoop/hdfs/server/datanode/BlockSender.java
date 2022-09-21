@@ -744,6 +744,7 @@ class BlockSender implements java.io.Closeable {
    */
   long sendBlock(DataOutputStream out, OutputStream baseStream, 
                  DataTransferThrottler throttler) throws IOException {
+    //TraceScope 参考 https://www.inlighting.org/archives/htrace-zipkin-tutorial
     final TraceScope scope = datanode.getTracer().
         newScope("sendBlock_" + block.getBlockId());
     try {
@@ -776,7 +777,7 @@ class BlockSender implements java.io.Closeable {
     final long startTime = ClientTraceLog.isDebugEnabled() ? System.nanoTime() : 0;
     try {
       int maxChunksPerPacket;
-      int pktBufSize = PacketHeader.PKT_MAX_HEADER_LEN;
+      int pktBufSize = PacketHeader.PKT_MAX_HEADER_LEN; // 6  + 协议长度
       boolean transferTo = transferToAllowed && !verifyChecksum
           && baseStream instanceof SocketOutputStream
           && ris.getDataIn() instanceof FileInputStream;
@@ -791,13 +792,15 @@ class BlockSender implements java.io.Closeable {
         pktBufSize += checksumSize * maxChunksPerPacket;
       } else {
         maxChunksPerPacket = Math.max(1,
-            numberOfChunks(IO_FILE_BUFFER_SIZE));
+            numberOfChunks(IO_FILE_BUFFER_SIZE)); //一个 Packet 能存放的 chunk 个数
         // Packet size includes both checksum and data
-        pktBufSize += (chunkSize + checksumSize) * maxChunksPerPacket;
+        //
+        pktBufSize += (chunkSize + checksumSize) * maxChunksPerPacket;// 一个数据包的总数据长度
       }
-
+      //为一个 Packet 申请内存
       ByteBuffer pktBuf = ByteBuffer.allocate(pktBufSize);
 
+      //读取数据将 Packet 数据发送给 Client
       while (endOffset > offset && !Thread.currentThread().isInterrupted()) {
         manageOsCache();
         long len = sendPacket(pktBuf, maxChunksPerPacket, streamForSendChunks,
@@ -810,6 +813,7 @@ class BlockSender implements java.io.Closeable {
       if (!Thread.currentThread().isInterrupted()) {
         try {
           // send an empty packet to mark the end of the block
+          // 发送一个空的 packet 表示数据块数据发送结束
           sendPacket(pktBuf, maxChunksPerPacket, streamForSendChunks, transferTo,
               throttler);
           out.flush();

@@ -59,7 +59,7 @@ public class PacketHeader {
       .setSyncBlock(false)
       .build().getSerializedSize();
   public static final int PKT_LENGTHS_LEN =
-      Ints.BYTES + Shorts.BYTES;
+      Ints.BYTES + Shorts.BYTES; // 6
   public static final int PKT_MAX_HEADER_LEN =
       PKT_LENGTHS_LEN + MAX_PROTO_SIZE;
 
