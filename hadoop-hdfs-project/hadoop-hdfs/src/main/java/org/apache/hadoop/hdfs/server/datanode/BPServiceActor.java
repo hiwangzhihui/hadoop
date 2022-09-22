@@ -409,8 +409,7 @@ class BPServiceActor implements Runnable {
               bpRegistration, bpos.getBlockPoolId(), singleReport,
               new BlockReportContext(reports.length, r, reportId,
                   fullBrLeaseId, true));
-          new BlockReportContext(reports.length, r, reportId,
-                  blockReportSizes.add(
+          blockReportSizes.add(
               calculateBlockReportPBSize(useBlocksBuffer, singleReport));
           numReportsSent++;
           numRPCs++;
