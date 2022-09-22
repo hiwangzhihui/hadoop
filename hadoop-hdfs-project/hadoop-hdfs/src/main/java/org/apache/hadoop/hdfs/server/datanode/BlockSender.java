@@ -626,6 +626,7 @@ class BlockSender implements java.io.Closeable {
       if (transferTo) {// transferTo 模式
         SocketOutputStream sockOut = (SocketOutputStream)out;
         // First write header and checksums 将头域、校验和写入输出流中
+         //  数据校验工作交给 CLient 去执行
         sockOut.write(buf, headerOff, dataOff - headerOff);
 
         // no need to flush since we know out is not a buffered stream
@@ -633,6 +634,7 @@ class BlockSender implements java.io.Closeable {
         FileChannel fileCh = ((FileInputStream)ris.getDataIn()).getChannel();
         LongWritable waitTime = new LongWritable();
         LongWritable transferTime = new LongWritable();
+        // NIO 零拷贝将数据直接发送到网卡中
         fileIoProvider.transferToSocketFully(
             ris.getVolumeRef().getVolume(), sockOut, fileCh, blockInPosition,
             dataLen, waitTime, transferTime);

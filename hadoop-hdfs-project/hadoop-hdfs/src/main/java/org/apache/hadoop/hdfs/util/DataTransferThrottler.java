@@ -24,14 +24,16 @@ import static org.apache.hadoop.util.Time.monotonicNow;
  * This class is thread safe. It can be shared by multiple threads.
  * The parameter bandwidthPerSec specifies the total bandwidth shared by
  * threads.
+ * 限流公式：
+ *  bytesPerPeriod = bytesPerSecond*period/1000
  */
 public class DataTransferThrottler {
-  private final long period;          // period over which bw is imposed
-  private final long periodExtension; // Max period over which bw accumulates.
-  private long bytesPerPeriod;  // total number of bytes can be sent in each period
-  private long curPeriodStart;  // current period starting time
-  private long curReserve;      // remaining bytes can be sent in the period
-  private long bytesAlreadyUsed;
+  private final long period;          // period over which bw is imposed 计数周期 500ms
+  private final long periodExtension; // Max period over which bw accumulates. 累计计数最大周期
+  private long bytesPerPeriod;  // total number of bytes can be sent in each period  一个周期内最大能发送的带宽数据量
+  private long curPeriodStart;  // current period starting time  一个周期的开始时间
+  private long curReserve;      // remaining bytes can be sent in the period 一个周期内剩余能发送的带宽数据量
+  private long bytesAlreadyUsed; // 当前周期已使用的带宽数据量
 
   /** Constructor 
    * @param bandwidthPerSec bandwidth allowed in bytes per second. 
@@ -44,7 +46,8 @@ public class DataTransferThrottler {
    * Constructor
    * @param period in milliseconds. Bandwidth is enforced over this
    *        period.
-   * @param bandwidthPerSec bandwidth allowed in bytes per second. 
+   * @param bandwidthPerSec bandwidth allowed in bytes per second.
+   *                         dfs.datanode.balance.bandwidthPerSec 限流 10MB
    */
   public DataTransferThrottler(long period, long bandwidthPerSec) {
     this.curPeriodStart = monotonicNow();
@@ -86,7 +89,7 @@ public class DataTransferThrottler {
    * make the current thread sleep if I/O rate is too fast
    * compared to the given bandwidth.  Allows for optional external cancelation.
    *
-   * @param numOfBytes
+   * @param numOfBytes  当前线程传输的数据量大小
    *     number of bytes sent/received since last time throttle was called
    * @param canceler
    *     optional canceler to check for abort of throttle
@@ -95,18 +98,20 @@ public class DataTransferThrottler {
     if ( numOfBytes <= 0 ) {
       return;
     }
-
+    //更新当前带宽余量
     curReserve -= numOfBytes;
+    //更新当前带宽已使用量
     bytesAlreadyUsed += numOfBytes;
 
-    while (curReserve <= 0) {
+    while (curReserve <= 0) { //当余量小等于 0 ，则阻塞等待下一个周期
       if (canceler != null && canceler.isCancelled()) {
         return;
       }
       long now = monotonicNow();
+      //一个周期截止时间
       long curPeriodEnd = curPeriodStart + period;
 
-      if ( now < curPeriodEnd ) {
+      if ( now < curPeriodEnd ) { //带宽资源提前使用完了
         // Wait for next period so that curReserve can be increased.
         try {
           wait( curPeriodEnd - now );
@@ -116,17 +121,17 @@ public class DataTransferThrottler {
           Thread.currentThread().interrupt();
           break;
         }
-      } else if ( now <  (curPeriodStart + periodExtension)) {
-        curPeriodStart = curPeriodEnd;
-        curReserve += bytesPerPeriod;
-      } else {
+      } else if ( now <  (curPeriodStart + periodExtension)) { //带宽资源在 periodExtension 范围内用完
+        curPeriodStart = curPeriodEnd; //更新起止时间
+        curReserve += bytesPerPeriod;  //更新剩余量
+      } else { //带宽资源在 periodExtension 之后才用完，长时间没用完
         // discard the prev period. Throttler might not have
         // been used for a long time.
-        curPeriodStart = now;
-        curReserve = bytesPerPeriod - bytesAlreadyUsed;
+        curPeriodStart = now; //如果长时间没时间节流器，则重置节流器
+        curReserve = bytesPerPeriod - bytesAlreadyUsed; //
       }
     }
 
-    bytesAlreadyUsed -= numOfBytes;
+    bytesAlreadyUsed -= numOfBytes; // TODO 为什么要 - numOfBytes ？
   }
 }
