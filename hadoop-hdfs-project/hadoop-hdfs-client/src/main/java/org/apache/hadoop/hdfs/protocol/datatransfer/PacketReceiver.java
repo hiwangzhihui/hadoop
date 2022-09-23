@@ -128,7 +128,7 @@ public class PacketReceiver implements Closeable {
     //            checksums were not requested
     // DATA       the actual block data
     Preconditions.checkState(curHeader == null || !curHeader.isLastPacketInBlock());
-
+    //将包数据放入到  curPacketBuf 中
     curPacketBuf.clear();
     curPacketBuf.limit(PacketHeader.PKT_LENGTHS_LEN);
     doReadFully(ch, in, curPacketBuf);
