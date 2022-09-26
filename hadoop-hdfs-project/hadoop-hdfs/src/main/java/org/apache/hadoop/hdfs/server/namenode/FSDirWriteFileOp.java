@@ -261,7 +261,7 @@ class FSDirWriteFileOp {
     INodesInPath inodesInPath = INodesInPath.fromINode(pendingFile);
     //保存新申请的块信息
     saveAllocatedBlock(fsn, src, inodesInPath, newBlock, targets, blockType);
-
+    //持久化块信息保存到 Editlog 中
     persistNewBlock(fsn, src, pendingFile);
     offset = pendingFile.computeFileSize();
 
@@ -733,7 +733,7 @@ class FSDirWriteFileOp {
     }
 
     fsn.addCommittedBlocksToPending(pendingFile);
-
+    //修复关闭文件记录到 edit log
     fsn.finalizeINodeFileUnderConstruction(src, pendingFile,
         Snapshot.CURRENT_STATE_ID, true);
     return true;
