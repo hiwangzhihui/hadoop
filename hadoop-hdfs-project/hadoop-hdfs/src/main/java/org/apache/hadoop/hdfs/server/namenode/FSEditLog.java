@@ -117,7 +117,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * FSEditLog maintains a log of the namespace modifications.
- * 
+ *  维护 namespace Editlog 主类
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -143,14 +143,16 @@ public class FSEditLog implements LogsPurgeable {
    * started up, and then will move to IN_SEGMENT so it can begin writing to the
    * log. The log states will then revert to behaving as they do in a non-HA
    * setup.
+   *  editlog 状态
    */
   private enum State {
-    UNINITIALIZED,
-    BETWEEN_LOG_SEGMENTS,
-    IN_SEGMENT,
-    OPEN_FOR_READING,
-    CLOSED;
-  }  
+    UNINITIALIZED, //editlog 初始化状态
+    BETWEEN_LOG_SEGMENTS, //editlog 前一个 SEGMENT 已关闭，但是新的没开始，的一个过渡状态
+    IN_SEGMENT, // editlog  可写状态
+    OPEN_FOR_READING, // editlog 处于可读状态 ，NameNode 进入 Standby 模式时的状态
+    CLOSED; // editlog 处于关闭状态
+  }
+  // Editlog 状态
   private State state = State.UNINITIALIZED;
   
   //initialize
@@ -203,6 +205,10 @@ public class FSEditLog implements LogsPurgeable {
    */
   private final Object journalSetLock = new Object();
 
+  /**
+   * Client 发起一次RPC 请求对 NameNode namepsace 修改后，都会创建一个新的 TransactionId
+   * 记录本次操作
+   * */
   private static class TransactionId {
     public long txid;
 
@@ -253,13 +259,16 @@ public class FSEditLog implements LogsPurgeable {
   }
   
   public synchronized void initJournalsForWrite() {
+    //检查之前的状态
     Preconditions.checkState(state == State.UNINITIALIZED ||
         state == State.CLOSED, "Unexpected state: %s", state);
-    
+    //调用 initJournals 方法，根据 editsDirs 创建对应的 JournalManager
     initJournals(this.editsDirs);
+    //更新当前状态为 BETWEEN_LOG_SEGMENTS
     state = State.BETWEEN_LOG_SEGMENTS;
   }
-  
+
+  //在 HA 情况下会调用该方法
   public synchronized void initSharedJournalsForRead() {
     if (state == State.OPEN_FOR_READING) {
       LOG.warn("Initializing shared journals for READ, already open for READ",
@@ -268,17 +277,19 @@ public class FSEditLog implements LogsPurgeable {
     }
     Preconditions.checkState(state == State.UNINITIALIZED ||
         state == State.CLOSED);
-    
+    //对于 HA 的情况 ，editlog 的日志存储目录为共享的目录  sharedEditsDirs
     initJournals(this.sharedEditsDirs);
     state = State.OPEN_FOR_READING;
   }
   
   private synchronized void initJournals(List<URI> dirs) {
+    // dfs.namenode.edits.dir.minimum 默认 1 ，日志最小可选存储目录
     int minimumRedundantJournals = conf.getInt(
         DFSConfigKeys.DFS_NAMENODE_EDITS_DIR_MINIMUM_KEY,
         DFSConfigKeys.DFS_NAMENODE_EDITS_DIR_MINIMUM_DEFAULT);
 
     synchronized(journalSetLock) {
+
       journalSet = new JournalSet(minimumRedundantJournals);
 
       for (URI u : dirs) {
@@ -287,10 +298,12 @@ public class FSEditLog implements LogsPurgeable {
         if (u.getScheme().equals(NNStorage.LOCAL_URI_SCHEME)) {
           StorageDirectory sd = storage.getStorageDirectory(u);
           if (sd != null) {
+            //如果是本地文件目录，则创建 FileJournalManager 即可
             journalSet.add(new FileJournalManager(conf, sd, storage),
                 required, sharedEditsDirs.contains(u));
           }
         } else {
+          //否则根据 url  Scheme 创建对应的 JournalManager
           journalSet.add(createJournal(u), required,
               sharedEditsDirs.contains(u));
         }
@@ -313,14 +326,16 @@ public class FSEditLog implements LogsPurgeable {
   /**
    * Initialize the output stream for logging, opening the first
    * log segment.
+   * 初始化 editlog 的输出流，并且打开一个 segment 日志
    */
   synchronized void openForWrite(int layoutVersion) throws IOException {
     Preconditions.checkState(state == State.BETWEEN_LOG_SEGMENTS,
         "Bad state: %s", state);
-
+    //最新写入 editlog 的 transactionId
     long segmentTxId = getLastWrittenTxId() + 1;
     // Safety check: we should never start a segment if there are
     // newer txids readable.
+    // 检查 editlog 文件里是否包含新的  segmentTxId ，如果包含则抛出异常
     List<EditLogInputStream> streams = new ArrayList<EditLogInputStream>();
     journalSet.selectInputStreams(streams, segmentTxId, true, false);
     if (!streams.isEmpty()) {
@@ -331,7 +346,7 @@ public class FSEditLog implements LogsPurgeable {
           streams.toArray(new EditLogInputStream[0]));
       throw new IllegalStateException(error);
     }
-    
+
     startLogSegmentAndWriteHeaderTxn(segmentTxId, layoutVersion);
     assert state == State.IN_SEGMENT : "Bad state: " + state;
   }
@@ -393,10 +408,13 @@ public class FSEditLog implements LogsPurgeable {
     try {
       if (state == State.IN_SEGMENT) {
         assert editLogStream != null;
+        //如果与 Sync 操作则等待操作完成
         waitForSyncToFinish();
+        //结束当前 Segment
         endCurrentLogSegment(true);
       }
     } finally {
+      //关闭 journalSet
       if (journalSet != null && !journalSet.isEmpty()) {
         try {
           synchronized(journalSetLock) {
@@ -406,6 +424,7 @@ public class FSEditLog implements LogsPurgeable {
           LOG.warn("Error closing journalSet", ioe);
         }
       }
+      //将状态机转换为 CLOSED 状态
       state = State.CLOSED;
     }
   }
@@ -416,6 +435,7 @@ public class FSEditLog implements LogsPurgeable {
    * 
    * File-based journals are skipped, since they are formatted by the
    * Storage format code.
+   *
    */
   synchronized void formatNonFileJournals(NamespaceInfo nsInfo) throws IOException {
     Preconditions.checkState(state == State.BETWEEN_LOG_SEGMENTS,
@@ -1379,20 +1399,22 @@ public class FSEditLog implements LogsPurgeable {
     storage.attemptRestoreRemovedStorage();
     
     try {
+      //初始化 editlogStream
       editLogStream = journalSet.startLogSegment(segmentTxId, layoutVersion);
     } catch (IOException ex) {
       throw new IOException("Unable to start log segment " +
           segmentTxId + ": too few journals successfully started.", ex);
     }
-    
+    //当前写入的 txId 设置为 segmentTxId
     curSegmentTxId = segmentTxId;
+    //状态转换为 IN_SEGMENT
     state = State.IN_SEGMENT;
   }
 
   synchronized void startLogSegmentAndWriteHeaderTxn(final long segmentTxId,
       int layoutVersion) throws IOException {
     startLogSegment(segmentTxId, layoutVersion);
-
+    //记录一个  OP_START_LOG_SEGMENT 事件
     logEdit(LogSegmentOp.getInstance(cache.get(),
         FSEditLogOpCodes.OP_START_LOG_SEGMENT));
     logSync();
@@ -1400,7 +1422,10 @@ public class FSEditLog implements LogsPurgeable {
 
   /**
    * Finalize the current log segment.
-   * Transitions from IN_SEGMENT state to BETWEEN_LOG_SEGMENTS state.
+   * Transitions from IN_SEGMENT state to BETWEEN_LOG_SEGMENTS state.end
+   * 将当前写入的日志段落关闭
+   * 状态转换为 BETWEEN_LOG_SEGMENTS
+   *
    */
   public synchronized void endCurrentLogSegment(boolean writeEndTxn) {
     LOG.info("Ending log segment " + curSegmentTxId +
@@ -1416,19 +1441,20 @@ public class FSEditLog implements LogsPurgeable {
     logSyncAll();
 
     printStatistics(true);
-    
+    //获取当前写入的最后一个 Id
     final long lastTxId = getLastWrittenTxId();
     final long lastSyncedTxId = getSyncTxId();
     Preconditions.checkArgument(lastTxId == lastSyncedTxId,
         "LastWrittenTxId %s is expected to be the same as lastSyncedTxId %s",
         lastTxId, lastSyncedTxId);
     try {
+      //调用 finalizeLogSegment 方法将  curSegmentTxId ~ 之间的操作刷入到磁盘
       journalSet.finalizeLogSegment(curSegmentTxId, lastTxId);
       editLogStream = null;
     } catch (IOException e) {
       //All journals have failed, it will be handled in logSync.
     }
-    
+    //更改状态机状态
     state = State.BETWEEN_LOG_SEGMENTS;
   }
   

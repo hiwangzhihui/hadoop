@@ -449,11 +449,13 @@ public final class FSImageFormatProtobuf {
      * @throws IOException on fatal error.
      */
     long save(File file, FSImageCompression compression) throws IOException {
+      //创建文件输出流
       FileOutputStream fout = new FileOutputStream(file);
       fileChannel = fout.getChannel();
       try {
         LOG.info("Saving image file {} using {}", file, compression);
         long startTime = monotonicNow();
+        //保存文件
         long numErrors = saveInternal(
             fout, compression, file.getAbsolutePath());
         LOG.info("Image file {} of size {} bytes saved in {} seconds {}.", file,
@@ -512,6 +514,7 @@ public final class FSImageFormatProtobuf {
 
       underlyingOutputStream = new DigestOutputStream(new BufferedOutputStream(
           fout), digester);
+      //保存命名空间镜像文件头
       underlyingOutputStream.write(FSImageUtil.MAGIC_HEADER);
 
       fileChannel = fout.getChannel();

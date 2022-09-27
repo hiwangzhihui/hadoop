@@ -33,6 +33,11 @@ import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
  * Even when the actual underlying storage is rolled, or failed and restored,
  * each conceptual place of storage corresponds to exactly one instance of
  * this class, which is created when the EditLog is first opened.
+ * JournalManager 抽象了管理 editlog 的方法
+ * 持久化到不同存储的 editlog 由不同 JournalManager 子类实现
+ * FileJournalManager ： 普通文件
+ * BackupJournalManager ：共享 NFS
+ * QuorumJournalManager ：Quorum 集群
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -42,12 +47,15 @@ public interface JournalManager extends Closeable, FormatConfirmable,
   /**
    * Format the underlying storage, removing any previously
    * stored data.
+   * 格式化 Editlog 目录，删除之前存储的数据
    */
   void format(NamespaceInfo ns) throws IOException;
 
   /**
    * Begin writing to a new segment of the log stream, which starts at
    * the given transaction ID.
+   * 开始写入新的日志段，从新的 transactionId 开始
+   * 创建一个新的 edit_inprocess_xxx 文件，并且 Editlog 状态转换为 IN_SEGMENT
    */
   EditLogOutputStream startLogSegment(long txId, int layoutVersion)
       throws IOException;
@@ -55,6 +63,7 @@ public interface JournalManager extends Closeable, FormatConfirmable,
   /**
    * Mark the log segment that spans from firstTxId to lastTxId
    * as finalized and complete.
+   * 标记 firstTxId ~ lastTxId 区间的事务完成
    */
   void finalizeLogSegment(long firstTxId, long lastTxId) throws IOException;
 

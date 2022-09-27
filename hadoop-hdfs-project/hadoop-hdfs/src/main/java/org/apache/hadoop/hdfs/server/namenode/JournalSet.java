@@ -108,6 +108,7 @@ public class JournalSet implements JournalManager {
      * Close the Journal and Stream
      */
     public void close() throws IOException {
+      //关闭数据流
       closeStream();
 
       journal.close();
@@ -200,7 +201,7 @@ public class JournalSet implements JournalManager {
     throw new UnsupportedOperationException();
   }
 
-  
+
   @Override
   public EditLogOutputStream startLogSegment(final long txId,
       final int layoutVersion) throws IOException {
@@ -245,9 +246,10 @@ public class JournalSet implements JournalManager {
   /**
    * In this function, we get a bunch of streams from all of our JournalManager
    * objects.  Then we add these to the collection one by one.
-   * 
+   * 从数据流中获取元素加载数据集合中
    * @param streams          The collection to add the streams to.  It may or 
    *                         may not be sorted-- this is up to the caller.
+   *                         在数据流中开始查找的 transactionID
    * @param fromTxId         The transaction ID to start looking for streams at
    * @param inProgressOk     Should we consider unfinalized streams?
    * @param onlyDurableTxns  Set to true if streams are bounded by the durable
