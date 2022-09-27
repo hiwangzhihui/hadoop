@@ -377,6 +377,7 @@ public class JournalSet implements JournalManager {
    * @param closure {@link JournalClosure} object encapsulating the operation.
    * @param status message used for logging errors (e.g. "opening journal")
    * @throws IOException If the operation fails on all the journals.
+   * 遍历 JournalSet.journals 所有数据流，指定 JournalClosure 接口的内容
    */
   private void mapJournalsAndReportErrors(
       JournalClosure closure, String status) throws IOException{
@@ -384,6 +385,7 @@ public class JournalSet implements JournalManager {
     List<JournalAndStream> badJAS = Lists.newLinkedList();
     for (JournalAndStream jas : journals) {
       try {
+        //在闭包对象上调用 apply 方法转发请求
         closure.apply(jas);
       } catch (Throwable t) {
         if (jas.isRequired()) {
@@ -429,6 +431,7 @@ public class JournalSet implements JournalManager {
   /**
    * An implementation of EditLogOutputStream that applies a requested method on
    * all the journals that are currently active.
+   * 遍历 JournalSet.journals 集合数据流，执行 EditLogOutputStream 定义的方法
    */
   private class JournalSetOutputStream extends EditLogOutputStream {
 
@@ -439,6 +442,8 @@ public class JournalSet implements JournalManager {
     @Override
     public void write(final FSEditLogOp op)
         throws IOException {
+      //通过 mapJournalsAndReportErrors 方法遍历调用 JournalSet.journals 集合的数据流，执行 apply 内的方法
+      // TODO 积累该设计模式
       mapJournalsAndReportErrors(new JournalClosure() {
         @Override
         public void apply(JournalAndStream jas) throws IOException {

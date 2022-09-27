@@ -155,7 +155,7 @@ public class FSEditLog implements LogsPurgeable {
   // Editlog 状态
   private State state = State.UNINITIALIZED;
   
-  //initialize
+  //initialize 保存了 editlog 文件所在所有存储位置上的输出流对象，即 EditLogOutputStream
   private JournalSet journalSet = null;
   private EditLogOutputStream editLogStream = null;
 
