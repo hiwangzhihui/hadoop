@@ -40,14 +40,15 @@ import com.google.common.base.Preconditions;
  * is flushed, the two internal buffers are swapped. This allows edits
  * to progress concurrently to flushes without allocating new buffers each
  * time.
+ *  Buff 双层缓冲模式，同步操作与写入操作分离
  */
 @InterfaceAudience.Private
 public class EditsDoubleBuffer {
   protected static final Log LOG = LogFactory.getLog(EditsDoubleBuffer.class);
 
-  private TxnBuffer bufCurrent; // current buffer for writing
-  private TxnBuffer bufReady; // buffer ready for flushing
-  private final int initBufferSize;
+  private TxnBuffer bufCurrent; // current buffer for writing 正在写入的缓冲区
+  private TxnBuffer bufReady; // buffer ready for flushing 准备好同步的缓冲区
+  private final int initBufferSize; //缓冲区大小 默认 512  kb
 
   public EditsDoubleBuffer(int defaultBufferSize) {
     initBufferSize = defaultBufferSize;
@@ -78,21 +79,23 @@ public class EditsDoubleBuffer {
     IOUtils.cleanup(null, bufCurrent, bufReady);
     bufCurrent = bufReady = null;
   }
-  
+
+  //交互缓冲区
   public void setReadyToFlush() {
-    assert isFlushed() : "previous data not flushed yet";
+    assert isFlushed() : "previous data not flushed yet"; //前提是 同步缓冲区的数据已经清空
     TxnBuffer tmp = bufReady;
     bufReady = bufCurrent;
     bufCurrent = tmp;
   }
-  
+
   /**
    * Writes the content of the "ready" buffer to the given output stream,
    * and resets it. Does not swap any buffers.
-   */
+   *  将同步缓冲区的数据写入文件中
+   **/
   public void flushTo(OutputStream out) throws IOException {
-    bufReady.writeTo(out); // write data to file
-    bufReady.reset(); // erase all data in the buffer
+    bufReady.writeTo(out); // write data to file 将同步缓冲区的数据写入新文件
+    bufReady.reset(); // erase all data in the buffer 将同步缓冲区保存的数据清空
   }
   
   public boolean shouldForceSync() {

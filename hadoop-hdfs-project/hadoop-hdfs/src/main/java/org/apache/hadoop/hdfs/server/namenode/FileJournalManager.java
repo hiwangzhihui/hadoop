@@ -65,7 +65,7 @@ public class FileJournalManager implements JournalManager {
   private final Configuration conf;
   private final StorageDirectory sd;
   private final StorageErrorReporter errorReporter;
-  private int outputBufferCapacity = 512*1024;
+  private int outputBufferCapacity = 512*1024; //Editlog 写文件缓冲区大小，默认 512  kb
 
   private static final Pattern EDITS_REGEX = Pattern.compile(
     NameNodeFile.EDITS.getName() + "_(\\d+)-(\\d+)");

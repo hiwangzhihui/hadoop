@@ -45,10 +45,11 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
   private static final Log LOG = LogFactory.getLog(EditLogFileOutputStream.class);
   public static final int MIN_PREALLOCATION_LENGTH = 1024 * 1024;
 
-  private File file;
-  private FileOutputStream fp; // file stream for storing edit logs
-  private FileChannel fc; // channel of the file stream for sync
-  private EditsDoubleBuffer doubleBuf;
+  private File file; //输出流对应的 editlog 文件
+  private FileOutputStream fp; // file stream for storing edit logs editlog 对应的输出流
+  private FileChannel fc; // channel of the file stream for sync  editlog 对应的输出流 FileChannel
+  private EditsDoubleBuffer doubleBuf; // editlog 文件对应的缓冲区
+  // 当要进行同步flush操作，如果 editlog 文件空间 channel 不够，则使用 fill 扩充 TODO ？
   static final ByteBuffer fill = ByteBuffer.allocateDirect(MIN_PREALLOCATION_LENGTH);
   private boolean shouldSyncWritesAndSkipFsync = false;
 

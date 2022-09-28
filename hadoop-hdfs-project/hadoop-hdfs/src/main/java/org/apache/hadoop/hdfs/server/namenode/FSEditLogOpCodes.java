@@ -23,14 +23,15 @@ import org.apache.hadoop.hdfs.server.namenode.FSEditLogOp.*;
 
 /**
  * Op codes for edits file
+ * editLog 操作码
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public enum FSEditLogOpCodes {
   // last op code in file
-  OP_ADD                        ((byte)  0, AddOp.class),
+  OP_ADD                        ((byte)  0, AddOp.class), //添加操作
   // deprecated operation
-  OP_RENAME_OLD                 ((byte)  1, RenameOldOp.class),
+  OP_RENAME_OLD                 ((byte)  1, RenameOldOp.class), //重命名操作
   OP_DELETE                     ((byte)  2, DeleteOp.class),
   OP_MKDIR                      ((byte)  3, MkdirOp.class),
   OP_SET_REPLICATION            ((byte)  4, SetReplicationOp.class),
@@ -87,7 +88,7 @@ public enum FSEditLogOpCodes {
   OP_REMOVE_ERASURE_CODING_POLICY((byte) 52, RemoveErasureCodingPolicyOp.class),
 
   // Note that the current range of the valid OP code is 0~127
-  OP_INVALID                    ((byte) -1);
+  OP_INVALID                    ((byte) -1); // 不合法的操作
 
   private final byte opCode;
   private final Class<? extends FSEditLogOp> opClass;
