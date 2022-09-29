@@ -4394,6 +4394,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * Save namespace image.
    * This will save current namespace into fsimage file and empty edits file.
    * Requires superuser privilege and safe mode.
+   * 保存命名空间到 image 文件中
    */
   boolean saveNamespace(final long timeWindow, final long txGap)
       throws IOException {

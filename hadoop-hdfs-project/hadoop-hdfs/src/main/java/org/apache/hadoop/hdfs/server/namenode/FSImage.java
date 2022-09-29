@@ -1170,12 +1170,14 @@ public class FSImage implements Closeable {
     if (canceler == null) {
       canceler = new Canceler();
     }
+    //构造保存命名空间操作的上下文
     SaveNamespaceContext ctx = new SaveNamespaceContext(
         source, txid, canceler);
     
     try {
       List<Thread> saveThreads = new ArrayList<Thread>();
       // save images into current
+      // 为每个保存路径启动一个线程，每个线程使用 FSImageSaver 创建实例保存 fsimage 文件
       for (Iterator<StorageDirectory> it
              = storage.dirIterator(NameNodeDirType.IMAGE); it.hasNext();) {
         StorageDirectory sd = it.next();
@@ -1184,27 +1186,29 @@ public class FSImage implements Closeable {
         saveThreads.add(saveThread);
         saveThread.start();
       }
+      //等待所有线程执行完毕
       waitForThreads(saveThreads);
       saveThreads.clear();
       storage.reportErrorsOnDirectories(ctx.getErrorSDs());
-  
+      //如果保存文件失败则抛出异常
       if (storage.getNumStorageDirs(NameNodeDirType.IMAGE) == 0) {
         throw new IOException(
           "Failed to save in any storage directories while saving namespace.");
       }
+
       if (canceler.isCancelled()) {
         deleteCancelledCheckpoint(txid);
         ctx.checkCancelled(); // throws
         assert false : "should have thrown above!";
       }
-  
+      // 将 IMAGE_NEW 重命名为  IMAGE 文件
       renameCheckpoint(txid, NameNodeFile.IMAGE_NEW, nnf, false);
   
       // Since we now have a new checkpoint, we can clean up some
       // old edit logs and checkpoints.
       // Do not purge anything if we just wrote a corrupted FsImage.
       if (!exitAfterSave.get()) {
-        purgeOldStorage(nnf);
+        purgeOldStorage(nnf);  //完成了 image 的存储，可以将部分 editlog 和 fsimage 删除
         archivalManager.purgeCheckpoints(NameNodeFile.IMAGE_NEW);
       }
     } finally {
