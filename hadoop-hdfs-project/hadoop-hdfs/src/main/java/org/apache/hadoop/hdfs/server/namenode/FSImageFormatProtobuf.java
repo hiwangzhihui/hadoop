@@ -473,6 +473,7 @@ public final class FSImageFormatProtobuf {
       int length = getOndiskTrunkSize(summary);
       byte[] lengthBytes = new byte[4];
       ByteBuffer.wrap(lengthBytes).asIntBuffer().put(length);
+      //记录  FileSummary 在 image 文件中所占长度
       out.write(lengthBytes);
     }
 
@@ -510,20 +511,23 @@ public final class FSImageFormatProtobuf {
     private long saveInternal(FileOutputStream fout,
         FSImageCompression compression, String filePath) throws IOException {
       StartupProgress prog = NameNode.getStartupProgress();
+      //构造输出流，一边写数据，一边写入校验值
       MessageDigest digester = MD5Hash.getDigester();
 
       underlyingOutputStream = new DigestOutputStream(new BufferedOutputStream(
           fout), digester);
-      //保存命名空间镜像文件头
+      //保存命名空间镜像文件头,表明序列化格式为 protobuf
       underlyingOutputStream.write(FSImageUtil.MAGIC_HEADER);
 
       fileChannel = fout.getChannel();
 
+      // FileSummary  为 faiamge 文件的描述部分
       FileSummary.Builder b = FileSummary.newBuilder()
           .setOndiskVersion(FSImageUtil.FILE_VERSION)
           .setLayoutVersion(
               context.getSourceNamesystem().getEffectiveLayoutVersion());
 
+      //获取压缩格式，并装饰输出流
       codec = compression.getImageCodec();
       if (codec != null) {
         b.setCodec(codec.getClass().getCanonicalName());
@@ -531,7 +535,7 @@ public final class FSImageFormatProtobuf {
       } else {
         sectionOutputStream = underlyingOutputStream;
       }
-
+      //  命名空间信息保存 NameSystemSection
       saveNameSystemSection(b);
       // Check for cancellation right after serializing the name system section.
       // Some unit tests, such as TestSaveNamespace#testCancelSaveNameSpace
@@ -541,32 +545,38 @@ public final class FSImageFormatProtobuf {
       // Erasure coding policies should be saved before inodes
       Step step = new Step(StepType.ERASURE_CODING_POLICIES, filePath);
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+      //ecPolicies 元数据信息 ErasureCodingSection
       saveErasureCodingSection(b);
       prog.endStep(Phase.SAVING_CHECKPOINT, step);
 
       step = new Step(StepType.INODES, filePath);
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+      // 保存命名空间 Inode 信息  INodeSection
       saveInodes(b);
       long numErrors = saveSnapshots(b);
       prog.endStep(Phase.SAVING_CHECKPOINT, step);
 
       step = new Step(StepType.DELEGATION_TOKENS, filePath);
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+      // 保存安全信息
       saveSecretManagerSection(b);
       prog.endStep(Phase.SAVING_CHECKPOINT, step);
 
       step = new Step(StepType.CACHE_POOLS, filePath);
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
+      // 保存缓存信息 CacheManagerSection
       saveCacheManagerSection(b);
       prog.endStep(Phase.SAVING_CHECKPOINT, step);
-
+      //保存 StringTableSection
       saveStringTableSection(b);
 
       // We use the underlyingOutputStream to write the header. Therefore flush
       // the buffered stream (which is potentially compressed) first.
-      flushSectionOutputStream();
+      flushSectionOutputStream(); // flush 输出流
 
+      //所有的 section 信息都被收集到 FileSummary
       FileSummary summary = b.build();
+      //FileSummary 记录了 image 的元信息，将其写入 fsiamge
       saveFileSummary(underlyingOutputStream, summary);
       underlyingOutputStream.close();
       savedDigest = new MD5Hash(digester.digest());

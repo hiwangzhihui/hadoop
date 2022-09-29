@@ -48,12 +48,14 @@ import "xattr.proto";
 
 message FileSummary {
   // The version of the above EBNF grammars.
+  // fsiamge 版本信息
   required uint32 ondiskVersion = 1;
   // layoutVersion describes which features are available in the
-  // FSImage.
+  // FSImage. HDFS 文件系统布局版本
   required uint32 layoutVersion = 2;
+  // fsimage 文件压缩编码
   optional string codec         = 3;
-  // index for each section
+  // index for each section 记录了各 section 的命名和长度，以及在 image 文件中起始信息
   message Section {
     optional string name = 1;
     optional uint64 length = 2;

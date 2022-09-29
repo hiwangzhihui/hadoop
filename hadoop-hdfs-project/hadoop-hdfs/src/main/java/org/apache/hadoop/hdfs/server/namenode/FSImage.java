@@ -955,10 +955,13 @@ public class FSImage implements Closeable {
   void saveFSImage(SaveNamespaceContext context, StorageDirectory sd,
       NameNodeFile dstType) throws IOException {
     long txid = context.getTxId();
+    // fsimage 文件
     File newFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE_NEW, txid);
     File dstFile = NNStorage.getStorageFile(sd, dstType, txid);
-    
+
+    //FSImageFormatProtobuf 格式化保存 image
     FSImageFormatProtobuf.Saver saver = new FSImageFormatProtobuf.Saver(context);
+    //压缩类
     FSImageCompression compression = FSImageCompression.createCompression(conf);
     long numErrors = saver.save(newFile, compression);
     if (numErrors > 0) {
@@ -967,7 +970,7 @@ public class FSImage implements Closeable {
           dstFile);
       exitAfterSave.set(true);
     }
-
+     //保存 Md5 校验值
     MD5FileUtils.saveMD5File(dstFile, saver.getSavedDigest());
     storage.setMostRecentCheckpointInfo(txid, Time.now());
   }
