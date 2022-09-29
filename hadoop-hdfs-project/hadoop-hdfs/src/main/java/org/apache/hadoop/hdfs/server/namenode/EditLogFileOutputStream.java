@@ -49,8 +49,8 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
   private FileOutputStream fp; // file stream for storing edit logs editlog 对应的输出流
   private FileChannel fc; // channel of the file stream for sync  editlog 对应的输出流 FileChannel
   private EditsDoubleBuffer doubleBuf; // editlog 文件对应的缓冲区
-  // 当要进行同步flush操作，如果 editlog 文件空间 channel 不够，则使用 fill 扩充 TODO ？
-  static final ByteBuffer fill = ByteBuffer.allocateDirect(MIN_PREALLOCATION_LENGTH);
+  // 当要进行同步flush操作，如果 editlog 文件空间 channel 不够，则使用 fill 扩充 将空间预留出来,主要是扩充 Channel 通道的作业
+  static final ByteBuffer fill = ByteBuffer.allocateDirect(MIN_PREALLOCATION_LENGTH);// 填充缓冲区
   private boolean shouldSyncWritesAndSkipFsync = false;
 
   private static boolean shouldSkipFsyncForTests = false;
@@ -95,6 +95,7 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
 
   @Override
   public void write(FSEditLogOp op) throws IOException {
+    //向输出流写入一个操作，doubleBuf 写入一个 FSEditLogOp  操作对象
     doubleBuf.writeOp(op);
   }
 
@@ -182,6 +183,7 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
   /**
    * All data that has been written to the stream so far will be flushed. New
    * data can be still written to the stream while flushing is performed.
+   * 为同步数据做准备
    */
   @Override
   public void setReadyToFlush() throws IOException {
@@ -191,6 +193,7 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
   /**
    * Flush ready buffer to persistent store. currentBuffer is not flushed as it
    * accumulates new log records while readyBuffer will be flushed and synced.
+   *  将输出流中缓存的数据同步到磁盘上
    */
   @Override
   public void flushAndSync(boolean durable) throws IOException {
@@ -201,8 +204,9 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
       LOG.info("Nothing to flush");
       return;
     }
+    //如果 eitlog 文件夹大小不够，则扩充文件大小
     preallocate(); // preallocate file if necessary
-    doubleBuf.flushTo(fp);
+    doubleBuf.flushTo(fp); //将缓存中的数据刷新到 editlog 文件中
     if (durable && !shouldSkipFsyncForTests && !shouldSyncWritesAndSkipFsync) {
       fc.force(false); // metadata updates not needed
     }
@@ -220,6 +224,7 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
     long position = fc.position();
     long size = fc.size();
     int bufSize = doubleBuf.getReadyBuf().getLength();
+    //判断需要扩充的容量大小
     long need = bufSize - (size - position);
     if (need <= 0) {
       return;
@@ -229,6 +234,7 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
     long fillCapacity = fill.capacity();
     while (need > 0) {
       fill.position(0);
+      //将填充缓冲区写入通道，但不改变  position ，主要是扩充 Channel 通道的作业
       IOUtils.writeFully(fc, fill, size);
       need -= fillCapacity;
       size += fillCapacity;

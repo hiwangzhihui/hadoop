@@ -477,33 +477,42 @@ public class FSEditLog implements LogsPurgeable {
         "bad state: " + state;
       
       // wait if an automatic sync is scheduled
+      // 等待自动同步完成
       waitIfAutoSyncScheduled();
 
       // check if it is time to schedule an automatic sync
-      needsSync = doEditTransaction(op);
+      // 检开启一个 trasntion，同时查是否需要开启自动同步
+      needsSync = doEditTransaction(op); //数据写入 bufCurrent 操作放入持锁区间，快速完成
       if (needsSync) {
         isAutoSyncScheduled = true;
       }
     }
 
     // Sync the log if an automatic sync is required.
+    // 如果需要立即同步则立即刷入 editlog 文件中
     if (needsSync) {
+      // 双层缓存区的作用，在同步写文件时比较慢，操作 bufReady 缓冲区
+      //同步当前的写入操作，立即持久化到硬盘中你那个
       logSync();
     }
   }
 
   synchronized boolean doEditTransaction(final FSEditLogOp op) {
+    //开启一个新的 Transaction
     long start = beginTransaction();
     op.setTransactionId(txid);
 
     try {
+      //写入 op 操作到缓存红
       editLogStream.write(op);
     } catch (IOException ex) {
       // All journals failed, it is handled in logSync.
     } finally {
       op.reset();
     }
+    //结束当前 Transaction
     endTransaction(start);
+    //检查是否需要强制同步，根据不同的 EditLogOutputStream 返回
     return shouldForceSync();
   }
 
@@ -797,6 +806,7 @@ public class FSEditLog implements LogsPurgeable {
   /** Record the RPC IDs if necessary */
   private void logRpcIds(FSEditLogOp op, boolean toLogRpcIds) {
     if (toLogRpcIds) {
+      //rpc Client Id 与 CallId
       op.setRpcClientId(Server.getClientId());
       op.setRpcCallId(Server.getCallId());
     }
@@ -1014,13 +1024,15 @@ public class FSEditLog implements LogsPurgeable {
   
   /** 
    * Add delete file record to edit log
+   * 记录删除操作
    */
   void logDelete(String src, long timestamp, boolean toLogRpcIds) {
+    //构造 DeleteOp 对象
     DeleteOp op = DeleteOp.getInstance(cache.get())
       .setPath(src)
       .setTimestamp(timestamp);
-    logRpcIds(op, toLogRpcIds);
-    logEdit(op);
+    logRpcIds(op, toLogRpcIds); //激励 RPC 调用相关信息
+    logEdit(op);//调用 logEdit 方法记录删除操作
   }
   
   /**

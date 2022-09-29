@@ -192,6 +192,7 @@ class FSDirDeleteOp {
     if (filesRemoved < 0) {
       return null;
     }
+    //记录 delete 行为到 editlog 日志中
     fsd.getEditLog().logDelete(iip.getPath(), mtime, logRetryCache);
     incrDeletedFileCount(filesRemoved);
 

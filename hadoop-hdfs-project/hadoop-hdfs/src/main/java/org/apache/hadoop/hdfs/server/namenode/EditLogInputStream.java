@@ -30,6 +30,7 @@ import java.io.IOException;
  * 
  * It should stream bytes from the storage exactly as they were written
  * into the #{@link EditLogOutputStream}.
+ * 从持久化存储中读取 editlog
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -74,6 +75,7 @@ public abstract class EditLogInputStream implements Closeable {
    * Read an operation from the stream
    * @return an operation from the stream or null if at end of stream
    * @throws IOException if there is an error reading from the stream
+   * 从 editlog 文件中读取一个 FSEditLogOp
    */
   public FSEditLogOp readOp() throws IOException {
     FSEditLogOp ret;
