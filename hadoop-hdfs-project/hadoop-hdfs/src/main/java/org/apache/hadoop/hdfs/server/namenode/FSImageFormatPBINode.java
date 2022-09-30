@@ -608,12 +608,14 @@ public final class FSImageFormatPBINode {
 
     void serializeINodeSection(OutputStream out) throws IOException {
       INodeMap inodesMap = fsn.dir.getINodeMap();
-
+      //构造一个  INodeSection ，保存最后一个 inode 的 inodeId，以及这个命名空间中所有 Inode 的个数
       INodeSection.Builder b = INodeSection.newBuilder()
           .setLastInodeId(fsn.dir.getLastInodeId()).setNumInodes(inodesMap.size());
       INodeSection s = b.build();
+      //序列化至输出流
       s.writeDelimitedTo(out);
 
+      //迭代处理 inodesMap 中所有的 Inode，调用 save 方法将 inode 信息保存到 fsimage 中
       int i = 0;
       Iterator<INodeWithAdditionalFields> iter = inodesMap.getMapIterator();
       while (iter.hasNext()) {
@@ -624,6 +626,7 @@ public final class FSImageFormatPBINode {
           context.checkCancelled();
         }
       }
+      // 调用  commitSection 方法在 FileSummary 中写入 inode section
       parent.commitSection(summary, FSImageFormatProtobuf.SectionName.INODE);
     }
 
@@ -673,10 +676,13 @@ public final class FSImageFormatPBINode {
     private void save(OutputStream out, INodeFile n) throws IOException {
       INodeSection.INodeFile.Builder b = buildINodeFile(n,
           parent.getSaverContext());
+      //保存文件数据块信息
       BlockInfo[] blocks = n.getBlocks();
 
       if (blocks != null) {
         for (Block block : n.getBlocks()) {
+          // 保存 BlockId、block 生成时间、block 文件大小
+          // 但是不保存 " 副本信息 "
           b.addBlocks(PBHelperClient.convert(block));
         }
       }

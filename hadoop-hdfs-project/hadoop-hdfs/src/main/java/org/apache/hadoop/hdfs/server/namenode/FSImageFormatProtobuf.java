@@ -432,8 +432,10 @@ public final class FSImageFormatProtobuf {
         sectionOutputStream = underlyingOutputStream;
       }
       long length = fileChannel.position() - oldOffset;
+      //收集 section 对应的文件大小和对应位置信息
       summary.addSections(FileSummary.Section.newBuilder().setName(name.name)
           .setLength(length).setOffset(currentOffset));
+      //并更新总的 fsimage 文件大小
       currentOffset += length;
     }
 
