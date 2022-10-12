@@ -202,6 +202,7 @@ public class FSEditLogLoader {
         try {
           FSEditLogOp op;
           try {
+            //从数据流中读取 op
             op = in.readOp();
             if (op == null) {
               break;
@@ -246,6 +247,7 @@ public class FSEditLogLoader {
               LOG.trace("op=" + op + ", startOpt=" + startOpt
                   + ", numEdits=" + numEdits + ", totalEdits=" + totalEdits);
             }
+            //在当前命名空间中执行对应操作
             long inodeId = applyEditLogOp(op, fsDir, startOpt,
                 in.getVersion(true), lastInodeId);
             if (lastInodeId < inodeId) {

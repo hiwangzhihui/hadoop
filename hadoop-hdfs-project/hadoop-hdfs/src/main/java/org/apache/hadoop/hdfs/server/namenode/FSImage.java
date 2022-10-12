@@ -679,7 +679,7 @@ public class FSImage implements Closeable {
     boolean needToSave = inspector.needToSave();
 
     Iterable<EditLogInputStream> editStreams = null;
-
+    //获取 editlog 文件 IO 流
     initEditLog(startOpt);
 
     if (NameNodeLayoutVersion.supports(
@@ -698,6 +698,7 @@ public class FSImage implements Closeable {
         // for the rolling upgrade
         toAtLeastTxId = imageFiles.get(0).getCheckpointTxId() + 2;
       }
+      //根据 CheckpointTxId 选择需要合并的 editlog
       editStreams = editLog.selectInputStreams(
           imageFiles.get(0).getCheckpointTxId() + 1,
           toAtLeastTxId, recovery, false);
@@ -705,6 +706,7 @@ public class FSImage implements Closeable {
       editStreams = FSImagePreTransactionalStorageInspector
         .getEditLogStreams(storage);
     }
+
     int maxOpSize = conf.getInt(DFSConfigKeys.DFS_NAMENODE_MAX_OP_SIZE_KEY,
         DFSConfigKeys.DFS_NAMENODE_MAX_OP_SIZE_DEFAULT);
     for (EditLogInputStream elis : editStreams) {
@@ -722,6 +724,7 @@ public class FSImage implements Closeable {
     for (int i = 0; i < imageFiles.size(); i++) {
       try {
         imageFile = imageFiles.get(i);
+        // 加载 fsiamge 文件
         loadFSImageFile(target, recovery, imageFile, startOpt);
         break;
       } catch (IllegalReservedPathException ie) {
@@ -742,6 +745,7 @@ public class FSImage implements Closeable {
     prog.endPhase(Phase.LOADING_FSIMAGE);
     
     if (!rollingRollback) {
+      //加载合并 editlog
       long txnsAdvanced = loadEdits(editStreams, target, startOpt, recovery);
       needToSave |= needsResaveBasedOnStaleCheckpoint(imageFile.getFile(),
           txnsAdvanced);
@@ -875,9 +879,10 @@ public class FSImage implements Closeable {
     LOG.debug("About to load edits:\n  " + Joiner.on("\n  ").join(editStreams));
     StartupProgress prog = NameNode.getStartupProgress();
     prog.beginPhase(Phase.LOADING_EDITS);
-    
+    //记录当前命名空间加载的最新事务 Id
     long prevLastAppliedTxId = lastAppliedTxId;  
-    try {    
+    try {
+      //构造 FSEditLogLoader 加载 editlog
       FSEditLogLoader loader = new FSEditLogLoader(target, lastAppliedTxId);
       
       // Load latest edits
@@ -885,10 +890,12 @@ public class FSImage implements Closeable {
         LOG.info("Reading " + editIn + " expecting start txid #" +
               (lastAppliedTxId + 1));
         try {
+          //从 editlog 中加载操作
           loader.loadFSEdits(editIn, lastAppliedTxId + 1, startOpt, recovery);
         } finally {
           // Update lastAppliedTxId even in case of error, since some ops may
           // have been successfully applied before the error.
+          // 从 editlog 中获取获取最新的 TxId
           lastAppliedTxId = loader.getLastAppliedTxId();
         }
         // If we are in recovery mode, we may have skipped over some txids.
