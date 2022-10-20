@@ -723,11 +723,11 @@ public class NameNode extends ReconfigurableBase implements
     pauseMonitor.init(conf);
     pauseMonitor.start();
     metrics.getJvmMetrics().setPauseMonitor(pauseMonitor);
-
+     //启动 Http 服务
     if (NamenodeRole.NAMENODE == role) {
       startHttpServer(conf);
     }
-
+     //构建  FSNamesystem 文件系统
     loadNamesystem(conf);
     startAliasMapServerIfNecessary(conf);
 
@@ -960,15 +960,21 @@ public class NameNode extends ReconfigurableBase implements
     String nsId = getNameServiceId(conf);
     String namenodeId = HAUtil.getNameNodeId(conf, nsId);
     this.haEnabled = HAUtil.isHAEnabled(conf, nsId);
-    state = createHAState(getStartupOption(conf));
+    state = createHAState(getStartupOption(conf)); //获取当前状态是 Active 或   Standby
     this.allowStaleStandbyReads = HAUtil.shouldAllowStandbyReads(conf);
     this.haContext = createHAContext();
     try {
       initializeGenericKeys(conf, nsId, namenodeId);
+      /**
+       * 初始化方法
+       * 1、构造 FSNamesystem
+       * 2、加载 iamge 和 editlog 文件
+       * */
       initialize(getConf());
       try {
         haContext.writeLock();
         state.prepareToEnterState(haContext);
+        //进入Active状态，则是ActiveState,否则，是StandbyState
         state.enterState(haContext);
       } finally {
         haContext.writeUnlock();
@@ -995,8 +1001,9 @@ public class NameNode extends ReconfigurableBase implements
   protected HAState createHAState(StartupOption startOpt) {
     if (!haEnabled || startOpt == StartupOption.UPGRADE 
         || startOpt == StartupOption.UPGRADEONLY) {
-      return ACTIVE_STATE;
+      return ACTIVE_STATE; //如果没有开启 HA ，或则启动 UPGRADE、UPGRADEONLY 则会进入到 Active 状态
     } else {
+      //如果启用 HA 所有的 NameNode 首先会进入到 Standby 状态
       return STANDBY_STATE;
     }
   }

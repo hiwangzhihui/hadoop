@@ -149,7 +149,7 @@ public class FSImage implements Closeable {
                     List<URI> editsDirs)
       throws IOException {
     this.conf = conf;
-
+    //NameNode端的存储，包括Img文件和Editlog文件的存储和管理都交给NNStorage对象进行管理
     storage = new NNStorage(conf, imageDirs, editsDirs);
     if(conf.getBoolean(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY,
                        DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_DEFAULT)) {
