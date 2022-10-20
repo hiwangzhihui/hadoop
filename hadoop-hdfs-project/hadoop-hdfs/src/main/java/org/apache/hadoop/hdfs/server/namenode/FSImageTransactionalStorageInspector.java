@@ -135,7 +135,7 @@ class FSImageTransactionalStorageInspector extends FSImageStorageInspector {
    * @return the image files that have the most recent associated 
    * transaction IDs.  If there are multiple storage directories which 
    * contain equal images, we'll return them all.
-   * 
+   *  返回 txId 最新的那个 image 加载
    * @throws FileNotFoundException if not images are found.
    */
   @Override
