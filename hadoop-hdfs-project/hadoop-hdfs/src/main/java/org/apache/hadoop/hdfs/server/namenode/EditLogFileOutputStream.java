@@ -204,7 +204,7 @@ public class EditLogFileOutputStream extends EditLogOutputStream {
       LOG.info("Nothing to flush");
       return;
     }
-    //如果 eitlog 文件夹大小不够，则扩充文件大小
+    //如果 eitlog 文件大小不够，则扩充文件大小
     preallocate(); // preallocate file if necessary
     doubleBuf.flushTo(fp); //将缓存中的数据刷新到 editlog 文件中
     if (durable && !shouldSkipFsyncForTests && !shouldSyncWritesAndSkipFsync) {

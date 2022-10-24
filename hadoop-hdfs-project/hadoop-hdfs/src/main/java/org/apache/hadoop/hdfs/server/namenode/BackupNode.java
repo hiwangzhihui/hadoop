@@ -381,6 +381,7 @@ public class BackupNode extends NameNode {
     NamenodeRegistration nnReg = null;
     while(!isStopRequested()) {
       try {
+        //如果为 Standby 节点则向 Active 节点注册，并创建 BackupJournalManager 读取 Quorm 上的 editlog
         nnReg = namenode.registerSubordinateNamenode(getRegistration());
         break;
       } catch(SocketTimeoutException e) {  // name-node is busy

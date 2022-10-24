@@ -304,6 +304,7 @@ public class FSEditLog implements LogsPurgeable {
           }
         } else {
           //否则根据 url  Scheme 创建对应的 JournalManager
+          // Quorum ---> QuorumJournalManager
           journalSet.add(createJournal(u), required,
               sharedEditsDirs.contains(u));
         }
@@ -490,9 +491,9 @@ public class FSEditLog implements LogsPurgeable {
 
     // Sync the log if an automatic sync is required.
     // 如果需要立即同步则立即刷入 editlog 文件中
-    if (needsSync) {
+    if (needsSync) { //缓存写满后，才会同步到具体的文件中
       // 双层缓存区的作用，在同步写文件时比较慢，操作 bufReady 缓冲区
-      //同步当前的写入操作，立即持久化到硬盘中你那个
+      // 同步当前的写入操作，立即持久化到硬盘中
       logSync();
     }
   }
@@ -503,7 +504,7 @@ public class FSEditLog implements LogsPurgeable {
     op.setTransactionId(txid);
 
     try {
-      //写入 op 操作到缓存红
+      //写入 op 操作到缓存
       editLogStream.write(op);
     } catch (IOException ex) {
       // All journals failed, it is handled in logSync.
@@ -512,7 +513,7 @@ public class FSEditLog implements LogsPurgeable {
     }
     //结束当前 Transaction
     endTransaction(start);
-    //检查是否需要强制同步，根据不同的 EditLogOutputStream 返回
+    //检查是否需要进行同步操作
     return shouldForceSync();
   }
 
@@ -736,6 +737,7 @@ public class FSEditLog implements LogsPurgeable {
       long start = monotonicNow();
       try {
         if (logStream != null) {
+          //执行 flush
           logStream.flush();
         }
       } catch (IOException ex) {
@@ -1031,7 +1033,7 @@ public class FSEditLog implements LogsPurgeable {
     DeleteOp op = DeleteOp.getInstance(cache.get())
       .setPath(src)
       .setTimestamp(timestamp);
-    logRpcIds(op, toLogRpcIds); //激励 RPC 调用相关信息
+    logRpcIds(op, toLogRpcIds); //记录 RPC 调用相关信息
     logEdit(op);//调用 logEdit 方法记录删除操作
   }
   
@@ -1411,7 +1413,7 @@ public class FSEditLog implements LogsPurgeable {
     storage.attemptRestoreRemovedStorage();
     
     try {
-      //初始化 editlogStream
+      //初始化 editlogStream，创建一个 segment
       editLogStream = journalSet.startLogSegment(segmentTxId, layoutVersion);
     } catch (IOException ex) {
       throw new IOException("Unable to start log segment " +

@@ -78,7 +78,7 @@ import com.google.common.collect.Lists;
 
 /**
  * FSImage handles checkpointing and logging of the namespace edits.
- * 
+ *
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
@@ -149,13 +149,14 @@ public class FSImage implements Closeable {
                     List<URI> editsDirs)
       throws IOException {
     this.conf = conf;
-    //NameNode端的存储，包括Img文件和Editlog文件的存储和管理都交给NNStorage对象进行管理
+    //NameNode端的存储，包括 image 文件和Editlog文件的存储和管理都交给 NNStorage 对象进行管理
+    //包含本地和远程的 editlog
     storage = new NNStorage(conf, imageDirs, editsDirs);
     if(conf.getBoolean(DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_KEY,
                        DFSConfigKeys.DFS_NAMENODE_NAME_DIR_RESTORE_DEFAULT)) {
       storage.setRestoreFailedStorage(true);
     }
-
+    // editsDirs 包含本地目录和 Quorum 远程目录地址（三个 JournalNode 地址）
     this.editLog = FSEditLog.newInstance(conf, storage, editsDirs);
     archivalManager = new NNStorageRetentionManager(conf, storage, editLog);
   }

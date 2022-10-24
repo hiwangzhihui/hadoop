@@ -83,9 +83,9 @@ class QuorumOutputStream extends EditLogOutputStream {
 
   @Override
   protected void flushAndSync(boolean durable) throws IOException {
-    int numReadyBytes = buf.countReadyBytes();
+    int numReadyBytes = buf.countReadyBytes();// 已经处于ready状态的buf的大小
     if (numReadyBytes > 0) {
-      int numReadyTxns = buf.countReadyTxns();
+      int numReadyTxns = buf.countReadyTxns(); // readyBuffer 操作的 txn 个数
       long firstTxToFlush = buf.getFirstReadyTxId();
 
       assert numReadyTxns > 0;
@@ -98,19 +98,22 @@ class QuorumOutputStream extends EditLogOutputStream {
       //    need a defensive copy to avoid accidentally mutating the buffer
       //    before it is sent.
       DataOutputBuffer bufToSend = new DataOutputBuffer(numReadyBytes);
-      buf.flushTo(bufToSend);
+      buf.flushTo(bufToSend); //将缓存中的数据写入到 DataOutputBuffer 中准备发送
       assert bufToSend.getLength() == numReadyBytes;
       byte[] data = bufToSend.getData();
       assert data.length == bufToSend.getLength();
 
+      //通过 AsyncLogger 将这些 edit log 数据发送到 Quorum 中
       QuorumCall<AsyncLogger, Void> qcall = loggers.sendEdits(
           segmentTxId, firstTxToFlush,
           numReadyTxns, data);
+      //等待结果返回  n/2 +1 个节点返回
       loggers.waitForWriteQuorum(qcall, writeTimeoutMs, "sendEdits");
       
       // Since we successfully wrote this batch, let the loggers know. Any future
       // RPCs will thus let the loggers know of the most recent transaction, even
       // if a logger has fallen behind.
+      // 已经提交的 txId
       loggers.setCommittedTxId(firstTxToFlush + numReadyTxns - 1);
 
       // If we don't have this dummy send, committed TxId might be one-batch

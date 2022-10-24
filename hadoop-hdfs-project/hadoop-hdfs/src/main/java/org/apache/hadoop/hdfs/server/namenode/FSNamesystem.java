@@ -1210,6 +1210,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       
       if (!editLog.isOpenForWrite()) {
         // During startup, we're already open for write during initialization.
+         // 当前为 active 节点才允许 ，写 Journal
         editLog.initJournalsForWrite();
         // May need to recover
         editLog.recoverUnclosedStreams();
@@ -1240,6 +1241,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             nextTxId);
         editLog.setNextTxId(nextTxId);
 
+        //初始化完 Quorum 后调用  openForWrite 方法打开一个新的 segment 文件
         getFSImage().editLog.openForWrite(getEffectiveLayoutVersion());
       }
 

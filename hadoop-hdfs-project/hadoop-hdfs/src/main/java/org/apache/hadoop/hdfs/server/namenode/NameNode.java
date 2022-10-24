@@ -974,7 +974,7 @@ public class NameNode extends ReconfigurableBase implements
       try {
         haContext.writeLock();
         state.prepareToEnterState(haContext);
-        //进入Active状态，则是ActiveState,否则，是StandbyState
+        //进入Active状态，则是 ActiveState,否则，是 StandbyState
         state.enterState(haContext);
       } finally {
         haContext.writeUnlock();
