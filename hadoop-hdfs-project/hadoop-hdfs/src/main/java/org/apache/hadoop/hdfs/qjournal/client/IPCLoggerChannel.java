@@ -71,12 +71,15 @@ import com.google.common.util.concurrent.UncaughtExceptionHandlers;
  * {@link ListenableFuture} instances to wait for their result.
  * This allows calls to be bound together using the {@link QuorumCall}
  * class.
+ * AsyncLogger维护了到某个JournalNode之间的RPC连接
  */
 @InterfaceAudience.Private
 public class IPCLoggerChannel implements AsyncLogger {
 
   private final Configuration conf;
+
   protected final InetSocketAddress addr;
+  //RPC 客户端
   private QJournalProtocol proxy;
 
   /**
@@ -369,7 +372,10 @@ public class IPCLoggerChannel implements AsyncLogger {
       }
     });
   }
-  
+
+  /**
+   *
+   * */
   @Override
   public ListenableFuture<Void> sendEdits(
       final long segmentTxId, final long firstTxnId,
@@ -511,7 +517,10 @@ public class IPCLoggerChannel implements AsyncLogger {
       }
     });
   }
-  
+
+  /**
+   * 使用 RCP 高数 JournalNode 开始要写一个 editlog 文件了，创建一个 segment 文件
+   * */
   @Override
   public ListenableFuture<Void> startLogSegment(final long txid,
       final int layoutVersion) {
@@ -532,7 +541,9 @@ public class IPCLoggerChannel implements AsyncLogger {
       }
     });
   }
-  
+  /**
+   * 通知远程关闭一个 editlog 文件
+   * */
   @Override
   public ListenableFuture<Void> finalizeLogSegment(
       final long startTxId, final long endTxId) {

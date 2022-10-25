@@ -113,12 +113,14 @@ class AsyncLoggerSet {
   /**
    * Wait for a quorum of loggers to respond to the given call. If a quorum
    * can't be achieved, throws a QuorumException.
-   * @param q the quorum call
-   * @param timeoutMs the number of millis to wait
-   * @param operationName textual description of the operation, for logging
+   * 等待远程足够多的 quorum 结果响应返回
+   * @param q the quorum call 需要等待的 call
+   * @param timeoutMs the number of millis to wait  等待超时时间
+   * @param operationName textual description of the operation, for logging  操作描述
    * @return a map of successful results
    * @throws QuorumException if a quorum doesn't respond with success
    * @throws IOException if the thread is interrupted or times out
+   *
    */
   <V> Map<AsyncLogger, V> waitForWriteQuorum(QuorumCall<AsyncLogger, V> q,
       int timeoutMs, String operationName) throws IOException {
@@ -148,6 +150,7 @@ class AsyncLoggerSet {
   
   /**
    * @return the number of nodes which are required to obtain a quorum.
+   * 获取仲裁所需要的节点数（大多数的 quorum 节点）
    */
   int getMajoritySize() {
     return loggers.size() / 2 + 1;
@@ -252,6 +255,7 @@ class AsyncLoggerSet {
   
   public QuorumCall<AsyncLogger, Void> sendEdits(
       long segmentTxId, long firstTxnId, int numTxns, byte[] data) {
+    //将数据发送到多个 JournalNode
     Map<AsyncLogger, ListenableFuture<Void>> calls = Maps.newHashMap();
     for (AsyncLogger logger : loggers) {
       ListenableFuture<Void> future = 

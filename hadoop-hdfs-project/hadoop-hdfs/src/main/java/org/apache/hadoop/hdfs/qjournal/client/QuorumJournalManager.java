@@ -123,6 +123,7 @@ public class QuorumJournalManager implements JournalManager {
     this.uri = uri;
     this.nsInfo = nsInfo;
     this.nameServiceId = nameServiceId;
+    //创建 AsyncLoggerSet 管理所有远程 QuorumJournalNode 节点
     this.loggers = new AsyncLoggerSet(createLoggers(loggerFactory));
     this.connectionFactory = URLConnectionFactory
         .newDefaultURLConnectionFactory(conf);

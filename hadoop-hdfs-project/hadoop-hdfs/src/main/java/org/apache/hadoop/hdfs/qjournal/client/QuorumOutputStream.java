@@ -119,6 +119,7 @@ class QuorumOutputStream extends EditLogOutputStream {
       // If we don't have this dummy send, committed TxId might be one-batch
       // stale on the Journal Nodes
       if (updateCommittedTxId) {
+        //等待所有请求 JournalNode 响应请求
         QuorumCall<AsyncLogger, Void> fakeCall = loggers.sendEdits(
             segmentTxId, firstTxToFlush,
             0, new byte[0]);

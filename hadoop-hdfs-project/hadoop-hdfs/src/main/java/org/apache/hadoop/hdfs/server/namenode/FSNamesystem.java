@@ -1363,13 +1363,18 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   
   /**
    * Start services required in standby state 
-   * 
+   *  启动 StandbyNameNode 并初始化 EditLogTailer 线程去拉取 EditLog 文件
    * @throws IOException
    */
   void startStandbyServices(final Configuration conf) throws IOException {
     LOG.info("Starting services required for standby state");
     if (!getFSImage().editLog.isOpenForRead()) {
       // During startup, we're already open for read.
+      /**
+       *  先会进入 Standby 状态
+       *  - 首先会把 fsiamge 加载到内存文件中形成文件系统镜像
+       *  - 然后在加载 fsiamge 之后结束事务 id 之后的 EditLog 回放到这个文件系统镜像上
+       * */
       getFSImage().editLog.initSharedJournalsForRead();
     }
     

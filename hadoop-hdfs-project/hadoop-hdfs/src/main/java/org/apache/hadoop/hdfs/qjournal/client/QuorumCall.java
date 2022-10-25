@@ -141,12 +141,13 @@ class QuorumCall<KEY, RESULT> {
    * causing the return value of other methods in this class to change.
    *
    * @param minResponses return as soon as this many responses have been
+   *                      在规定时间返回的响应个数
    * received, regardless of whether they are successes or exceptions
    * @param minSuccesses return as soon as this many successful (non-exception)
-   * responses have been received
+   * responses have been received 如果 minSuccesses 节点返回的结果是成功的，则判定本次操作成功，结束等待
    * @param maxExceptions return as soon as this many exception responses
-   * have been received. Pass 0 to return immediately if any exception is
-   * received.
+   * have been received. Pass 0 to return immediately if any exception is received.
+   *                      一旦超过 maxExceptions 个失败结果，则结束等待，直接返回
    * @param millis the number of milliseconds to wait for
    * @throws InterruptedException if the thread is interrupted while waiting
    * @throws TimeoutException if the specified timeout elapses before
