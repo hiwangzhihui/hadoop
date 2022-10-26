@@ -85,11 +85,13 @@ public class EditLogTailer {
 
   /**
    * The last transaction ID at which an edit log roll was initiated.
+   *   editlog roll 最新的 transactionId
    */
   private long lastRollTriggerTxId = HdfsServerConstants.INVALID_TXID;
   
   /**
    * The highest transaction ID loaded by the Standby.
+   * Standby 已经加载的 transactionId
    */
   private long lastLoadedTxnId = HdfsServerConstants.INVALID_TXID;
 
@@ -193,7 +195,7 @@ public class EditLogTailer {
           DFSConfigKeys.DFS_HA_TAILEDITS_ALL_NAMESNODES_RETRY_DEFAULT);
       maxRetries = DFSConfigKeys.DFS_HA_TAILEDITS_ALL_NAMESNODES_RETRY_DEFAULT;
     }
-
+    //默认是不读取 inprocess 文件
     inProgressOk = conf.getBoolean(
         DFSConfigKeys.DFS_HA_TAILEDITS_INPROGRESS_KEY,
         DFSConfigKeys.DFS_HA_TAILEDITS_INPROGRESS_DEFAULT);
@@ -263,7 +265,7 @@ public class EditLogTailer {
     namesystem.writeLockInterruptibly();
     try {
       FSImage image = namesystem.getFSImage();
-
+      //Standby NameNode当前已经有的最大的TxId
       long lastTxnId = image.getLastAppliedTxId();
       
       if (LOG.isDebugEnabled()) {
@@ -271,6 +273,8 @@ public class EditLogTailer {
       }
       Collection<EditLogInputStream> streams;
       try {
+        //从 lastTxnId + 1 ~ 0 的文件列表
+        // inProgressOk 默认不读取 inprocess 文件
         streams = editLog.selectInputStreams(lastTxnId + 1, 0,
             null, inProgressOk, true);
       } catch (IOException ioe) {
@@ -290,6 +294,7 @@ public class EditLogTailer {
       // disk are ignored.
       long editsLoaded = 0;
       try {
+         //加载的 transaction 个数
         editsLoaded = image.loadEdits(streams, namesystem);
       } catch (EditLogInputException elie) {
         editsLoaded = elie.getNumEditsLoaded();
@@ -304,6 +309,7 @@ public class EditLogTailer {
       if (editsLoaded > 0) {
         lastLoadTimeMs = monotonicNow();
       }
+      //记录同步过来的最后一个 transactionId, 代表当前 Standby NameNode 的同步位置
       lastLoadedTxnId = image.getLastAppliedTxId();
     } finally {
       namesystem.writeUnlock();
@@ -319,6 +325,7 @@ public class EditLogTailer {
 
   /**
    * @return true if the configured log roll period has elapsed.
+   * 是否触发周期滚动
    */
   private boolean tooLongSinceLastLoad() {
     return logRollPeriodMs >= 0 && 
@@ -424,6 +431,7 @@ public class EditLogTailer {
           // state updates.
           namesystem.cpLockInterruptibly();
           try {
+            //开始拉取远程 segment 文件
             doTailEdits();
           } finally {
             namesystem.cpUnlock();
