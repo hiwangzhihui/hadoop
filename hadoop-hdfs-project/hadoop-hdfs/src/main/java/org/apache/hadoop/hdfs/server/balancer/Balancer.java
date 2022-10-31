@@ -203,13 +203,14 @@ public class Balancer {
   private final Set<String> sourceNodes;
   private final boolean runDuringUpgrade;
   private final double threshold;
+  //每次迭代过程一中存储类型最大允许移动的总数据量（dfs.balancer.max-size-to-move）默认 10GB
   private final long maxSizeToMove;
   private final long defaultBlockSize;
 
   // all data node lists
   private final Collection<Source> overUtilized = new LinkedList<Source>();
   private final Collection<Source> aboveAvgUtilized = new LinkedList<Source>();
-  private final Collection<StorageGroup> belowAvgUtilized
+  private final Collection<StorageGroup> belowAvgUtilized //
       = new LinkedList<StorageGroup>();
   private final Collection<StorageGroup> underUtilized
       = new LinkedList<StorageGroup>();
@@ -264,6 +265,7 @@ public class Balancer {
    */
   Balancer(NameNodeConnector theblockpool, BalancerParameters p,
       Configuration conf) {
+    //获取配置参数
     final long movedWinWidth = getLong(conf,
         DFSConfigKeys.DFS_BALANCER_MOVEDWINWIDTH_KEY,
         DFSConfigKeys.DFS_BALANCER_MOVEDWINWIDTH_DEFAULT);
@@ -291,11 +293,14 @@ public class Balancer {
         DFSConfigKeys.DFS_BALANCER_MAX_NO_MOVE_INTERVAL_DEFAULT);
 
     this.nnc = theblockpool;
+    //初始化 dispatcher
     this.dispatcher =
         new Dispatcher(theblockpool, p.getIncludedNodes(),
             p.getExcludedNodes(), movedWinWidth, moverThreads,
             dispatcherThreads, maxConcurrentMovesPerNode, getBlocksSize,
             getBlocksMinBlockSize, blockMoveTimeout, maxNoMoveInterval, conf);
+
+    //获取 Balancer 运行时参数
     this.threshold = p.getThreshold();
     this.policy = p.getBalancingPolicy();
     this.sourceNodes = p.getSourceNodes();
@@ -319,6 +324,10 @@ public class Balancer {
     return capacity;
   }
 
+  /**
+   * 获取节点执行存储类的存储余量
+   *  如果单个 Storage 余量小于一个 Block 大小则不纳入统计
+   * */
   private long getRemaining(DatanodeStorageReport report, StorageType t) {
     long remaining = 0L;
     for(StorageReport r : report.getStorageReports()) {
@@ -339,27 +348,38 @@ public class Balancer {
    * to the storage matching later on.
    *
    * @return the number of bytes needed to move in order to balance the cluster.
+   *  统计集群需要平衡的数据总量，和每个节点的可以迁入和迁出的数据需求
    */
   private long init(List<DatanodeStorageReport> reports) {
-    // compute average utilization
+    // compute average utilization  计算节点存储使用率
     for (DatanodeStorageReport r : reports) {
+      //将各节点存储容量和节点存储已使用量放入到 policy 中
       policy.accumulateSpaces(r);
     }
+    //计算各节点的存储使用率
     policy.initAvgUtilization();
 
     // create network topology and classify utilization collections: 
-    //   over-utilized, above-average, below-average and under-utilized.
-    long overLoadedBytes = 0L, underLoadedBytes = 0L;
+    //   over-utilized( 使用率过高), above-average（使用率高稍高 ）, below-average（使用率稍低） and under-utilized （ 使用率太低）.
+    long overLoadedBytes = 0L,  //节点过渡使用的空间
+            underLoadedBytes = 0L;  //节点
     for(DatanodeStorageReport r : reports) {
+      //创建一个 DDatanode 记录一个节点数据平衡任务信息
       final DDatanode dn = dispatcher.newDatanode(r.getDatanodeInfo());
+      //是否为指定的 source 节点 （不常用，不用太关心）
       final boolean isSource = Util.isIncluded(sourceNodes, dn.getDatanodeInfo());
+
+      //按存储类型进行分类统计
       for(StorageType t : StorageType.getMovableTypes()) {
+         //计算 datanode 指定存储类型的存储使用率
         final Double utilization = policy.getUtilization(r, t);
         if (utilization == null) { // datanode does not have such storage type 
           continue;
         }
-        
+
+        //获取指定类型在所有 datanode 中的评价使用率
         final double average = policy.getAvgUtilization(t);
+        //如果使用率大于等于平均使用率 且 不为指定为 source 节点则跳过
         if (utilization >= average && !isSource) {
           LOG.info(dn + "[" + t + "] has utilization=" + utilization
               + " >= average=" + average
@@ -367,35 +387,46 @@ public class Balancer {
           continue;
         }
 
+        //使用率差 节点使用率 - 平均使用率 （为负数）
         final double utilizationDiff = utilization - average;
+
+        //获取节点的指定类型的总容量
         final long capacity = getCapacity(r, t);
+
+        //是否超过使用率差阈值
         final double thresholdDiff = Math.abs(utilizationDiff) - threshold;
+
+        //该节点允许平衡的数据量
         final long maxSize2Move = computeMaxSize2Move(capacity,
             getRemaining(r, t), utilizationDiff, maxSizeToMove);
 
         final StorageGroup g;
         if (utilizationDiff > 0) {
+          //如果使用率差大于平均值，则作为供给方，统计其供给信息（需要迁出的数据信息）
           final Source s = dn.addSource(t, maxSize2Move, dispatcher);
-          if (thresholdDiff <= 0) { // within threshold
+          if (thresholdDiff <= 0) { // within threshold 使用率差小于阈值，则加入到 aboveAvgUtilized 列表
             aboveAvgUtilized.add(s);
-          } else {
-            overLoadedBytes += percentage2bytes(thresholdDiff, capacity);
+          } else { //使用率差大于阈值, 则加入到 overUtilized 列表
+            overLoadedBytes += percentage2bytes(thresholdDiff, capacity); //总的过载容量
             overUtilized.add(s);
           }
           g = s;
         } else {
+          //如果使用率差小于平均值，则作为需求方，统计其需求信息（需要迁入的数据信息）
           g = dn.addTarget(t, maxSize2Move);
-          if (thresholdDiff <= 0) { // within threshold
+          if (thresholdDiff <= 0) { // within threshold 使用率差小于阈值，则加入到 belowAvgUtilized 列表
             belowAvgUtilized.add(g);
-          } else {
-            underLoadedBytes += percentage2bytes(thresholdDiff, capacity);
+          } else { //使用率差大于阈值，则加入到 underUtilized 列表
+            underLoadedBytes += percentage2bytes(thresholdDiff, capacity); //总的空闲容量
             underUtilized.add(g);
           }
         }
+
+        //更新存储需求信息
         dispatcher.getStorageGroupMap().put(g);
       }
     }
-
+    //打印统计信息
     logUtilizationCollections();
     
     Preconditions.checkState(dispatcher.getStorageGroupMap().size()
@@ -403,17 +434,28 @@ public class Balancer {
            + belowAvgUtilized.size(),
         "Mismatched number of storage groups");
     
-    // return number of bytes to be moved in order to make the cluster balanced
+    // return number of bytes to be moved in order to make the cluster balanced 返回需要平衡迁移的数据
     return Math.max(overLoadedBytes, underLoadedBytes);
   }
 
+  /**
+   * @param capacity 节点存储资源总量
+   * @param remaining 节点存储资源余量
+   * @param utilizationDiff 节点使用率差
+   * @param max 允许一次迭代移动的总数据量
+   *  返回
+   * */
   private static long computeMaxSize2Move(final long capacity, final long remaining,
       final double utilizationDiff, final long max) {
     final double diff = Math.abs(utilizationDiff);
+    //该节点理论上需要平衡的数据量
     long maxSizeToMove = percentage2bytes(diff, capacity);
+
     if (utilizationDiff < 0) {
+      //余量和需要平衡的数据取 min
       maxSizeToMove = Math.min(remaining, maxSizeToMove);
     }
+    //需要平衡的数据量和本次迭代平衡数据量最大值取min
     return Math.min(max, maxSizeToMove);
   }
 
@@ -439,23 +481,26 @@ public class Balancer {
   }
 
   /**
+   * 决定数据块迁移的 source 节点和 target 节点
    * Decide all <source, target> pairs and
    * the number of bytes to move from a source to a target
    * Maximum bytes to be moved per storage group is
    * min(1 Band worth of bytes,  MAX_SIZE_TO_MOVE).
+   * 每一种类型的存储异常最大允许操作的数据量为 min( TODO， MAX_SIZE_TO_MOVE)
    * @return total number of bytes to move in this iteration
+   * 一次迭代中总共移动的数据量
    */
   private long chooseStorageGroups() {
     // First, match nodes on the same node group if cluster is node group aware
     if (dispatcher.getCluster().isNodeGroupAware()) {
-      chooseStorageGroups(Matcher.SAME_NODE_GROUP);
+      chooseStorageGroups(Matcher.SAME_NODE_GROUP); //如果支持节点组策略，则优先在节点组内部进行平衡操作
     }
     
-    // Then, match nodes on the same rack
+    // Then, match nodes on the same rack 优先同一机架内
     chooseStorageGroups(Matcher.SAME_RACK);
-    // At last, match all remaining nodes
+    // At last, match all remaining nodes  （按网络拓扑选择 TODO 在哪考虑）匹配剩余的节点
     chooseStorageGroups(Matcher.ANY_OTHER);
-    
+    //返回本次移动的数据大小
     return dispatcher.bytesToMove();
   }
 
@@ -463,6 +508,9 @@ public class Balancer {
   private void chooseStorageGroups(final Matcher matcher) {
     /* first step: match each overUtilized datanode (source) to
      * one or more underUtilized datanodes (targets).
+     * source：迁出
+     * target：迁入
+     * 首先选择 overUtilized 列表中的 DataNode 作为 source ， underUtilized 列表中的 DataNode 作为 target 进行匹配
      */
     LOG.info("chooseStorageGroups for " + matcher + ": overUtilized => underUtilized");
     chooseStorageGroups(overUtilized, underUtilized, matcher);
@@ -471,6 +519,7 @@ public class Balancer {
      * below average utilized datanodes (targets).
      * Note only overutilized datanodes that haven't had that max bytes to move
      * satisfied in step 1 are selected
+     * 其次选择 overutilized 列表中的 DataNode 作为 source ，belowAvgUtilized 列表中的 DataNode 作为 target 进行匹配
      */
     LOG.info("chooseStorageGroups for " + matcher + ": overUtilized => belowAvgUtilized");
     chooseStorageGroups(overUtilized, belowAvgUtilized, matcher);
@@ -479,6 +528,7 @@ public class Balancer {
      * above average utilized datanodes (source).
      * Note only underutilized datanodes that have not had that max bytes to
      * move satisfied in step 1 are selected.
+     * 最后选择 underUtilized 列表中的 DataNode 作为 source ， aboveAvgUtilized 列表中的 DataNode 作为 target 进行匹配
      */
     LOG.info("chooseStorageGroups for " + matcher + ": underUtilized => aboveAvgUtilized");
     chooseStorageGroups(underUtilized, aboveAvgUtilized, matcher);
@@ -495,7 +545,7 @@ public class Balancer {
     for(final Iterator<G> i = groups.iterator(); i.hasNext();) {
       final G g = i.next();
       for(; choose4One(g, candidates, matcher); );
-      if (!g.hasSpaceForScheduling()) {
+      if (!g.hasSpaceForScheduling()) {  //没有数据平衡需求则从需求列表中移除
         i.remove();
       }
     }
@@ -516,8 +566,10 @@ public class Balancer {
     if (g instanceof Source) {
       matchSourceWithTargetToMove((Source)g, chosen);
     } else {
+      //todo 反向匹配？
       matchSourceWithTargetToMove((Source)chosen, g);
     }
+    //如果没有需求则从列表中移除
     if (!chosen.hasSpaceForScheduling()) {
       i.remove();
     }
@@ -525,9 +577,12 @@ public class Balancer {
   }
   
   private void matchSourceWithTargetToMove(Source source, StorageGroup target) {
+    //运行操作的空间大小
     long size = Math.min(source.availableSizeToMove(), target.availableSizeToMove());
     final Task task = new Task(target, size);
+    //向 source 节点添加任务
     source.addTask(task);
+    //更新 target 调度的空间
     target.incScheduledSize(task.getSize());
     dispatcher.add(source, target);
     LOG.info("Decided to move "+StringUtils.byteDesc(size)+" bytes from "
@@ -599,12 +654,18 @@ public class Balancer {
     return new Result(exitStatus, -1, -1, dispatcher.getBytesMoved());
   }
 
-  /** Run an iteration for all datanodes. */
+  /** Run an iteration for all datanodes.
+   *  对 datanode 进行数据平衡操作
+   * */
   Result runOneIteration() {
     try {
+      //获取参与数据平衡的节点存储报告信息
       final List<DatanodeStorageReport> reports = dispatcher.init();
+
+      //统计集群本次需要平衡的数据量
       final long bytesLeftToMove = init(reports);
-      if (bytesLeftToMove == 0) {
+
+      if (bytesLeftToMove == 0) { // bytesLeftToMove 为 0 则表示没有需要平衡的数据
         System.out.println("The cluster is balanced. Exiting...");
         return newResult(ExitStatus.SUCCESS, bytesLeftToMove, 0);
       } else {
@@ -614,7 +675,7 @@ public class Balancer {
 
       // Should not run the balancer during an unfinalized upgrade, since moved
       // blocks are not deleted on the source datanode.
-      if (!runDuringUpgrade && nnc.isUpgrading()) {
+      if (!runDuringUpgrade && nnc.isUpgrading()) { //判断升级状态的集群是否允许数据平衡
         System.err.println("Balancer exiting as upgrade is not finalized, "
             + "please finalize the HDFS upgrade before running the balancer.");
         LOG.error("Balancer exiting as upgrade is not finalized, "
@@ -641,11 +702,13 @@ public class Balancer {
        * then initiates the move until all bytes are moved or no more block
        * available to move.
        * Exit no byte has been moved for 5 consecutive iterations.
+       * HDFS 集群是否继续操作？连续 idleiterations 次没有数据迁移则停止
        */
       if (!dispatcher.dispatchAndCheckContinue()) {
         return newResult(ExitStatus.NO_MOVE_PROGRESS, bytesLeftToMove, bytesBeingMoved);
       }
 
+      //返回数据状态为处理中
       return newResult(ExitStatus.IN_PROGRESS, bytesLeftToMove, bytesBeingMoved);
     } catch (IllegalArgumentException e) {
       System.out.println(e + ".  Exiting ...");
@@ -669,6 +732,7 @@ public class Balancer {
    */
   static int run(Collection<URI> namenodes, final BalancerParameters p,
       Configuration conf) throws IOException, InterruptedException {
+    //
     final long sleeptime =
         conf.getTimeDuration(DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_KEY,
             DFSConfigKeys.DFS_HEARTBEAT_INTERVAL_DEFAULT,
@@ -695,6 +759,7 @@ public class Balancer {
       for(int iteration = 0; !done; iteration++) {
         done = true;
         Collections.shuffle(connectors);
+        //随机从不同的 HDFS 集群开始 Balancer 操作
         for(NameNodeConnector nnc : connectors) {
           if (p.getBlockPools().size() == 0
               || p.getBlockPools().contains(nnc.getBlockpoolID())) {
@@ -703,6 +768,9 @@ public class Balancer {
             r.print(iteration, System.out);
 
             // clean all lists
+            /**
+             * 情况 Balancer 信息，包含 dispatcher
+             * */
             b.resetData(conf);
             if (r.exitStatus == ExitStatus.IN_PROGRESS) {
               done = false;
@@ -715,6 +783,7 @@ public class Balancer {
           }
         }
         if (!done) {
+          //间隔一段时间，操作第二个 HDFS 集群
           Thread.sleep(sleeptime);
         }
       }
@@ -775,9 +844,11 @@ public class Balancer {
       final Configuration conf = getConf();
 
       try {
+        //HDFS 集群副本置放策略检查，指支持  BlockPlacementPolicyDefault 策略的集群
         checkReplicationPolicyCompatibility(conf);
 
         final Collection<URI> namenodes = DFSUtil.getInternalNsRpcUris(conf);
+        //执行 Balancer
         return Balancer.run(namenodes, parse(args), conf);
       } catch (IOException e) {
         System.out.println(e + ".  Exiting ...");

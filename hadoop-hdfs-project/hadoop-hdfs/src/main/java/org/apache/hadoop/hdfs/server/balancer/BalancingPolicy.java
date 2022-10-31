@@ -32,10 +32,13 @@ import org.apache.hadoop.hdfs.util.EnumDoubles;
  */
 @InterfaceAudience.Private
 abstract class BalancingPolicy {
+
   final EnumCounters<StorageType> totalCapacities
       = new EnumCounters<StorageType>(StorageType.class);
+
   final EnumCounters<StorageType> totalUsedSpaces
       = new EnumCounters<StorageType>(StorageType.class);
+
   final EnumDoubles<StorageType> avgUtilizations
       = new EnumDoubles<StorageType>(StorageType.class);
 
@@ -51,6 +54,7 @@ abstract class BalancingPolicy {
   /** Accumulate used space and capacity. */
   abstract void accumulateSpaces(DatanodeStorageReport r);
 
+  //计算所有 datanode 的各存储类型的平均使用率
   void initAvgUtilization() {
     for(StorageType t : StorageType.asList()) {
       final long capacity = totalCapacities.get(t);
@@ -103,7 +107,9 @@ abstract class BalancingPolicy {
     void accumulateSpaces(DatanodeStorageReport r) {
       for(StorageReport s : r.getStorageReports()) {
         final StorageType t = s.getStorage().getStorageType();
+        //节点存储容量
         totalCapacities.add(t, s.getCapacity());
+        //节点存储已使用量
         totalUsedSpaces.add(t, s.getDfsUsed());
       }
     }

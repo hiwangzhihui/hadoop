@@ -22,26 +22,47 @@ import java.util.Set;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 
+/**
+ * Balancer 参数
+ * */
 @InterfaceAudience.Private
 final class BalancerParameters {
+  /**
+   * Balancer 策略
+   * 集群内部：DataNode 级别 (默认)
+   * HDFS Federation ：BlockPool级别
+   */
   private final BalancingPolicy policy;
+  /**
+   * 平衡使用率差,默认 10%
+   * */
   private final double threshold;
+  /**
+   * 最大连续空闲迭代次数，默认 5
+   * */
   private final int maxIdleIteration;
-  /** Exclude the nodes in this set. */
+  /** Exclude the nodes in this set.
+   *  不允许参与  Balancer 的 DataNode 列表
+   * */
   private final Set<String> excludedNodes;
-  /** If empty, include any node; otherwise, include only these nodes. */
+  /** If empty, include any node; otherwise, include only these nodes.
+   *  指定参与 Balancer 的  DataNode 列表
+   * */
   private final Set<String> includedNodes;
   /**
    * If empty, any node can be a source; otherwise, use only these nodes as
    * source nodes.
+   * 指定 DataNode 列表作为 源节点
    */
   private final Set<String> sourceNodes;
   /**
    * A set of block pools to run the balancer on.
+   * Federation 下参与 Balancer 的 blockpools 列表
    */
   private final Set<String> blockpools;
   /**
    * Whether to run the balancer during upgrade.
+   * 是否允许在正在进行的HDFS升级期间进行 Balancer 操作，默认 false
    */
   private final boolean runDuringUpgrade;
 

@@ -120,8 +120,13 @@ public class Dispatcher {
 
   private final Allocator moverThreadAllocator;
 
-  /** The maximum number of concurrent blocks moves at a datanode */
+  /** The maximum number of concurrent blocks moves at a datanode
+   *  一个节点最多能并发移动的数据块个数
+   * */
   private final int maxConcurrentMovesPerNode;
+  /**
+   * 一个节点最对能执行数据迁移的线程个数
+   * */
   private final int maxMoverThreads;
 
   private final long getBlocksSize;
@@ -529,7 +534,9 @@ public class Dispatcher {
   /** A class that keeps track of a datanode. */
   public static class DDatanode {
 
-    /** A group of storages in a datanode with the same storage type. */
+    /** A group of storages in a datanode with the same storage type.
+     *  在 DataNode 中一类存储的的信息
+     * */
     public class StorageGroup {
       final StorageType storageType;
       final long maxSize2Move;
@@ -624,10 +631,13 @@ public class Dispatcher {
     }
 
     final DatanodeInfo datanode;
+    //todo？
     private final EnumMap<StorageType, Source> sourceMap
         = new EnumMap<StorageType, Source>(StorageType.class);
+    //todo？
     private final EnumMap<StorageType, StorageGroup> targetMap
         = new EnumMap<StorageType, StorageGroup>(StorageType.class);
+
     protected long delayUntil = 0L;
     /** blocks being moved but not confirmed yet */
     private final List<PendingMove> pendings;
@@ -1104,18 +1114,24 @@ public class Dispatcher {
     return false;
   }
 
-  /** Get live datanode storage reports and then build the network topology. */
+  /** Get live datanode storage reports and then build the network topology.
+   *  获取节点数据存储报告，同时构建其网络拓扑结构
+   *  DatanodeStorageReport 类中包这两个信息
+   * */
   public List<DatanodeStorageReport> init() throws IOException {
     final DatanodeStorageReport[] reports = nnc.getLiveDatanodeStorageReport();
-    final List<DatanodeStorageReport> trimmed = new ArrayList<DatanodeStorageReport>(); 
+    final List<DatanodeStorageReport> trimmed = new ArrayList<DatanodeStorageReport>();
     // create network topology and classify utilization collections:
     // over-utilized, above-average, below-average and under-utilized.
     for (DatanodeStorageReport r : DFSUtil.shuffle(reports)) {
       final DatanodeInfo datanode = r.getDatanodeInfo();
       if (shouldIgnore(datanode)) {
+        //排查不参与数据平衡的节点
         continue;
       }
+      //trimmed 存放所有参与数据平衡的 datanode 节点存储报告信息
       trimmed.add(r);
+      //cluster 存放所有参与数据平衡的 datanode 节点列表, 放入 cluster 拓扑结构中
       cluster.add(datanode);
     }
     return trimmed;
