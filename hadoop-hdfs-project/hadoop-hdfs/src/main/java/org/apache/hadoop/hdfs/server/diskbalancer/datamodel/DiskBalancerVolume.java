@@ -36,14 +36,14 @@ public class DiskBalancerVolume {
       new ObjectMapper().readerFor(DiskBalancerVolume.class);
 
   private String path;
-  private long capacity;
-  private String storageType;
-  private long used;
-  private long reserved;
+  private long capacity; //磁盘容量
+  private String storageType; //磁盘存储类型
+  private long used; //HDFS 磁盘已使用量
+  private long reserved;  //磁盘预留资源量
   private String uuid;
   private boolean failed;
   private boolean isTransient;
-  private double volumeDataDensity;
+  private double volumeDataDensity; //磁盘存储密度值
   private boolean skip = false;
   private boolean isReadOnly;
 

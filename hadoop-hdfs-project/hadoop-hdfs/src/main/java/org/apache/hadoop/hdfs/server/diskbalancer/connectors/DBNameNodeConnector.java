@@ -84,6 +84,7 @@ class DBNameNodeConnector implements ClusterConnector {
     DatanodeStorageReport[] reports = this.connector
         .getLiveDatanodeStorageReport();
 
+    //将 DatanodeStorageReport 存储报告转换为  DiskBalancerDataNode
     for (DatanodeStorageReport report : reports) {
       DiskBalancerDataNode datanode = getBalancerNodeFromDataNode(
           report.getDatanodeInfo());
@@ -124,7 +125,7 @@ class DBNameNodeConnector implements ClusterConnector {
   /**
    * Reads the relevant fields from each storage volume and populate the
    * DiskBalancer Node.
-   *
+   * 包装 DiskBalancerVolume
    * @param node    - Disk Balancer Node
    * @param reports - Array of StorageReport
    */
@@ -153,6 +154,7 @@ class DBNameNodeConnector implements ClusterConnector {
           .READ_ONLY_SHARED) || report.isFailed());
       volume.setStorageType(storage.getStorageType().name());
       volume.setIsTransient(storage.getStorageType().isTransient());
+      //将 DiskBalancerVolume 按存储类型归类，并计算其存储密度
       node.addVolume(volume);
     }
 

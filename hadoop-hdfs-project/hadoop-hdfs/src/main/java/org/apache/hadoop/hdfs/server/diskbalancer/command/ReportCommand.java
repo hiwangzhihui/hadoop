@@ -73,6 +73,7 @@ public class ReportCommand extends Command {
 
     Preconditions.checkState(cmd.hasOption(DiskBalancerCLI.REPORT));
     verifyCommandOptions(DiskBalancerCLI.REPORT, cmd);
+    //获取集群中所有 dataNode 的磁盘密度报告信息
     readClusterInfo(cmd);
 
     final String nodeFormat =
@@ -86,11 +87,13 @@ public class ReportCommand extends Command {
     if (cmd.hasOption(DiskBalancerCLI.NODE)) {
       /*
        * Reporting volume information for specific DataNode(s)
+       *  获取指定节点的报告信息
        */
       handleNodeReport(cmd, result, nodeFormatWithoutSequence, volumeFormat);
 
     } else { // handle TOP
       /*
+       * 根据 datanode 磁盘密度值降序排序获取 top x  dataNode 列表
        * Reporting volume information for top X DataNode(s)
        */
       handleTopReport(cmd, result, nodeFormat);

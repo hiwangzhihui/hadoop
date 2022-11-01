@@ -28,13 +28,14 @@ import java.util.Map;
  * between a set of Nodes.
  */
 public class DiskBalancerDataNode implements Comparable<DiskBalancerDataNode> {
-  private double nodeDataDensity;
+  private double nodeDataDensity; //DataNode 磁盘密度
+  //节点上各磁盘密度报表列表 <storageType,DiskBalancerVolumeSet>
   private Map<String, DiskBalancerVolumeSet> volumeSets;
   private String dataNodeUUID;
   private String dataNodeIP;
   private int dataNodePort;
   private String dataNodeName;
-  private int volumeCount;
+  private int volumeCount; //磁盘总个数
 
   /**
    * Constructs an Empty Data Node.
@@ -199,6 +200,8 @@ public class DiskBalancerDataNode implements Comparable<DiskBalancerDataNode> {
    * <p/>
    * This metric allows us to compare different  nodes and how well the data is
    * spread across a set of volumes inside the node.
+   * 节点磁盘密度 = 节点各磁盘密度绝对值指总和
+   * 该数越大则该节点磁盘的数据越不平衡
    */
   public void computeNodeDensity() {
     double sum = 0;

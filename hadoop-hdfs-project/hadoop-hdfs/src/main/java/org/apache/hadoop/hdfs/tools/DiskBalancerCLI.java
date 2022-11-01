@@ -189,6 +189,7 @@ public class DiskBalancerCLI extends Configured implements Tool {
   public int run(String[] args) throws Exception {
     Options opts = getOpts();
     CommandLine cmd = parseArgs(args, opts);
+    // diskbalancer  命令行运行入口
     return dispatch(cmd, opts);
   }
 
@@ -466,22 +467,24 @@ public class DiskBalancerCLI extends Configured implements Tool {
       throws Exception {
     Command dbCmd = null;
     try {
+      //获取指定 datanode 的执行计划
       if (cmd.hasOption(DiskBalancerCLI.PLAN)) {
         dbCmd = new PlanCommand(getConf(), printStream);
       }
-
+      //提交 datanode diskbalancer 执行计划
       if (cmd.hasOption(DiskBalancerCLI.EXECUTE)) {
         dbCmd = new ExecuteCommand(getConf());
       }
 
+      //查询指定 datanode 上平衡器的执行状态
       if (cmd.hasOption(DiskBalancerCLI.QUERY)) {
         dbCmd = new QueryCommand(getConf());
       }
-
+     //取消指定 datanode 上 diskbalancer 执行计划
       if (cmd.hasOption(DiskBalancerCLI.CANCEL)) {
         dbCmd = new CancelCommand(getConf());
       }
-
+      //获取集群节点的磁盘均衡报告
       if (cmd.hasOption(DiskBalancerCLI.REPORT)) {
         dbCmd = new ReportCommand(getConf(), this.printStream);
       }

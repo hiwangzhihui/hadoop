@@ -49,11 +49,11 @@ public class DiskBalancerVolumeSet {
   private Set<DiskBalancerVolume> volumes;
 
   @JsonIgnore
-  private TreeSet<DiskBalancerVolume> sortedQueue;
-  private String storageType;
+  private TreeSet<DiskBalancerVolume> sortedQueue; // MinHeap 根据 volumeDataDensity 存储密度排序
+  private String storageType;  //存储类型
   private String setID;
 
-  private double idealUsed;
+  private double idealUsed; //指定存储类型在 datanode 上的存储平均使用率
 
 
   /**
@@ -114,12 +114,12 @@ public class DiskBalancerVolumeSet {
    * our priority queue and recompute everything.
    *
    * we discard failed volumes from this computation.
-   *
-   * totalCapacity = totalCapacity of this volumeSet
-   * totalUsed = totalDfsUsed for this volumeSet
-   * idealUsed = totalUsed / totalCapacity
-   * dfsUsedRatio = dfsUsedOnAVolume / Capacity On that Volume
-   * volumeDataDensity = idealUsed - dfsUsedRatio
+   *  计算节点上指定存储类型的各磁盘的存储密度
+   * totalCapacity = totalCapacity of this volumeSet  存储总量
+   * totalUsed = totalDfsUsed for this volumeSet   存储总的使用量
+   * idealUsed = totalUsed / totalCapacity   该类型存储使用的平均使用率
+   * dfsUsedRatio = dfsUsedOnAVolume / Capacity On that Volume 指定磁盘平均使用率
+   * volumeDataDensity = idealUsed - dfsUsedRatio  指定磁盘的存储密度
    */
   public void computeVolumeDataDensity() {
     long totalCapacity = 0;
@@ -148,10 +148,11 @@ public class DiskBalancerVolumeSet {
 
     for (DiskBalancerVolume volume : volumes) {
       if (!volume.isFailed() && !volume.isSkip()) {
+        //当前磁盘空间使用率
         double dfsUsedRatio =
             truncateDecimals(volume.getUsed() /
                 (double) volume.computeEffectiveCapacity());
-
+         //计算单个磁盘的存储密度
         volume.setVolumeDataDensity(this.idealUsed - dfsUsedRatio);
         sortedQueue.add(volume);
       }

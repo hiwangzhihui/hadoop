@@ -77,9 +77,9 @@ public class DiskBalancerCluster {
       new ObjectMapper().readerFor(DiskBalancerCluster.class);
   private final Set<String> exclusionList;
   private final Set<String> inclusionList;
-  private ClusterConnector clusterConnector;
-  private List<DiskBalancerDataNode> nodes;
-  private String outputpath;
+  private ClusterConnector clusterConnector;  //不指定文件列表，则默认使用 DBNameNodeConnector
+  private List<DiskBalancerDataNode> nodes; //datanode 磁盘密度报告列表
+  private String outputpath;  //报告输出路径
 
   @JsonIgnore
   private List<DiskBalancerDataNode> nodesToProcess;
@@ -134,6 +134,7 @@ public class DiskBalancerCluster {
   public void readClusterInfo() throws Exception {
     Preconditions.checkNotNull(clusterConnector);
     LOG.debug("Using connector : {}" , clusterConnector.getConnectorInfo());
+    //获取 DataNode 磁盘密度报告
     nodes = clusterConnector.getNodes();
     for(DiskBalancerDataNode node : nodes) {
 
