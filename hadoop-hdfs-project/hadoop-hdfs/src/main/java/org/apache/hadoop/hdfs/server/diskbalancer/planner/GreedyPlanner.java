@@ -71,6 +71,7 @@ public class GreedyPlanner implements Planner {
         node.getDataNodeName(), node.getDataNodePort());
     while (node.isBalancingNeeded(this.threshold)) {
       for (DiskBalancerVolumeSet vSet : node.getVolumeSets().values()) {
+        //将需要平衡的磁盘加入计划
         balanceVolumeSet(node, vSet, plan);
       }
     }
@@ -100,7 +101,7 @@ public class GreedyPlanner implements Planner {
     DiskBalancerVolumeSet currentSet = new DiskBalancerVolumeSet(vSet);
 
     while (currentSet.isBalancingNeeded(this.threshold)) {
-      removeSkipVolumes(currentSet);
+      removeSkipVolumes(currentSet); //移除已经生成计划的 VolumeSet
 
       DiskBalancerVolume lowVolume = currentSet.getSortedQueue().first();
       DiskBalancerVolume highVolume = currentSet.getSortedQueue().last();
@@ -109,12 +110,13 @@ public class GreedyPlanner implements Planner {
       // ok both volumes bytes used are in the range that we expect
       // Then we create a move request.
       if (!lowVolume.isSkip() && !highVolume.isSkip()) {
+          //首先 lowVolume 与 highVolume 进行匹配，生成移动计划
         nextStep = computeMove(currentSet, lowVolume, highVolume);
       } else {
         LOG.debug("Skipping compute move. lowVolume: {} highVolume: {}",
             lowVolume.getPath(), highVolume.getPath());
       }
-
+      //更新执行 nextStep 后容量信息，重新排序
       applyStep(nextStep, currentSet, lowVolume, highVolume);
       if (nextStep != null) {
         LOG.debug("Step : {} ",  nextStep.toString());
@@ -149,6 +151,7 @@ public class GreedyPlanner implements Planner {
 
     long used;
     if (nextStep != null) {
+       //更新执行 Plan 后的容量信息
       used = lowVolume.getUsed() + nextStep.getBytesToMove();
       lowVolume.setUsed(used);
 
@@ -157,7 +160,7 @@ public class GreedyPlanner implements Planner {
     }
 
     // since the volume data changed , we need to recompute the DataDensity.
-    currentSet.computeVolumeDataDensity();
+    currentSet.computeVolumeDataDensity(); //更新更新存储磁盘密度状态
     printQueue(currentSet.getSortedQueue());
   }
 
@@ -182,6 +185,7 @@ public class GreedyPlanner implements Planner {
 
     // This disk cannot take any more data from any disk.
     // Remove it from our computation matrix.
+    //如果不需要平衡则更新 skip 状态
     if (maxLowVolumeCanReceive <= 0) {
       LOG.debug("{} Skipping disk from computation. Maximum data size " +
           "achieved.", lowVolume.getPath());
@@ -193,18 +197,19 @@ public class GreedyPlanner implements Planner {
             highVolume.computeEffectiveCapacity());
     // This volume cannot give any more data, remove it from the
     // computation matrix
+    //如果不需要平衡则更新 skip 状态
     if (maxHighVolumeCanGive <= 0) {
       LOG.debug(" {} Skipping disk from computation. Minimum data size " +
           "achieved.", highVolume.getPath());
       skipVolume(currentSet, highVolume);
     }
 
-
+    //最终运行移动的数据量
     long bytesToMove = Math.min(maxLowVolumeCanReceive, maxHighVolumeCanGive);
     Step nextStep = null;
 
     if (bytesToMove > 0) {
-      // Create a new step
+      // Create a new step 创建一个移动  step
       nextStep = new MoveStep(highVolume, currentSet.getIdealUsed(), lowVolume,
           bytesToMove, currentSet.getSetID());
       LOG.debug(nextStep.toString());

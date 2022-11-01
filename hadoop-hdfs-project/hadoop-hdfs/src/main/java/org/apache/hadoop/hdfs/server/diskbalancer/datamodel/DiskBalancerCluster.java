@@ -82,7 +82,7 @@ public class DiskBalancerCluster {
   private String outputpath;  //报告输出路径
 
   @JsonIgnore
-  private List<DiskBalancerDataNode> nodesToProcess;
+  private List<DiskBalancerDataNode> nodesToProcess; //待执行的平衡计划
   @JsonIgnore
   private final Map<String, DiskBalancerDataNode> ipList;
   @JsonIgnore
@@ -297,8 +297,8 @@ public class DiskBalancerCluster {
    * that we are supposed to plan for. Each of these planners return a NodePlan
    * that we can persist or schedule for execution with a diskBalancer
    * Executor.
-   *
-   * @param thresholdPercent - in percentage
+   *  构造一个 node 上的执行计划
+   * @param thresholdPercent - in percentage  磁盘存储密度阈值
    * @return list of NodePlans
    */
   public List<NodePlan> computePlan(double thresholdPercent) {
@@ -310,7 +310,7 @@ public class DiskBalancerCluster {
     }
 
     int poolSize = computePoolSize(nodesToProcess.size());
-
+    //并发生成执行计划（为每个 datanode）
     ExecutorService executorService = Executors.newFixedThreadPool(poolSize);
     List<Future<NodePlan>> futureList = new LinkedList<>();
     for (int x = 0; x < nodesToProcess.size(); x++) {
@@ -322,6 +322,7 @@ public class DiskBalancerCluster {
         @Override
         public NodePlan call() throws Exception {
           assert planner != null;
+               //生成执行计划
           return planner.plan(node);
         }
       }));

@@ -46,9 +46,9 @@ import java.io.PrintStream;
  * It writes the output to a default location unless changed by the user.
  */
 public class PlanCommand extends Command {
-  private double thresholdPercentage;
-  private int bandwidth;
-  private int maxError;
+  private double thresholdPercentage;  //磁盘存储密度，平衡阈值（默认 10%）
+  private int bandwidth; // DataNode 运行Disk Balancer的最大带宽限制。默认带宽10 MB/s todo 默认值在哪配置
+  private int maxError; // 在数据移动过程中最大允许移动数据块出错的次数 TODO 在哪使用？
 
   /**
    * Constructs a plan command.
@@ -109,12 +109,13 @@ public class PlanCommand extends Command {
       this.maxError = Integer.parseInt(cmd.getOptionValue(DiskBalancerCLI
           .MAXERROR));
     }
-
+    //生产执行计划，重新读取了一次 report
     readClusterInfo(cmd);
     String output = null;
     if (cmd.hasOption(DiskBalancerCLI.OUTFILE)) {
       output = cmd.getOptionValue(DiskBalancerCLI.OUTFILE);
     }
+    //设置写出执行计划路径（默认在 HDFS：/system/diskbalancer）
     setOutputPath(output);
 
     // -plan nodename is the command line argument.
@@ -135,10 +136,12 @@ public class PlanCommand extends Command {
     this.thresholdPercentage = getThresholdPercentage(cmd);
 
     LOG.debug("threshold Percentage is {}", this.thresholdPercentage);
+    //创建指定 node 的执行计划
     setNodesToProcess(node);
     populatePathNames(node);
 
     NodePlan plan = null;
+    //计算出执行计划
     List<NodePlan> plans = getCluster().computePlan(this.thresholdPercentage);
     setPlanParams(plans);
 

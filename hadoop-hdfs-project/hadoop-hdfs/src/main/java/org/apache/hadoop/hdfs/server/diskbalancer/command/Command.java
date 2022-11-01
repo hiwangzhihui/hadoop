@@ -548,12 +548,15 @@ public abstract class Command extends Configured implements Closeable {
     }
     String dnAddress = node.getDataNodeIP() + ":" + node.getDataNodePort();
     ClientDatanodeProtocol dnClient = getDataNodeProxy(dnAddress);
+    //获取能够参与 DiskBalancer 的磁盘列表， todo 动态新增磁盘看起来，这类磁盘不能参与
     String volumeNameJson = dnClient.getDiskBalancerSetting(
         DiskBalancerConstants.DISKBALANCER_VOLUME_NAME);
 
     @SuppressWarnings("unchecked")
+            // <StorageID,StoragePath>
     Map<String, String> volumeMap =
         READER.readValue(volumeNameJson);
+
     for (DiskBalancerVolumeSet set : node.getVolumeSets().values()) {
       for (DiskBalancerVolume vol : set.getVolumes()) {
         if (volumeMap.containsKey(vol.getUuid())) {
