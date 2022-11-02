@@ -179,10 +179,10 @@ public class DiskBalancerWorkStatus {
 
   /** Various result values. **/
   public enum Result {
-    NO_PLAN(0),
-    PLAN_UNDER_PROGRESS(1),
-    PLAN_DONE(2),
-    PLAN_CANCELLED(3);
+    NO_PLAN(0), //没有执行计划
+    PLAN_UNDER_PROGRESS(1), //计划执行中
+    PLAN_DONE(2), //执行计划完成
+    PLAN_CANCELLED(3);  //执行计划取消
     private int result;
 
     private Result(int result) {

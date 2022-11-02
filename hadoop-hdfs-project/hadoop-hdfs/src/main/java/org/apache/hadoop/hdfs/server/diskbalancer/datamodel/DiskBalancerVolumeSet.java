@@ -267,6 +267,7 @@ public class DiskBalancerVolumeSet {
    * @param thresholdPercentage - threshold - in percentage
    *
    * @return true if balancing is needed false otherwise.
+   * 判断是否需要进行平衡操作
    */
   public boolean isBalancingNeeded(double thresholdPercentage) {
     double threshold = thresholdPercentage / 100.0d;

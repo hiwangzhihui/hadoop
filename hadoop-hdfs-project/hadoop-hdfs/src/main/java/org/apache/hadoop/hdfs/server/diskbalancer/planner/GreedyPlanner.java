@@ -44,7 +44,7 @@ public class GreedyPlanner implements Planner {
   public static final long TB = GB * 1024L;
   private static final Logger LOG =
       LoggerFactory.getLogger(GreedyPlanner.class);
-  private final double threshold;
+  private final double threshold; //平衡阈值
 
   /**
    * Constructs a greedy planner.
