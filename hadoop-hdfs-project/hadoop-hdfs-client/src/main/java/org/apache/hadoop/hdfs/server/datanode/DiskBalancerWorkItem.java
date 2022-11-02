@@ -41,14 +41,14 @@ public class DiskBalancerWorkItem {
 
   private  long startTime;
   private long secondsElapsed;
-  private long bytesToCopy;
-  private long bytesCopied;
+  private long bytesToCopy; //待拷贝的数据大小
+  private long bytesCopied; //已经拷贝完成的数据大小
   private long errorCount;
   private String errMsg;
-  private long blocksCopied;
+  private long blocksCopied;  //迁移完成数据块个数
 
   private long maxDiskErrors;
-  private long tolerancePercent;
+  private long tolerancePercent; //平衡阈值
   private long bandwidth;
 
   /**

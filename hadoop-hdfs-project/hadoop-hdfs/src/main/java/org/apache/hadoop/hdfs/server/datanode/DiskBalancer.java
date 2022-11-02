@@ -876,6 +876,7 @@ public class DiskBalancer {
       }
       final int megaByte = 1024 * 1024;
       long bytesInMB = bytesCopied / megaByte;
+      //当前数据拷贝的吞吐
       long lastThroughput = bytesInMB / SECONDS.convert(timeUsed,
           TimeUnit.MILLISECONDS);
       long delay = (bytesInMB / getDiskBandwidth(item)) - lastThroughput;
@@ -1060,7 +1061,7 @@ public class DiskBalancer {
               break;
             }
 
-            // Check for the block tolerance constraint. 数据拷贝速度是达到上限，则停止，在下一个轮训执行
+            // Check for the block tolerance constraint.  数据迁移达到预期，停止拷贝
             if (isCloseEnough(item)) {
               LOG.info("Copy from {} to {} done. copied {} bytes and {} " +
                       "blocks.",
