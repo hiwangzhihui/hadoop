@@ -190,13 +190,15 @@ public class DiskBalancer {
         throw new DiskBalancerException("Executing another plan",
             DiskBalancerException.Result.PLAN_ALREADY_IN_PROGRESS);
       }
+      //校验执行计划
       NodePlan nodePlan = verifyPlan(planId, planVersion, planData, force);
       createWorkPlan(nodePlan);
       this.planID = planId;
       this.planFile = planFileName;
       this.currentResult = Result.PLAN_UNDER_PROGRESS;
-      executePlan();
+      //执行计划
     } finally {
+      executePlan();
       lock.unlock();
     }
   }
@@ -466,7 +468,8 @@ public class DiskBalancer {
     workMap.clear();
     Map<String, String> storageIDToVolBasePathMap =
         getStorageIDToVolumeBasePathMap();
-
+    //将 plan 中的 step 转换为 VolumePair 放入 workMap 数据集合中，为每个 VolumePair
+    // 分配一个 DiskBalancerWorkItem 统计迁移任务信息
     for (Step step : plan.getVolumeSetPlans()) {
       String sourceVolUuid = step.getSourceVolume().getUuid();
       String destVolUuid = step.getDestinationVolume().getUuid();
@@ -488,6 +491,7 @@ public class DiskBalancer {
         throw new DiskBalancerException(errMsg,
             DiskBalancerException.Result.INVALID_VOLUME);
       }
+
       VolumePair volumePair = new VolumePair(sourceVolUuid,
           sourceVolBasePath, destVolUuid, destVolBasePath);
       createWorkPlan(volumePair, step);
@@ -538,6 +542,7 @@ public class DiskBalancer {
         Thread.currentThread().setName("DiskBalancerThread");
         LOG.info("Executing Disk balancer plan. Plan File: {}, Plan ID: {}",
             planFile, planID);
+        //执行数据平衡迁移
         for (Map.Entry<VolumePair, DiskBalancerWorkItem> entry :
             workMap.entrySet()) {
           blockMover.setRunnable();
@@ -898,17 +903,18 @@ public class DiskBalancer {
      */
     private ExtendedBlock getBlockToCopy(FsVolumeSpi.BlockIterator iter,
                                          DiskBalancerWorkItem item) {
+      //找到适合的数据块
       while (!iter.atEnd() && item.getErrorCount() < getMaxError(item)) {
         try {
           ExtendedBlock block = iter.nextBlock();
 
           // A valid block is a finalized block, we iterate until we get
-          // finalized blocks
+          // finalized blocks 状态为 finalized block
           if (!this.dataset.isValidBlock(block)) {
             continue;
           }
 
-          // We don't look for the best, we just do first fit
+          // We don't look for the best, we just do first fit  block 大小是小于目标所需的大小
           if (isLessThanNeeded(block.getNumBytes(), item)) {
             return block;
           }
@@ -958,6 +964,7 @@ public class DiskBalancer {
       ExtendedBlock block = null;
       while (block == null && currentCount < poolIters.size()) {
         currentCount++;
+        //轮训的方式从该磁盘下的各块池中获取数据块迁移
         int index = poolIndex++ % poolIters.size();
         FsVolumeSpi.BlockIterator currentPoolIter = poolIters.get(index);
         block = getBlockToCopy(currentPoolIter, item);
@@ -993,8 +1000,8 @@ public class DiskBalancer {
     /**
      * Copies blocks from a set of volumes.
      *
-     * @param pair - Source and Destination Volumes.
-     * @param item - Number of bytes to move from volumes.
+     * @param pair - Source and Destination Volumes. 数据迁移源和目标信息
+     * @param item - Number of bytes to move from volumes. 迁移数据统计信息
      */
     @Override
     public void copyBlocks(VolumePair pair, DiskBalancerWorkItem item) {
@@ -1019,7 +1026,7 @@ public class DiskBalancer {
         item.setErrMsg(errMsg);
         return;
       }
-
+       //不支持临时数据迁移
       if (source.isTransientStorage() || dest.isTransientStorage()) {
         final String errMsg = "Disk Balancer - Unable to support " +
                 "transient storage type.";
@@ -1034,6 +1041,7 @@ public class DiskBalancer {
       secondsElapsed = 0;
 
       try {
+        //获取所有  BlockPool 的迭代器
         openPoolIters(source, poolIters);
         if (poolIters.size() == 0) {
           LOG.error("No block pools found on volume. volume : {}. Exiting.",
@@ -1044,7 +1052,7 @@ public class DiskBalancer {
         while (shouldRun()) {
           try {
 
-            // Check for the max error count constraint.
+            // Check for the max error count constraint. 移动错误次数达到上限
             if (item.getErrorCount() > getMaxError(item)) {
               LOG.error("Exceeded the max error count. source {}, dest: {} " +
                       "error count: {}", source.getBaseURI(),
@@ -1052,7 +1060,7 @@ public class DiskBalancer {
               break;
             }
 
-            // Check for the block tolerance constraint.
+            // Check for the block tolerance constraint. 数据拷贝速度是达到上限，则停止，在下一个轮训执行
             if (isCloseEnough(item)) {
               LOG.info("Copy from {} to {} done. copied {} bytes and {} " +
                       "blocks.",
@@ -1061,7 +1069,7 @@ public class DiskBalancer {
               this.setExitFlag();
               continue;
             }
-
+            //获取一个需要移动的 Block
             ExtendedBlock block = getNextBlock(poolIters, item);
             // we are not able to find any blocks to copy.
             if (block == null) {
@@ -1084,6 +1092,7 @@ public class DiskBalancer {
             // if dest has no space, which we handle anyway.
             if (dest.getAvailable() > item.getBytesToCopy()) {
               long begin = System.nanoTime();
+              //执行拷贝
               this.dataset.moveBlockAcrossVolumes(block, dest);
               long now = System.nanoTime();
               timeUsed = (now - begin) > 0 ? now - begin : 0;
@@ -1108,6 +1117,7 @@ public class DiskBalancer {
             // to make sure that our promise is good on average.
             // Because we sleep, if a shutdown or cancel call comes in
             // we exit via Thread Interrupted exception.
+            //迁移速度限制
             Thread.sleep(computeDelay(block.getNumBytes(), timeUsed, item));
 
             // We delay updating the info to avoid confusing the user.

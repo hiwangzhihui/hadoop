@@ -389,7 +389,7 @@ public class DataNode extends ReconfigurableBase
   private static final int NUM_CORES = Runtime.getRuntime()
       .availableProcessors();
   private static final double CONGESTION_RATIO = 1.5;
-  private DiskBalancer diskBalancer;
+  private DiskBalancer diskBalancer; //diskBalancer 线程服务
 
   @Nullable
   private final StorageLocationChecker storageLocationChecker;
@@ -3502,11 +3502,11 @@ public class DataNode extends ReconfigurableBase
 
   /**
    * Allows submission of a disk balancer Job.
-   * @param planID  - Hash value of the plan.
+   * @param planID  - Hash value of the plan. 执行计划Id
    * @param planVersion - Plan version, reserved for future use. We have only
    *                    version 1 now.
-   * @param planFile - Plan file name
-   * @param planData - Actual plan data in json format
+   * @param planFile - Plan file name  执行计划的文件名
+   * @param planData - Actual plan data in json format 执行计划文件内容（JSON 格式）
    * @throws IOException
    */
   @Override

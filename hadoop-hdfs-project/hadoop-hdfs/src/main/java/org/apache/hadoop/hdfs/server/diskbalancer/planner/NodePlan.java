@@ -33,8 +33,8 @@ import java.util.List;
 public class NodePlan {
   @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS,
       include = JsonTypeInfo.As.PROPERTY, property = "@class")
-  private List<Step> volumeSetPlans;
-  private String nodeName;
+  private List<Step> volumeSetPlans; //执行计划列表
+  private String nodeName; //运行执行计划的 DataNode
   private String nodeUUID;
   private int port;
   private long timeStamp;

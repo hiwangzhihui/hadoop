@@ -85,7 +85,7 @@ public class ExecuteCommand extends Command {
 
   /**
    * Submits plan to a given data node.
-   *
+   * 提交执行计划给 datanode 执行
    * @param planFile - Plan file name
    * @param planData - Plan data in json format
    * @param skipDateCheck - skips date check
@@ -99,8 +99,9 @@ public class ExecuteCommand extends Command {
     String dataNodeAddress = plan.getNodeName() + ":" + plan.getPort();
     Preconditions.checkNotNull(dataNodeAddress);
     ClientDatanodeProtocol dataNode = getDataNodeProxy(dataNodeAddress);
-    String planHash = DigestUtils.shaHex(planData);
+    String planHash = DigestUtils.shaHex(planData); //作为 PlanId
     try {
+      //调用 datanode 的 submitDiskBalancerPlan 提交执行计划
       dataNode.submitDiskBalancerPlan(planHash, DiskBalancerCLI.PLAN_VERSION,
                                       planFile, planData, skipDateCheck);
     } catch (DiskBalancerException ex) {
