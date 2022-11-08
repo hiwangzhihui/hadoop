@@ -1119,14 +1119,15 @@ public class Dispatcher {
    *  DatanodeStorageReport 类中包这两个信息
    * */
   public List<DatanodeStorageReport> init() throws IOException {
+    //从 NameNode 中获取所有 DataNode 存储报告信息和 datanode 网络拓扑信息
     final DatanodeStorageReport[] reports = nnc.getLiveDatanodeStorageReport();
     final List<DatanodeStorageReport> trimmed = new ArrayList<DatanodeStorageReport>();
     // create network topology and classify utilization collections:
     // over-utilized, above-average, below-average and under-utilized.
-    for (DatanodeStorageReport r : DFSUtil.shuffle(reports)) {
+    for (DatanodeStorageReport r : DFSUtil.shuffle(reports)) {//乱序将入到列表中
       final DatanodeInfo datanode = r.getDatanodeInfo();
       if (shouldIgnore(datanode)) {
-        //排查不参与数据平衡的节点
+        //排除不参与数据平衡的节点
         continue;
       }
       //trimmed 存放所有参与数据平衡的 datanode 节点存储报告信息

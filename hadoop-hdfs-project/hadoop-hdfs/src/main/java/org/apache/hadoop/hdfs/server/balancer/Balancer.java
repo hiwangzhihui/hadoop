@@ -360,7 +360,7 @@ public class Balancer {
     policy.initAvgUtilization();
 
     // create network topology and classify utilization collections: 
-    //   over-utilized( 使用率过高), above-average（使用率高稍高 ）, below-average（使用率稍低） and under-utilized （ 使用率太低）.
+    //   over-utilized( 使用率过高), above-average（使用率稍高 ）, below-average（使用率稍低） and under-utilized （ 使用率太低）.
     long overLoadedBytes = 0L,  //节点过渡使用的空间
             underLoadedBytes = 0L;  //节点
     for(DatanodeStorageReport r : reports) {
@@ -659,10 +659,10 @@ public class Balancer {
    * */
   Result runOneIteration() {
     try {
-      //获取参与数据平衡的节点存储报告信息
+      //1、获取参与数据平衡的节点存储报告信息
       final List<DatanodeStorageReport> reports = dispatcher.init();
 
-      //统计集群本次需要平衡的数据量
+      //2、统计集群本次需要平衡的数据量
       final long bytesLeftToMove = init(reports);
 
       if (bytesLeftToMove == 0) { // bytesLeftToMove 为 0 则表示没有需要平衡的数据
@@ -687,6 +687,8 @@ public class Balancer {
        * the number of bytes that need to be moved from one node to another
        * in this iteration. Maximum bytes to be moved per node is
        * Min(1 Band worth of bytes,  MAX_SIZE_TO_MOVE).
+       * 计算出哪些节点需要移动数据，哪些节点需要接收数据；
+       * 并封装为迁移任务，交给 dispatcher 处理
        */
       final long bytesBeingMoved = chooseStorageGroups();
       if (bytesBeingMoved == 0) {
@@ -763,13 +765,14 @@ public class Balancer {
         for(NameNodeConnector nnc : connectors) {
           if (p.getBlockPools().size() == 0
               || p.getBlockPools().contains(nnc.getBlockpoolID())) {
+            //为一个 hdfs 创建一个 Balancer  执行平衡操作
             final Balancer b = new Balancer(nnc, p, conf);
             final Result r = b.runOneIteration();
             r.print(iteration, System.out);
 
             // clean all lists
             /**
-             * 情况 Balancer 信息，包含 dispatcher
+             *  Balancer 信息，包含 dispatcher
              * */
             b.resetData(conf);
             if (r.exitStatus == ExitStatus.IN_PROGRESS) {
