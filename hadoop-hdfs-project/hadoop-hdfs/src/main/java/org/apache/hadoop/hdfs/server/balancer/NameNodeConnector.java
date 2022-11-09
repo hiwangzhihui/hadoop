@@ -202,7 +202,7 @@ public class NameNodeConnector implements Closeable {
   public boolean shouldContinue(long dispatchBlockMoveBytes) {
     if (dispatchBlockMoveBytes > 0) {
       notChangedIterations = 0;
-    } else {
+    } else { //如果移动的数据小于等于 0
       notChangedIterations++;
       if (LOG.isDebugEnabled()) {
         LOG.debug("No block has been moved for " +
@@ -210,6 +210,7 @@ public class NameNodeConnector implements Closeable {
             "maximum notChangedIterations before exit is: " +
             ((maxNotChangedIterations >= 0) ? maxNotChangedIterations : "Infinite"));
       }
+      //累计空闲跌代次数
       if ((maxNotChangedIterations >= 0) &&
           (notChangedIterations >= maxNotChangedIterations)) {
         System.out.println("No block has been moved for "

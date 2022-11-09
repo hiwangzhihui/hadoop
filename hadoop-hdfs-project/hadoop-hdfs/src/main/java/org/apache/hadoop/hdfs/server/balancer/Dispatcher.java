@@ -103,14 +103,17 @@ public class Dispatcher {
   private final Set<String> excludedNodes;
   /** Restrict to the following nodes. */
   private final Set<String> includedNodes;
-
+  //数据迁出节点资源列表
   private final Collection<Source> sources = new HashSet<Source>();
+  //数据迁入节点资源列表
   private final Collection<StorageGroup> targets = new HashSet<StorageGroup>();
 
   private final GlobalBlockMap globalBlocks = new GlobalBlockMap();
   private final MovedBlocks<StorageGroup> movedBlocks;
 
-  /** Map (datanodeUuid,storageType -> StorageGroup) */
+  /** Map (datanodeUuid,storageType -> StorageGroup)
+   *  迁入、迁出数据信息的索引
+   * */
   private final StorageGroupMap<StorageGroup> storageGroupMap
       = new StorageGroupMap<StorageGroup>();
 
@@ -518,8 +521,8 @@ public class Dispatcher {
 
   /** The class represents a desired move. */
   static class Task {
-    private final StorageGroup target;
-    private long size; // bytes scheduled to move
+    private final StorageGroup target; //迁移的目标节点
+    private long size; // bytes scheduled to move 该任务迁移的数据量
 
     Task(StorageGroup target, long size) {
       this.target = target;
@@ -538,9 +541,9 @@ public class Dispatcher {
      *  在 DataNode 中一类存储的的信息
      * */
     public class StorageGroup {
-      final StorageType storageType;
-      final long maxSize2Move;
-      private long scheduledSize = 0L;
+      final StorageType storageType; //存储类型
+      final long maxSize2Move; //最多能移动的数据量
+      private long scheduledSize = 0L; //已经迁移的数据量
 
       private StorageGroup(StorageType storageType, long maxSize2Move) {
         this.storageType = storageType;
@@ -631,15 +634,15 @@ public class Dispatcher {
     }
 
     final DatanodeInfo datanode;
-    //todo？
+    //数据需要迁出的供给方 （Source 类表示）
     private final EnumMap<StorageType, Source> sourceMap
         = new EnumMap<StorageType, Source>(StorageType.class);
-    //todo？
+    //数据需要迁入的需求方 （StorageGroup 类表示）
     private final EnumMap<StorageType, StorageGroup> targetMap
         = new EnumMap<StorageType, StorageGroup>(StorageType.class);
 
     protected long delayUntil = 0L;
-    /** blocks being moved but not confirmed yet */
+    /** blocks being moved but not confirmed yet 待确认执行完成的任务 */
     private final List<PendingMove> pendings;
     private volatile boolean hasFailure = false;
     private Map<Long, Set<DatanodeInfo>> blockPinningFailures = new HashMap<>();
@@ -751,7 +754,7 @@ public class Dispatcher {
 
   /** A node that can be the sources of a block move */
   public class Source extends DDatanode.StorageGroup {
-
+    //source 的任务列表
     private final List<Task> tasks = new ArrayList<Task>(2);
     private long blocksToReceive = 0L;
     private final long startTime = Time.monotonicNow();
@@ -1168,6 +1171,7 @@ public class Dispatcher {
   }
 
   public boolean dispatchAndCheckContinue() throws InterruptedException {
+    //已迁移数据量等于待迁移数据量
     return nnc.shouldContinue(dispatchBlockMoves());
   }
 
@@ -1200,15 +1204,16 @@ public class Dispatcher {
     }
 
     // Determine the size of each mover thread pool per target
-    int threadsPerTarget = maxMoverThreads/targets.size();
-    if (threadsPerTarget == 0) {
+    int threadsPerTarget = maxMoverThreads/targets.size();  //计算每个线程处理的任务负载比
+    if (threadsPerTarget == 0) {       //如果负载比等于 0，则说明配置的线程数过少
       // Some scheduled moves will get ignored as some targets won't have
-      // any threads allocated.
+      // any threads allocated. todo
       moverThreadAllocator.setLotSize(1);
       LOG.warn(DFSConfigKeys.DFS_BALANCER_MOVERTHREADS_KEY + "=" +
           maxMoverThreads + " is too small for moving blocks to " +
           targets.size() + " targets. Balancing may be slower.");
     } else {
+      //如果   threadsPerTarget 大于每个节点能执行的任务数，则将  threadsPerTarget 设置为   maxConcurrentMovesPerNode
       if  (threadsPerTarget > maxConcurrentMovesPerNode) {
         threadsPerTarget = maxConcurrentMovesPerNode;
         LOG.info("Limiting threads per target to the specified max.");
@@ -1218,6 +1223,7 @@ public class Dispatcher {
     }
 
     long dSec = 0;
+    //遍历 sources 提交任务
     final Iterator<Source> i = sources.iterator();
     for (int j = 0; j < futures.length; j++) {
       final Source s = i.next();
@@ -1229,6 +1235,7 @@ public class Dispatcher {
         }
       });
       // Calculate delay in seconds for the next iteration
+      //计算下一次迭代的延迟执行时机
       if(j >= concurrentThreads) {
         dSec = 0;
       } else if((j + 1) % BALANCER_NUM_RPC_PER_SEC == 0) {
@@ -1237,6 +1244,7 @@ public class Dispatcher {
     }
 
     // wait for all dispatcher threads to finish
+    //等待任务执行结果
     for (Future<?> future : futures) {
       try {
         future.get();
@@ -1246,8 +1254,8 @@ public class Dispatcher {
     }
 
     // wait for all reportedBlock moving to be done
-    waitForMoveCompletion(targets);
-
+    waitForMoveCompletion(targets); //TODO?
+    //计算迁移前后的移动数据量
     return getBytesMoved() - bytesLastMoved;
   }
 
