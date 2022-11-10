@@ -1158,6 +1158,10 @@ class DataXceiver extends Receiver implements Runnable {
     datanode.metrics.addCopyBlockOp(elapsed());
   }
 
+  /**
+   * @param  block 要替换的Block 信息
+   * @param  delHint  source 节点信息
+   * */
   @Override
   public void replaceBlock(final ExtendedBlock block,
       final StorageType storageType, 
@@ -1189,7 +1193,8 @@ class DataXceiver extends Receiver implements Runnable {
     boolean IoeDuringCopyBlockOperation = false;
     try {
       // Move the block to different storage in the same datanode
-      if (proxySource.equals(datanode.getDatanodeId())) {
+      if (proxySource.equals(datanode.getDatanodeId())) { //判断是否属于统一节点内数据块移动
+        //执行节点内，磁盘之间数据块移动
         ReplicaInfo oldReplica = datanode.data.moveBlockAcrossStorage(block,
             storageType, storageId);
         if (oldReplica != null) {
@@ -1248,12 +1253,13 @@ class DataXceiver extends Receiver implements Runnable {
             null, 0, 0, 0, "", null, datanode, remoteChecksum,
             CachingStrategy.newDropBehind(), false, false, storageId));
         
-        // receive a block
+        // receive a block  向 source 节点复制数据块
         blockReceiver.receiveBlock(null, null, replyOut, null, 
             dataXceiverServer.balanceThrottler, null, true);
         
         // notify name node
         final Replica r = blockReceiver.getReplica();
+        //向 NameNode 向NameNode 汇报接收到的数据块，TODO 什么时候删除 Source 节点的数据块呢？
         datanode.notifyNamenodeReceivedBlock(
             block, delHint, r.getStorageUuid(), r.isOnTransientStorage());
         

@@ -361,6 +361,7 @@ public class Dispatcher {
       DataOutputStream out = null;
       DataInputStream in = null;
       try {
+        //向 target 节点发送任务请求
         sock.connect(
             NetUtils.createSocketAddr(target.getDatanodeInfo().
                 getXferAddr(Dispatcher.this.connectToDnViaHostname)),
@@ -390,8 +391,10 @@ public class Dispatcher {
             ioFileBufferSize));
 
         sendRequest(out, eb, accessToken);
+        //接收响应结果
         receiveResponse(in);
         nnc.getBytesMoved().addAndGet(reportedBlock.getNumBytes());
+        //更新任务状态
         target.getDDatanode().setHasSuccess();
         LOG.info("Successfully moved " + this);
       } catch (IOException e) {
@@ -432,6 +435,7 @@ public class Dispatcher {
     /** Send a reportedBlock replace request to the output stream */
     private void sendRequest(DataOutputStream out, ExtendedBlock eb,
         Token<BlockTokenIdentifier> accessToken) throws IOException {
+      //调用 target datanode 的 replaceBlock 接口
       new Sender(out).replaceBlock(eb, target.storageType, accessToken,
           source.getDatanodeInfo().getDatanodeUuid(), proxySource.datanode,
           null);
@@ -883,6 +887,7 @@ public class Dispatcher {
         final Task task = i.next();
         final DDatanode target = task.target.getDDatanode();
         final PendingMove pendingBlock = new PendingMove(this, task.target);
+        //向 target 中加入 pendingBlock ，记录等待执行的迁移任务
         if (target.addPendingBlock(pendingBlock)) {
           // target is not busy, so do a tentative block allocation
           if (pendingBlock.chooseBlockAndProxy()) {
@@ -944,11 +949,12 @@ public class Dispatcher {
               + ", scheduledSize=" + getScheduledSize()
               + ", srcBlocks#=" + srcBlocks.size());
         }
+        //从任务列表中去拿一个任务，构建 PendingMove
         final PendingMove p = chooseNextMove();
         if (p != null) {
           // Reset previous move timestamp
           previousMoveTimestamp = Time.monotonicNow();
-          executePendingMove(p);
+          executePendingMove(p); //执行任务
           continue;
         }
 
@@ -1153,6 +1159,7 @@ public class Dispatcher {
     if (moveExecutor == null) {
       final int nThreads = moverThreadAllocator.allocate();
       if (nThreads > 0) {
+        //调整 moveExecutor 线程池大小
         moveExecutor = targetDn.initMoveExecutor(nThreads);
       }
     }
@@ -1162,6 +1169,7 @@ public class Dispatcher {
       p.proxySource.removePendingBlock(p);
       return;
     }
+    //提交到线程池中执行
     moveExecutor.execute(new Runnable() {
       @Override
       public void run() {
