@@ -890,6 +890,7 @@ public class Dispatcher {
         //向 target 中加入 pendingBlock ，记录等待执行的迁移任务
         if (target.addPendingBlock(pendingBlock)) {
           // target is not busy, so do a tentative block allocation
+          // 检查目标节点状态，同时内部会检查是否符合移动条件
           if (pendingBlock.chooseBlockAndProxy()) {
             long blockSize = pendingBlock.reportedBlock.getNumBytes(this);
             incScheduledSize(-blockSize);
@@ -899,7 +900,7 @@ public class Dispatcher {
             }
             return pendingBlock;
           } else {
-            // cancel the tentative move
+            // cancel the tentative move 否则取消移动任务
             target.removePendingBlock(pendingBlock);
           }
         }
@@ -1338,8 +1339,11 @@ public class Dispatcher {
    * Decide if the block/blockGroup is a good candidate to be moved from source
    * to target. A block is a good candidate if
    * 1. the block is not in the process of being moved/has not been moved;
+   *     待移动的块不是正在被移动的数据块
    * 2. the block does not have a replica/internalBlock on the target;
+   *    在目标节点上没有此移动数据块的副本
    * 3. doing the move does not reduce the number of racks that the block has
+   *   移动后符合数据块副本的置放策略
    */
   private boolean isGoodBlockCandidate(StorageGroup source, StorageGroup target,
       StorageType targetStorageType, DBlock block) {

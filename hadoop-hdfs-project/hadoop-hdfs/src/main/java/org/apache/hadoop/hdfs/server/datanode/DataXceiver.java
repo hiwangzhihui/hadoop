@@ -1290,7 +1290,7 @@ class DataXceiver extends Receiver implements Runnable {
       // now release the thread resource
       dataXceiverServer.balanceThrottler.release();
       
-      // send response back
+      // send response back 返送响应结果给 Client
       try {
         sendResponse(opStatus, errMsg);
       } catch (IOException ioe) {
