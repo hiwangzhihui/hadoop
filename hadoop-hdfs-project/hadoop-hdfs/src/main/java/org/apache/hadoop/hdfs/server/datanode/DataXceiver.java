@@ -1259,7 +1259,7 @@ class DataXceiver extends Receiver implements Runnable {
         
         // notify name node
         final Replica r = blockReceiver.getReplica();
-        //向 NameNode 向NameNode 汇报接收到的数据块，TODO 什么时候删除 Source 节点的数据块呢？
+        //向 NameNode 向NameNode 汇报接收到的数据块，并让 NameNode 删除 delHint 上冗余的数据块副本
         datanode.notifyNamenodeReceivedBlock(
             block, delHint, r.getStorageUuid(), r.isOnTransientStorage());
         

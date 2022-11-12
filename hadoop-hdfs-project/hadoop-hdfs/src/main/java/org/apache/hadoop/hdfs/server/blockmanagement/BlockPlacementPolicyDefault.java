@@ -1193,8 +1193,11 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
         exactlyOne);
 
     // pick one node to delete that favors the delete hint
+    // 优先选择 delNodeHint 指定的节点删除
     // otherwise pick one with least space from priSet if it is not empty
+    // 其次选择心跳时间最久的节点
     // otherwise one node with least space from remains
+    // 最后选择剩余空间最少的节点
     boolean firstOne = true;
     final DatanodeStorageInfo delNodeHintStorage =
         DatanodeStorageInfo.getDatanodeStorageInfo(delCandidates, delNodeHint);

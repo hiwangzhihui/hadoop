@@ -3355,7 +3355,9 @@ public class BlockManager implements BlockStatsMXBean {
     } else {
       updateNeededReconstructions(storedBlock, curReplicaDelta, 0);
     }
+    //判断副本个数是否满足需求
     if (shouldProcessExtraRedundancy(num, fileRedundancy)) {
+      //如果满足需求则移除冗余的副本
       processExtraRedundancyBlock(storedBlock, fileRedundancy, node,
           delNodeHint);
     }
