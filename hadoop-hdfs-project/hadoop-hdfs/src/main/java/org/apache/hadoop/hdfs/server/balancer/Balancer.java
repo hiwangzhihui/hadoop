@@ -773,7 +773,7 @@ public class Balancer {
         done = true;
         Collections.shuffle(connectors);
 
-        //随机从不同的 HDFS 集群开始 Balancer 操作
+        //随机从不同的  NNConnector 开始 Balancer 操作
         for(NameNodeConnector nnc : connectors) {
           if (p.getBlockPools().size() == 0
               || p.getBlockPools().contains(nnc.getBlockpoolID())) {

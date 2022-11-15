@@ -142,7 +142,7 @@ public class NameNodeConnector implements Closeable {
     final FsServerDefaults defaults = fs.getServerDefaults(new Path("/"));
     this.keyManager = new KeyManager(blockpoolID, namenode,
         defaults.getEncryptDataTransfer(), conf);
-    // if it is for test, we do not create the id file
+    // if it is for test, we do not create the id file  在 HDFS 集群中创建标记文件，标记当前正在执行 Balancer 任务
     out = checkAndMarkRunning();
     if (out == null) {
       // Exit if there is another one running.
@@ -257,8 +257,10 @@ public class NameNodeConnector implements Closeable {
           "Id lock file should support hflush and hsync");
 
       // mark balancer idPath to be deleted during filesystem closure
+      //fs Client 关闭是删除该文件
       fs.deleteOnExit(idPath);
       if (write2IdFile) {
+        //该文件内容为当前运行 Balancer 程序主机的 HostName
         fsout.writeBytes(InetAddress.getLocalHost().getHostName());
         fsout.hflush();
       }
