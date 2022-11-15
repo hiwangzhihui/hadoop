@@ -113,7 +113,7 @@ public class NameNodeConnector implements Closeable {
   private final Path idPath;
   private final OutputStream out;
   private final List<Path> targetPaths;
-  //平衡移动的数据量
+  //该集群平衡累计移动的数据量
   private final AtomicLong bytesMoved = new AtomicLong();
   //空闲迭代累计最大次数
   private final int maxNotChangedIterations;

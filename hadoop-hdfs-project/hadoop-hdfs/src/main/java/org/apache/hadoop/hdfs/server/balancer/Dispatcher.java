@@ -120,7 +120,7 @@ public class Dispatcher {
   private NetworkTopology cluster;
 
   private final ExecutorService dispatchExecutor;
-
+  //Mover 任务个数控制器
   private final Allocator moverThreadAllocator;
 
   /** The maximum number of concurrent blocks moves at a datanode
@@ -128,7 +128,7 @@ public class Dispatcher {
    * */
   private final int maxConcurrentMovesPerNode;
   /**
-   * 一个节点最对能执行数据迁移的线程个数
+   *
    * */
   private final int maxMoverThreads;
 
@@ -270,9 +270,10 @@ public class Dispatcher {
      * @return true if a block and its proxy are chosen; false otherwise
      */
     private boolean chooseBlockAndProxy() {
-      // source and target must have the same storage type
+      // source and target must have the same storage type 检查存储类型相同
       final StorageType t = source.getStorageType();
       // iterate all source's blocks until find a good one
+      //遍历 source 上的数据块是否有符合可以迁移条件的数据块
       for (Iterator<DBlock> i = source.getBlockIterator(); i.hasNext();) {
         if (markMovedIfGoodBlock(i.next(), t)) {
           i.remove();
@@ -652,7 +653,7 @@ public class Dispatcher {
     private volatile boolean hasFailure = false;
     private Map<Long, Set<DatanodeInfo>> blockPinningFailures = new HashMap<>();
     private volatile boolean hasSuccess = false;
-    private ExecutorService moveExecutor;
+    private ExecutorService moveExecutor; //dataNode Mover 线程池
 
     @Override
     public String toString() {
@@ -891,7 +892,7 @@ public class Dispatcher {
         //向 target 中加入 pendingBlock ，记录等待执行的迁移任务
         if (target.addPendingBlock(pendingBlock)) {
           // target is not busy, so do a tentative block allocation
-          // 检查目标节点状态，同时内部会检查是否符合移动条件
+          // 选择一个可移动的数据块
           if (pendingBlock.chooseBlockAndProxy()) {
             long blockSize = pendingBlock.reportedBlock.getNumBytes(this);
             incScheduledSize(-blockSize);
@@ -1049,10 +1050,13 @@ public class Dispatcher {
 
     this.cluster = NetworkTopology.getInstance(conf);
 
+    //设置分发线程数 dispatcherThreads
     this.dispatchExecutor = dispatcherThreads == 0? null
         : Executors.newFixedThreadPool(dispatcherThreads);
+
     this.moverThreadAllocator = new Allocator(moverThreads);
     this.maxMoverThreads = moverThreads;
+
     this.maxConcurrentMovesPerNode = maxConcurrentMovesPerNode;
 
     this.getBlocksSize = getBlocksSize;
@@ -1161,7 +1165,7 @@ public class Dispatcher {
     if (moveExecutor == null) {
       final int nThreads = moverThreadAllocator.allocate();
       if (nThreads > 0) {
-        //调整 moveExecutor 线程池大小
+        //为 DataNode 创建 moveExecutor 线程池
         moveExecutor = targetDn.initMoveExecutor(nThreads);
       }
     }
@@ -1196,13 +1200,16 @@ public class Dispatcher {
    * sends request to proxy source to initiate block move. The process is flow
    * controlled. Block selection is blocked if there are too many un-confirmed
    * block moves.
-   * 
+   *  使用多线程执行移动任务
    * @return the total number of bytes successfully moved in this iteration.
+   *  返回本次迭代中成功移动的数据的字节数
    */
   private long dispatchBlockMoves() throws InterruptedException {
     final long bytesLastMoved = getBytesMoved();
+    //以Source任务个数初始化 futures 数组大小
     final Future<?>[] futures = new Future<?>[sources.size()];
 
+    //sources 个数和 dfs.balancer.dispatcherThreads（默认 200）取最小值
     int concurrentThreads = Math.min(sources.size(),
         ((ThreadPoolExecutor)dispatchExecutor).getCorePoolSize());
     assert concurrentThreads > 0 : "Number of concurrent threads is 0.";
@@ -1214,7 +1221,7 @@ public class Dispatcher {
     }
 
     // Determine the size of each mover thread pool per target
-    int threadsPerTarget = maxMoverThreads/targets.size();  //计算每个线程处理的任务负载比
+    int threadsPerTarget = maxMoverThreads/targets.size();  //计算每个Mover 线程处理的任务负载
     if (threadsPerTarget == 0) {       //如果负载比等于 0，则说明配置的线程数过少
       // Some scheduled moves will get ignored as some targets won't have
       // any threads allocated. todo
@@ -1238,6 +1245,7 @@ public class Dispatcher {
     for (int j = 0; j < futures.length; j++) {
       final Source s = i.next();
       final long delay = dSec * 1000;
+      // dispatchExecutor 线程池大小为 concurrentThreads，
       futures[j] = dispatchExecutor.submit(new Runnable() {
         @Override
         public void run() {
@@ -1245,8 +1253,8 @@ public class Dispatcher {
         }
       });
       // Calculate delay in seconds for the next iteration
-      //计算下一次迭代的延迟执行时机
       if(j >= concurrentThreads) {
+        //j如果大于 concurrentThreads，说明线程池放满， 计算下一次迭代的延迟执行时机，为 0
         dSec = 0;
       } else if((j + 1) % BALANCER_NUM_RPC_PER_SEC == 0) {
         dSec++;
