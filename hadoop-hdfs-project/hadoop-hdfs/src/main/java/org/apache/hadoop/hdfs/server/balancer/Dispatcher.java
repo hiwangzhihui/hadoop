@@ -393,6 +393,7 @@ public class Dispatcher {
         sendRequest(out, eb, accessToken);
         //接收响应结果
         receiveResponse(in);
+        //记录操作的数据量
         nnc.getBytesMoved().addAndGet(reportedBlock.getNumBytes());
         //更新任务状态
         target.getDDatanode().setHasSuccess();
@@ -525,7 +526,7 @@ public class Dispatcher {
 
   /** The class represents a desired move. */
   static class Task {
-    private final StorageGroup target; //迁移的目标节点
+    private final StorageGroup target; //迁移的目标位置
     private long size; // bytes scheduled to move 该任务迁移的数据量
 
     Task(StorageGroup target, long size) {
@@ -561,7 +562,7 @@ public class Dispatcher {
       private DDatanode getDDatanode() {
         return DDatanode.this;
       }
-
+       //存储所在的节点信息
       public DatanodeInfo getDatanodeInfo() {
         return DDatanode.this.datanode;
       }
@@ -636,12 +637,12 @@ public class Dispatcher {
       }
 
     }
-
+    //节点信息
     final DatanodeInfo datanode;
-    //数据需要迁出的供给方 （Source 类表示）
+    //该节点数据需要迁出的供给方 （Source 类表示）
     private final EnumMap<StorageType, Source> sourceMap
         = new EnumMap<StorageType, Source>(StorageType.class);
-    //数据需要迁入的需求方 （StorageGroup 类表示）
+    //该节点数据需要迁入的需求方 （StorageGroup 类表示）
     private final EnumMap<StorageType, StorageGroup> targetMap
         = new EnumMap<StorageType, StorageGroup>(StorageType.class);
 

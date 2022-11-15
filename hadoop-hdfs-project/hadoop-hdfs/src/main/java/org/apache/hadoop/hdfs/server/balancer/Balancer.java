@@ -363,8 +363,8 @@ public class Balancer {
 
     // create network topology and classify utilization collections: 
     //   over-utilized( 使用率过高), above-average（使用率稍高 ）, below-average（使用率稍低） and under-utilized （ 使用率太低）.
-    long overLoadedBytes = 0L,  //节点过渡使用的空间
-            underLoadedBytes = 0L;  //节点
+    long overLoadedBytes = 0L,  //节点使用率过高的空间
+            underLoadedBytes = 0L;  //节点使用率太低的空间
     for(DatanodeStorageReport r : reports) {
       //创建一个 DDatanode 记录一个节点数据平衡任务信息
       final DDatanode dn = dispatcher.newDatanode(r.getDatanodeInfo());
@@ -403,6 +403,7 @@ public class Balancer {
             getRemaining(r, t), utilizationDiff, maxSizeToMove);
 
         final StorageGroup g;
+        //根据 thresholdDiff 生成 Source、Target ，并归类
         if (utilizationDiff > 0) {
           //如果使用率差大于平均值，则作为供给方，统计其供给信息（需要迁出的数据信息）
           final Source s = dn.addSource(t, maxSize2Move, dispatcher); //加入到 sourceMap 中
@@ -586,6 +587,7 @@ public class Balancer {
   private void matchSourceWithTargetToMove(Source source, StorageGroup target) {
     //能迁移的存储空间大小
     long size = Math.min(source.availableSizeToMove(), target.availableSizeToMove());
+    //Task 绑定迁入和迁出的关系
     final Task task = new Task(target, size);
     //向 source 节点分配任务，并更新可用空间
     source.addTask(task);
@@ -766,9 +768,11 @@ public class Balancer {
               p.getMaxIdleIteration());
 
       boolean done = false;
+      //记录迭代信息
       for(int iteration = 0; !done; iteration++) {
         done = true;
         Collections.shuffle(connectors);
+
         //随机从不同的 HDFS 集群开始 Balancer 操作
         for(NameNodeConnector nnc : connectors) {
           if (p.getBlockPools().size() == 0
@@ -780,7 +784,7 @@ public class Balancer {
 
             // clean all lists
             /**
-             *  Balancer 信息，包含 dispatcher
+             *  重置 Balancer 信息为，为下一个 HDFS 集群进行平衡操作做准备
              * */
             b.resetData(conf);
             if (r.exitStatus == ExitStatus.IN_PROGRESS) {
@@ -793,8 +797,9 @@ public class Balancer {
             LOG.info("Skipping blockpool " + nnc.getBlockpoolID());
           }
         }
+
         if (!done) {
-          //间隔一段时间，操作第二个 HDFS 集群
+          //间隔一段时间，进入下一个迭代
           Thread.sleep(sleeptime);
         }
       }

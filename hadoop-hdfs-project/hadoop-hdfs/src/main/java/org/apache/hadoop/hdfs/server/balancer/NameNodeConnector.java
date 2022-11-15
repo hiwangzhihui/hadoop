@@ -113,9 +113,11 @@ public class NameNodeConnector implements Closeable {
   private final Path idPath;
   private final OutputStream out;
   private final List<Path> targetPaths;
+  //平衡移动的数据量
   private final AtomicLong bytesMoved = new AtomicLong();
-
+  //空闲迭代累计最大次数
   private final int maxNotChangedIterations;
+  //连续空闲迭代累计次数
   private int notChangedIterations = 0;
 
   public NameNodeConnector(String name, URI nameNodeUri, Path idPath,
@@ -201,7 +203,7 @@ public class NameNodeConnector implements Closeable {
   /** Should the instance continue running? */
   public boolean shouldContinue(long dispatchBlockMoveBytes) {
     if (dispatchBlockMoveBytes > 0) {
-      notChangedIterations = 0;
+      notChangedIterations = 0; //如果有数据移动则 notChangedIterations 设置为 0
     } else { //如果移动的数据小于等于 0
       notChangedIterations++;
       if (LOG.isDebugEnabled()) {
