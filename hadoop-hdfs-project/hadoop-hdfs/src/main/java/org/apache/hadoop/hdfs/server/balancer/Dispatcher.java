@@ -118,17 +118,17 @@ public class Dispatcher {
       = new StorageGroupMap<StorageGroup>();
 
   private NetworkTopology cluster;
-
+ //调度线程池大小
   private final ExecutorService dispatchExecutor;
-  //Mover 任务个数控制器
+  //Mover 任务个数控制器， maxMoverThreads 为  max 值
   private final Allocator moverThreadAllocator;
 
   /** The maximum number of concurrent blocks moves at a datanode
-   *  一个节点最多能并发移动的数据块个数
+   *  DataNode 端一个节点最多能并发移动的数据块个数
    * */
   private final int maxConcurrentMovesPerNode;
   /**
-   *
+   * 执行数据移动操作的线程池大小
    * */
   private final int maxMoverThreads;
 
@@ -548,7 +548,7 @@ public class Dispatcher {
      * */
     public class StorageGroup {
       final StorageType storageType; //存储类型
-      final long maxSize2Move; //最多能移动的数据量
+      final long maxSize2Move; //一轮迭代中 DataNode 最大能交换的数据量
       private long scheduledSize = 0L; //已经迁移的数据量
 
       private StorageGroup(StorageType storageType, long maxSize2Move) {
@@ -1163,6 +1163,7 @@ public class Dispatcher {
     final DDatanode targetDn = p.target.getDDatanode();
     ExecutorService moveExecutor = targetDn.getMoveExecutor();
     if (moveExecutor == null) {
+      //可以申请到的线程个数
       final int nThreads = moverThreadAllocator.allocate();
       if (nThreads > 0) {
         //为 DataNode 创建 moveExecutor 线程池
@@ -1222,10 +1223,10 @@ public class Dispatcher {
 
     // Determine the size of each mover thread pool per target
     int threadsPerTarget = maxMoverThreads/targets.size();  //计算每个Mover 线程处理的任务负载
-    if (threadsPerTarget == 0) {       //如果负载比等于 0，则说明配置的线程数过少
+    if (threadsPerTarget == 0) {       //
       // Some scheduled moves will get ignored as some targets won't have
-      // any threads allocated. todo
-      moverThreadAllocator.setLotSize(1);
+      // any threads allocated.
+      moverThreadAllocator.setLotSize(1); //如果 maxMoverThreads 小于 targets 个数则 moverThreadAllocator 为每个 targets 提供的槽位为 1
       LOG.warn(DFSConfigKeys.DFS_BALANCER_MOVERTHREADS_KEY + "=" +
           maxMoverThreads + " is too small for moving blocks to " +
           targets.size() + " targets. Balancing may be slower.");
@@ -1235,7 +1236,7 @@ public class Dispatcher {
         threadsPerTarget = maxConcurrentMovesPerNode;
         LOG.info("Limiting threads per target to the specified max.");
       }
-      moverThreadAllocator.setLotSize(threadsPerTarget);
+      moverThreadAllocator.setLotSize(threadsPerTarget); //否则提供的槽位为  threadsPerTarget 个
       LOG.info("Allocating " + threadsPerTarget + " threads per target.");
     }
 

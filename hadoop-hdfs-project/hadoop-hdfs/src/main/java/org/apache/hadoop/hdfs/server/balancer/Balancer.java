@@ -274,9 +274,11 @@ public class Balancer {
     final int moverThreads = getInt(conf,
         DFSConfigKeys.DFS_BALANCER_MOVERTHREADS_KEY,
         DFSConfigKeys.DFS_BALANCER_MOVERTHREADS_DEFAULT);
+    //执行计划调度线程池大小，默认 200
     final int dispatcherThreads = getInt(conf,
         DFSConfigKeys.DFS_BALANCER_DISPATCHERTHREADS_KEY,
         DFSConfigKeys.DFS_BALANCER_DISPATCHERTHREADS_DEFAULT);
+    // 一个 DataNode 允许并行移动的数据块个数
     final int maxConcurrentMovesPerNode = getInt(conf,
         DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_KEY,
         DFSConfigKeys.DFS_DATANODE_BALANCE_MAX_NUM_CONCURRENT_MOVES_DEFAULT);
@@ -287,6 +289,7 @@ public class Balancer {
     final long getBlocksMinBlockSize = getLongBytes(conf,
         DFSConfigKeys.DFS_BALANCER_GETBLOCKS_MIN_BLOCK_SIZE_KEY,
         DFSConfigKeys.DFS_BALANCER_GETBLOCKS_MIN_BLOCK_SIZE_DEFAULT);
+    //等待一个块移动平衡操作响应超时时间，默认 0 禁用
     final int blockMoveTimeout = conf.getInt(
         DFSConfigKeys.DFS_BALANCER_BLOCK_MOVE_TIMEOUT,
         DFSConfigKeys.DFS_BALANCER_BLOCK_MOVE_TIMEOUT_DEFAULT);
@@ -307,7 +310,7 @@ public class Balancer {
     this.policy = p.getBalancingPolicy();
     this.sourceNodes = p.getSourceNodes();
     this.runDuringUpgrade = p.getRunDuringUpgrade();
-
+    //一轮迭代最多移动的数据量大小
     this.maxSizeToMove = getLongBytes(conf,
         DFSConfigKeys.DFS_BALANCER_MAX_SIZE_TO_MOVE_KEY,
         DFSConfigKeys.DFS_BALANCER_MAX_SIZE_TO_MOVE_DEFAULT);
