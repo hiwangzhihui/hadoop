@@ -361,7 +361,7 @@ public class Balancer {
       //将各节点存储容量和节点存储已使用量放入到 policy 中
       policy.accumulateSpaces(r);
     }
-    //计算各节点的存储使用率
+    //计算所有各存储类型的平均使用率
     policy.initAvgUtilization();
 
     // create network topology and classify utilization collections: 
