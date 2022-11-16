@@ -46,7 +46,7 @@ public class DiskBalancerVolumeSet {
 
   @JsonProperty("transient")
   private boolean isTransient;
-  private Set<DiskBalancerVolume> volumes;
+  private Set<DiskBalancerVolume> volumes; // DataNode 上所有的 volume 数据密度信息列表
 
   @JsonIgnore
   private TreeSet<DiskBalancerVolume> sortedQueue; // MinHeap 根据 volumeDataDensity 存储密度排序
@@ -267,7 +267,7 @@ public class DiskBalancerVolumeSet {
    * @param thresholdPercentage - threshold - in percentage
    *
    * @return true if balancing is needed false otherwise.
-   * 判断是否需要进行平衡操作
+   * 判断是否需要进行平衡操作，只要存在数据密度差大于 threshold 的该磁盘就需要进行数据平衡操作
    */
   public boolean isBalancingNeeded(double thresholdPercentage) {
     double threshold = thresholdPercentage / 100.0d;
