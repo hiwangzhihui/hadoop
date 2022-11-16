@@ -54,7 +54,7 @@ abstract class BalancingPolicy {
   /** Accumulate used space and capacity. */
   abstract void accumulateSpaces(DatanodeStorageReport r);
 
-  //计算所有 datanode 的各存储类型的平均使用率
+  //计算所有各存储类型的平均使用率
   void initAvgUtilization() {
     for(StorageType t : StorageType.asList()) {
       final long capacity = totalCapacities.get(t);
