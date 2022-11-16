@@ -87,8 +87,8 @@ public class DiskBalancer {
   private boolean isDiskBalancerEnabled = false;
   private ExecutorService scheduler;
   private Future future;
-  private String planID;
-  private String planFile;
+  private String planID; //当前执行计划的 ID
+  private String planFile; //当前执行计划的描述文件
   private DiskBalancerWorkStatus.Result currentResult;
   private long bandwidth;
   private long planValidityInterval;
