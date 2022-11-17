@@ -1222,7 +1222,7 @@ public class Dispatcher {
     }
 
     // Determine the size of each mover thread pool per target
-    int threadsPerTarget = maxMoverThreads/targets.size();  //计算每个Mover 线程处理的任务负载
+    int threadsPerTarget = maxMoverThreads/targets.size();  //每个 DataNode 能并行迁移的数据块个数
     if (threadsPerTarget == 0) {       //
       // Some scheduled moves will get ignored as some targets won't have
       // any threads allocated.
