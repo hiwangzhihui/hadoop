@@ -1273,7 +1273,7 @@ public class Dispatcher {
     }
 
     // wait for all reportedBlock moving to be done
-    waitForMoveCompletion(targets); //TODO?
+    waitForMoveCompletion(targets);
     //计算迁移前后的移动数据量
     return getBytesMoved() - bytesLastMoved;
   }
