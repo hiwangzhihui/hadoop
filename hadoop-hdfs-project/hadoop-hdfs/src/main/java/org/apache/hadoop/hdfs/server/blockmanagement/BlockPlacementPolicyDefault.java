@@ -169,6 +169,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
       Set<Node> favoriteAndExcludedNodes = excludedNodes == null ?
           new HashSet<Node>() : new HashSet<>(excludedNodes);
+      //副本允许使用的存储类型列表，按副本顺序排放
       final List<StorageType> requiredStorageTypes = storagePolicy
           .chooseStorageTypes((short)numOfReplicas);
       final EnumMap<StorageType, Integer> storageTypes =

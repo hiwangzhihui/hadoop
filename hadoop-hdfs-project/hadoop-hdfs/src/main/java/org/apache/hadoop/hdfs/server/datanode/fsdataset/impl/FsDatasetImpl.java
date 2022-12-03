@@ -150,6 +150,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     return storageMap.get(storageUuid);
   }
 
+  //获取指定 blockPool 信息的存储信息向 NameNode 汇报
   @Override // FsDatasetSpi
   public StorageReport[] getStorageReports(String bpid)
       throws IOException {
@@ -287,7 +288,9 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     // of volumes minus the number of failed volumes we can tolerate.
     volFailuresTolerated = datanode.getDnConf().getVolFailuresTolerated();
 
+    //datanode 数据存储目录
     Collection<StorageLocation> dataLocations = DataNode.getStorageLocations(conf);
+    //根据 StorageLocation 列表包装为
     List<VolumeFailureInfo> volumeFailureInfos = getInitialVolumeFailureInfos(
         dataLocations, storage);
 
@@ -318,6 +321,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     asyncLazyPersistService = new RamDiskAsyncLazyPersistService(datanode, conf);
     deletingBlock = new HashMap<String, Set<Long>>();
 
+    //解析好的目录介质加入到  storageMap 数据结构中
     for (int idx = 0; idx < storage.getNumStorageDirs(); idx++) {
       addVolume(storage.getStorageDir(idx));
     }
@@ -408,6 +412,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         throw new IOException(errorMsg);
       }
       volumeMap.addAll(replicaMap);
+
       storageMap.put(sd.getStorageUuid(),
           new DatanodeStorage(sd.getStorageUuid(),
               DatanodeStorage.State.NORMAL,

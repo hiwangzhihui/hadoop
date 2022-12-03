@@ -2166,7 +2166,7 @@ public class BlockManager implements BlockStatsMXBean {
     List<DatanodeDescriptor> favoredDatanodeDescriptors = 
         getDatanodeDescriptors(favoredNodes);
 
-    //块存储类型置放策略
+    //获取数据块异构存储策略
     final BlockStoragePolicy storagePolicy =
         storagePolicySuite.getPolicy(storagePolicyID);
     //节点选择置放策略

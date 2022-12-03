@@ -53,10 +53,11 @@ import org.apache.hadoop.util.StringUtils;
 public class StorageLocation
     implements Checkable<StorageLocation.CheckContext, VolumeCheckResult>,
                Comparable<StorageLocation> {
-  private final StorageType storageType;
+  private final StorageType storageType; //存储类型
   private final URI baseURI;
   /** Regular expression that describes a storage uri with a storage type.
    *  e.g. [Disk]/storages/storage1/
+   *  匹配找到 storageType
    */
   private static final Pattern regex = Pattern.compile("^\\[(\\w*)\\](.+)$");
 

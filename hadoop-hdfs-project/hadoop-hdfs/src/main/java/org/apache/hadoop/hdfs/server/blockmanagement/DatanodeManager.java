@@ -1677,6 +1677,7 @@ public class DatanodeManager {
     if (nodeinfo == null || !nodeinfo.isRegistered()) {
       return new DatanodeCommand[]{RegisterCommand.REGISTER};
     }
+    //更新 DataNode 对应的 DatanodeDescriptor 信息
     heartbeatManager.updateHeartbeat(nodeinfo, reports, cacheCapacity,
         cacheUsed, xceiverCount, failedVolumes, volumeFailureSummary);
 

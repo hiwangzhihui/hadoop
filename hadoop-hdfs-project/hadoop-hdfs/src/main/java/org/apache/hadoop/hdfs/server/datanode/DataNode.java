@@ -2697,6 +2697,7 @@ public class DataNode extends ReconfigurableBase
     for(String locationString : rawLocations) {
       final StorageLocation location;
       try {
+        //根据路径配置生成对应的 StorageLocation （路径信息和对应的存储类型）
         location = StorageLocation.parse(locationString);
       } catch (IOException | SecurityException ioe) {
         LOG.error("Failed to initialize storage directory {}." +

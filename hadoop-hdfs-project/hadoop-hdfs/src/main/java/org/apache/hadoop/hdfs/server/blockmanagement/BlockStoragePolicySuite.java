@@ -32,7 +32,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-/** A collection of block storage policies. */
+/** A collection of block storage policies.
+ *  异构存储策略集合
+ * */
 public class BlockStoragePolicySuite {
   static final Logger LOG = LoggerFactory.getLogger(BlockStoragePolicySuite
       .class);
@@ -66,6 +68,7 @@ public class BlockStoragePolicySuite {
         new StorageType[]{StorageType.SSD, StorageType.DISK},
         new StorageType[]{StorageType.SSD, StorageType.DISK},
         new StorageType[]{StorageType.SSD, StorageType.DISK});
+    // HOT 为默认存储策略
     final byte hotId = HdfsConstants.HOT_STORAGE_POLICY_ID;
     policies[hotId] = new BlockStoragePolicy(hotId,
         HdfsConstants.HOT_STORAGE_POLICY_NAME,

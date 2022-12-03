@@ -583,7 +583,9 @@ public class INodeFile extends INodeWithAdditionalFields
 
   @Override
   public byte getStoragePolicyID() {
+    //首先从文件头信息中获取存储ID
     byte id = getLocalStoragePolicyID();
+    //如果没有设置策略则从父目录获取 TODO BLOCK_STORAGE_POLICY_ID_UNSPECIFIED 什么语义？
     if (id == BLOCK_STORAGE_POLICY_ID_UNSPECIFIED) {
       id = this.getParent() != null ?
           this.getParent().getStoragePolicyID() : id;

@@ -40,20 +40,27 @@ public class BlockStoragePolicy implements BlockStoragePolicySpi {
   public static final Logger LOG = LoggerFactory.getLogger(BlockStoragePolicy
       .class);
 
-  /** A 4-bit policy ID */
+  /** A 4-bit policy ID  策略 ID */
   private final byte id;
-  /** Policy name */
+  /** Policy name  策略名称*/
   private final String name;
 
-  /** The storage types to store the replicas of a new block. */
+  /** The storage types to store the replicas of a new block.
+   *   对于一个新的 Block 的一系列的存储副本的课选存储类型组信息
+   * */
   private final StorageType[] storageTypes;
-  /** The fallback storage type for block creation. */
+  /** The fallback storage type for block creation.
+   * 对于第一个创建的 block 块的 fallback 情况的可选存储类型
+   * */
   private final StorageType[] creationFallbacks;
-  /** The fallback storage type for replication. */
+  /** The fallback storage type for replication.
+   * 对于 bolck 块的其余副本的 fallback 情况时可选的存储类型
+   * */
   private final StorageType[] replicationFallbacks;
   /**
    * Whether the policy is inherited during file creation.
    * If set then the policy cannot be changed after file creation.
+   * 是否继承父目录信息策略创建当前目录的文件
    */
   private boolean copyOnCreateFile;
 
@@ -85,13 +92,14 @@ public class BlockStoragePolicy implements BlockStoragePolicySpi {
 
     // Do not return transient storage types. We will not have accurate
     // usage information for transient types.
+    // 从前往后依次匹配存储类型到对应的副本下标中
     for (;i < replication && j < storageTypes.length; ++j) {
       if (!storageTypes[j].isTransient()) {
         types.add(storageTypes[j]);
         ++i;
       }
     }
-
+    // 获取最后一个存储类型,统一作为多余副本的存储类型
     final StorageType last = storageTypes[storageTypes.length - 1];
     if (!last.isTransient()) {
       for (; i < replication; i++) {
@@ -144,8 +152,12 @@ public class BlockStoragePolicy implements BlockStoragePolicySpi {
     final List<StorageType> removed = new LinkedList<>();
     for(int i = storageTypes.size() - 1; i >= 0; i--) {
       // replace/remove unavailable storage types.
+      // 获取当前需要存储的类型
       final StorageType t = storageTypes.get(i);
+      //如果当前的存储类是在不可用的存储类型列表中，选择 fallback 的情况
       if (unavailables.contains(t)) {
+         //新创建的数据块 fallback 和 已经创建好的 Block 剩余的副本的 fallback
+        // 找到 fallback 的 StorageType
         final StorageType fallback = isNewBlock?
             getCreationFallback(unavailables)
             : getReplicationFallback(unavailables);

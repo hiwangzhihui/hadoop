@@ -2684,7 +2684,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     readLock();
     try {
       checkOperation(OperationCategory.READ);
-      //校验文件块个数是否达到上线，并封装块的放置策略和模式在 ValidateAddBlockResult 中, 默认最多 1W 个块，单文件 1.2 T
+      //校验文件块个数是否达到上线，并封装块的异构存储策略和模式在 ValidateAddBlockResult 中, 默认最多 1W 个块，单文件 1.2 T
       r = FSDirWriteFileOp.validateAddBlock(this, pc, src, fileId, clientName,
                                             previous, onRetryBlock);
     } finally {
@@ -2746,11 +2746,13 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       clientMachine = file.getFileUnderConstructionFeature().getClientMachine();
       clientnode = blockManager.getDatanodeManager().getDatanodeByHost(clientMachine);
       preferredblocksize = file.getPreferredBlockSize();
+      //获取文件存储策略 ID
       storagePolicyID = file.getStoragePolicyID();
       blockType = file.getBlockType();
 
       //find datanode storages
       final DatanodeManager dm = blockManager.getDatanodeManager();
+      //获取已经数据存储的节点列表
       chosen = Arrays.asList(dm.getDatanodeStorageInfos(existings, storageIDs,
           "src=%s, fileId=%d, blk=%s, clientName=%s, clientMachine=%s",
           src, fileId, blk, clientName, clientMachine));
@@ -2762,7 +2764,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       clientnode = FSDirWriteFileOp.getClientNode(blockManager, clientMachine);
     }
 
-    // choose new datanodes.
+    // choose new datanodes. 然后进行满足需求节点的选择
     final DatanodeStorageInfo[] targets = blockManager.chooseTarget4AdditionalDatanode(
         src, numAdditionalNodes, clientnode, chosen, 
         excludes, preferredblocksize, storagePolicyID, blockType);

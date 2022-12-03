@@ -41,7 +41,7 @@ public enum StorageType {
   PROVIDED(false);
 
   private final boolean isTransient;
-
+   //默认存储类型为 Disk
   public static final StorageType DEFAULT = DISK;
 
   public static final StorageType[] EMPTY_ARRAY = {};
