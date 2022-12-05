@@ -275,7 +275,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
 
     List<DatanodeStorageInfo> results = null;
     Node localNode = null;
-    //是否避免将数据写入过时的节点
+    //是否避免将数据写入过时的节点，心跳超时节点
     boolean avoidStaleNodes = (stats != null
         && stats.isAvoidingStaleDataNodesForWrite());
     //是否避免数据本地化写入
@@ -406,7 +406,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
    * @param results the target nodes already chosen
    *                 当前已经选好的副本目标节点集合
    * @param avoidStaleNodes avoid stale nodes in replica choosing
-   *                  避免选择过期的节点 TODO  stale node？怎么定义的
+   *                  避免选择旧的未更新的节点,心跳超时的节点
    * @param storagePolicy 副本置放策略
    * @param newBlock   如果 results 为空，则为 new Block
    * @return local node of writer (not chosen node)
@@ -466,7 +466,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       //按照策略获取副本
       writer = chooseTargetInOrder(numOfReplicas, writer, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, newBlock, storageTypes);
-    } catch (NotEnoughReplicasException e) {
+    } catch (NotEnoughReplicasException e) { //失败重试
       final String message = "Failed to place enough replicas, still in need of "
           + (totalReplicasExpected - results.size()) + " to reach "
           + totalReplicasExpected
@@ -481,7 +481,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
         LOG.warn(message + " " + e.getMessage());
       }
 
-      if (avoidStaleNodes) {
+      if (avoidStaleNodes) { //如果有心跳超时的节点，则为其重试异一次，下一次直接设置为 flase
         // Retry chooseTarget again, this time not avoiding stale nodes.
 
         // excludedNodes contains the initial excludedNodes and nodes that were
@@ -502,10 +502,12 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       boolean retry = false;
       // simply add all the remaining types into unavailableStorages and give
       // another try. No best effort is guaranteed here.
-      for (StorageType type : storageTypes.keySet()) {
+      for (StorageType type : storageTypes.keySet()) { //重试直达副本选择完成或 StorageType 尝试完毕
         if (!unavailableStorages.contains(type)) {
           unavailableStorages.add(type);
           retry = true;
+          //遍历存储类型，fallback 策略的存储类型不在 unavailableStorages 类型中，则允许重试
+          //否则，推出递归结束
         }
       }
       if (retry) {
