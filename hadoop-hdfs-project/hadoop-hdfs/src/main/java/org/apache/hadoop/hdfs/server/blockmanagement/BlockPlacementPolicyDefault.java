@@ -410,6 +410,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
    * @param storagePolicy 副本置放策略
    * @param newBlock   如果 results 为空，则为 new Block
    * @return local node of writer (not chosen node)
+   *  在该方法里递归，完成副本选择
    */
   private Node chooseTarget(int numOfReplicas,
                             Node writer,
