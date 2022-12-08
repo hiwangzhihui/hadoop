@@ -288,9 +288,12 @@ class BlockManagerSafeMode {
   void setBlockTotal(long total) {
     assert namesystem.hasWriteLock();
     synchronized (this) {
+      //数据块总个数
       this.blockTotal = total;
+      //离开安全模式总阈值
       this.blockThreshold = (long) (total * threshold);
     }
+    //副本数达到最小要求的block占系统总block数的百分比  threshold 与 replQueueThreshold 默认等价
     this.blockReplQueueThreshold = (long) (total * replQueueThreshold);
   }
 
@@ -563,6 +566,7 @@ class BlockManagerSafeMode {
     assert namesystem.hasWriteLock();
     int datanodeNum = blockManager.getDatanodeManager().getNumLiveDataNodes();
     synchronized (this) {
+      //如果汇报的数据块个数和datanode 节点数大于阈值，则可以退出安全模式
       return blockSafe >= blockThreshold && datanodeNum >= datanodeThreshold;
     }
   }
