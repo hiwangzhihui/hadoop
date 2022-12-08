@@ -482,7 +482,7 @@ public class FSEditLog implements LogsPurgeable {
       waitIfAutoSyncScheduled();
 
       // check if it is time to schedule an automatic sync
-      // 检开启一个 trasntion，同时查是否需要开启自动同步
+      // 检开启一个 trasntion 同时查是否需要开启自动同步
       needsSync = doEditTransaction(op); //数据写入 bufCurrent 操作放入持锁区间，快速完成
       if (needsSync) {
         isAutoSyncScheduled = true;

@@ -81,13 +81,6 @@ public class EditsDoubleBuffer {
   }
 
   //交互缓冲区
-  public void setReadyToFlush() {
-    assert isFlushed() : "previous data not flushed yet"; //前提是 同步缓冲区的数据已经清空
-    TxnBuffer tmp = bufReady;
-    bufReady = bufCurrent;
-    bufCurrent = tmp;
-  }
-
   /**
    * Writes the content of the "ready" buffer to the given output stream,
    * and resets it. Does not swap any buffers.
@@ -97,7 +90,14 @@ public class EditsDoubleBuffer {
     bufReady.writeTo(out); // write data to file 将同步缓冲区的数据写入新文件
     bufReady.reset(); // erase all data in the buffer 将同步缓冲区保存的数据清空
   }
-  
+
+  public void setReadyToFlush() {
+    assert isFlushed() : "previous data not flushed yet"; //前提是 同步缓冲区的数据已经清空
+    TxnBuffer tmp = bufReady;
+    bufReady = bufCurrent;
+    bufCurrent = tmp;
+  }
+
   public boolean shouldForceSync() {
     return bufCurrent.size() >= initBufferSize;
   }
