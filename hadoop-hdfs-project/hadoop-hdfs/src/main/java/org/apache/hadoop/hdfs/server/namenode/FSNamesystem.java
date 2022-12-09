@@ -714,6 +714,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
     long loadStart = monotonicNow();
     try {
+      //加载 fsimage 和 editlog 文件
       namesystem.loadFSImage(startOpt);
     } catch (IOException ioe) {
       LOG.warn("Encountered exception loading fsimage", ioe);
@@ -795,6 +796,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       }
 
       // block manager needs the haEnabled initialized
+      //构造 BlockManager
       this.blockManager = new BlockManager(this, haEnabled, conf);
       this.datanodeStatistics = blockManager.getDatanodeManager().getDatanodeStatistics();
 
@@ -881,8 +883,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
           DFS_NAMENODE_DELEGATION_TOKEN_ALWAYS_USE_DEFAULT);
       
       this.dtSecretManager = createDelegationTokenSecretManager(conf);
+      //构造 FSDirectory
       this.dir = new FSDirectory(this, conf);
+      //构造 SnapshotManager
       this.snapshotManager = new SnapshotManager(conf, dir);
+      //构造 CacheManager
       this.cacheManager = new CacheManager(this, conf, blockManager);
       // Init ErasureCodingPolicyManager instance.
       ErasureCodingPolicyManager.getInstance().init(conf);

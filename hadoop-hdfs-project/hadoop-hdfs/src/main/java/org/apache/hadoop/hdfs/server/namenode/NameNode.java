@@ -718,7 +718,7 @@ public class NameNode extends ReconfigurableBase implements
 
     NameNode.initMetrics(conf, this.getRole());
     StartupProgressMetrics.register(startupProgress);
-
+    //jvm 监控
     pauseMonitor = new JvmPauseMonitor();
     pauseMonitor.init(conf);
     pauseMonitor.start();
@@ -730,7 +730,7 @@ public class NameNode extends ReconfigurableBase implements
      //构建  FSNamesystem 文件系统
     loadNamesystem(conf);
     startAliasMapServerIfNecessary(conf);
-
+    //创建 rpc 服务
     rpcServer = createRpcServer(conf);
 
     initReconfigurableBackoffKey();
@@ -747,8 +747,9 @@ public class NameNode extends ReconfigurableBase implements
       httpServer.setNameNodeAddress(getNameNodeAddress());
       httpServer.setFSImage(getFSImage());
     }
-
+    //启动 Http、rpc 服务和各类插件
     startCommonServices(conf);
+    //启动 MetricsLogger 服务，该服务定时将监控指标打印到日志中
     startMetricsLogger(conf);
   }
 
@@ -959,8 +960,10 @@ public class NameNode extends ReconfigurableBase implements
     setClientNamenodeAddress(conf);
     String nsId = getNameServiceId(conf);
     String namenodeId = HAUtil.getNameNodeId(conf, nsId);
+    //是否开启 HA
     this.haEnabled = HAUtil.isHAEnabled(conf, nsId);
-    state = createHAState(getStartupOption(conf)); //获取当前状态是 Active 或   Standby
+    //获取当前状态是 Active 或   Standby
+    state = createHAState(getStartupOption(conf));
     this.allowStaleStandbyReads = HAUtil.shouldAllowStandbyReads(conf);
     this.haContext = createHAContext();
     try {
@@ -1627,6 +1630,7 @@ public class NameNode extends ReconfigurableBase implements
     GenericOptionsParser hParser = new GenericOptionsParser(conf, argv);
     argv = hParser.getRemainingArgs();
     // Parse the rest, NN specific args.
+    //解析命令参数
     StartupOption startOpt = parseArguments(argv);
     if (startOpt == null) {
       printUsage(System.err);
@@ -1636,7 +1640,7 @@ public class NameNode extends ReconfigurableBase implements
 
     boolean aborted = false;
     switch (startOpt) {
-    case FORMAT:
+    case FORMAT: //格式化当前 NameNode
       aborted = format(conf, startOpt.getForceFormat(),
           startOpt.getInteractiveFormat());
       terminate(aborted ? 1 : 0);
@@ -1679,6 +1683,7 @@ public class NameNode extends ReconfigurableBase implements
       terminate(0);
       return null;
     default:
+      //默认直接构造 Namenode 对象返回
       DefaultMetricsSystem.initialize("NameNode");
       return new NameNode(conf);
     }
@@ -1747,13 +1752,14 @@ public class NameNode extends ReconfigurableBase implements
 
     try {
       StringUtils.startupShutdownMessage(NameNode.class, argv, LOG);
+      //创建 NameNode 对象
       NameNode namenode = createNameNode(argv, null);
       if (namenode != null) {
-        namenode.join();
+        namenode.join(); //主线程等待 NameNode RPC 服务结束
       }
     } catch (Throwable e) {
       LOG.error("Failed to start namenode.", e);
-      terminate(1, e);
+      terminate(1, e); //出现异常则退出
     }
   }
 
