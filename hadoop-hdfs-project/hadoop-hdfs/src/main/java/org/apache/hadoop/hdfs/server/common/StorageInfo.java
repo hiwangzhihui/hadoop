@@ -51,7 +51,7 @@ public class StorageInfo {
 
   protected final NodeType storageType; // Type of the node using this storage 节点类型
   
-  protected static final String STORAGE_FILE_VERSION    = "VERSION";
+  protected static final String STORAGE_FILE_VERSION    = "VERSION"; //版本信息文件
 
   public StorageInfo(NodeType type) {
     this(0, 0, "", 0L, type);

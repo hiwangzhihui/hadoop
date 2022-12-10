@@ -275,6 +275,7 @@ public class JournalSet implements JournalManager {
             ". Skipping.", ioe);
       }
     }
+    //检查是否有冗余的 editlog Stream
     chainAndMakeRedundantStreams(streams, allStreams, fromTxId);
   }
   

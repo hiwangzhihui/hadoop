@@ -85,6 +85,7 @@ class FSImagePreTransactionalStorageInspector extends FSImageStorageInspector {
     boolean editsExists = false;
     
     // Determine if sd is image, edits or both
+    //将 image 和 edits 文件归类
     if (sd.getStorageDirType().isOfType(NameNodeDirType.IMAGE)) {
       imageExists = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE).exists();        
       imageDirs.add(sd.getRoot().getCanonicalPath());
@@ -94,11 +95,12 @@ class FSImagePreTransactionalStorageInspector extends FSImageStorageInspector {
       editsExists = NNStorage.getStorageFile(sd, NameNodeFile.EDITS).exists();
       editsDirs.add(sd.getRoot().getCanonicalPath());
     }
-    
+    //TODO 没发现 fstime 文件
     long checkpointTime = readCheckpointTime(sd);
-
+    //获取 checkpointTime
     checkpointTimes.add(checkpointTime);
-    
+
+     //更新 latestNameCheckpointTime、latestEditsCheckpointTime
     if (sd.getStorageDirType().isOfType(NameNodeDirType.IMAGE) && 
        (latestNameCheckpointTime < checkpointTime) && imageExists) {
       latestNameCheckpointTime = checkpointTime;

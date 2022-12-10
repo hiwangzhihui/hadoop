@@ -704,7 +704,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     FSImage fsImage = new FSImage(conf,
         //dfs.namenode.name.dir 配置本地的存放img 文件的目录
         FSNamesystem.getNamespaceDirs(conf),
-        // dfs.namenode.shared.edits.dir 配置 editlog 远程目录、dfs.namenode.name.dir 为本地存放 editlog 目录
+        // dfs.namenode.shared.edits.dir 配置 editlog 远程目录、dfs.namenode.edits.dir 为本地存放 editlog 目录
         FSNamesystem.getNamespaceEditsDirs(conf));
     FSNamesystem namesystem = new FSNamesystem(conf, fsImage, false);
     StartupOption startOpt = NameNode.getStartupOption(conf);
@@ -1090,6 +1090,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     try {
       // We shouldn't be calling saveNamespace if we've come up in standby state.
       MetaRecoveryContext recovery = startOpt.createRecoveryContext();
+      //执行 recover 操作
       final boolean staleImage
           = fsImage.recoverTransitionRead(startOpt, this, recovery);
       if (RollingUpgradeStartupOption.ROLLBACK.matches(startOpt)) {

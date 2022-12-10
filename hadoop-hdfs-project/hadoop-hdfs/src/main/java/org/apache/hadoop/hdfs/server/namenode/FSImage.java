@@ -199,12 +199,15 @@ public class FSImage implements Closeable {
   
   /**
    * Analyze storage directories.
-   * Recover from previous transitions if required. 
+   * 检查 image 和 editlog 存储目录文件版本号信息
+   * Recover from previous transitions if required.
+   * 根据 namespace 和 transition 信息从 storage 恢复 FSNameSystem
    * Perform fs state transition if necessary depending on the namespace info.
    * Read storage info. 
    * 
    * @throws IOException
    * @return true if the image needs to be saved or false otherwise
+   *  如果需要保存 image 则返回 true
    */
   boolean recoverTransitionRead(StartupOption startOpt, FSNamesystem target,
       MetaRecoveryContext recovery)
@@ -223,7 +226,7 @@ public class FSImage implements Closeable {
     
     // 1. For each data directory calculate its state and 
     // check whether all is consistent before transitioning.
-    Map<StorageDirectory, StorageState> dataDirStates = 
+    Map<StorageDirectory, StorageState> dataDirStates =
              new HashMap<StorageDirectory, StorageState>();
     boolean isFormatted = recoverStorageDirs(startOpt, storage, dataDirStates);
 
@@ -269,7 +272,7 @@ public class FSImage implements Closeable {
     
     storage.processStartupOptionsForUpgrade(startOpt, layoutVersion);
 
-    // 2. Format unformatted dirs.
+    // 2. Format unformatted dirs. 格式化未格式化的目录
     for (Iterator<StorageDirectory> it = storage.dirIterator(); it.hasNext();) {
       StorageDirectory sd = it.next();
       StorageState curState = dataDirStates.get(sd);
@@ -320,7 +323,7 @@ public class FSImage implements Closeable {
     default:
       // just load the image
     }
-    
+    //加载 image
     return loadFSImage(target, startOpt, recovery);
   }
 
@@ -659,19 +662,22 @@ public class FSImage implements Closeable {
     final boolean rollingRollback
         = RollingUpgradeStartupOption.ROLLBACK.matches(startOpt);
     final EnumSet<NameNodeFile> nnfs;
-    if (rollingRollback) {
+    if (rollingRollback) { //载入 upgrade 的回滚 image
       // if it is rollback of rolling upgrade, only load from the rollback image
       nnfs = EnumSet.of(NameNodeFile.IMAGE_ROLLBACK);
-    } else {
+    } else {  //其它情况 STARTED 导入 IMAGE 和 IMAGE_ROLLBACK
       // otherwise we can load from both IMAGE and IMAGE_ROLLBACK
       nnfs = EnumSet.of(NameNodeFile.IMAGE, NameNodeFile.IMAGE_ROLLBACK);
     }
+    //遍历并检查 image 版本信息
     final FSImageStorageInspector inspector = storage
         .readAndInspectDirs(nnfs, startOpt);
 
     isUpgradeFinalized = inspector.isUpgradeFinalized();
+    //imageFiles 只会有一个， 且是 txid 最大的那一个
     List<FSImageFile> imageFiles = inspector.getLatestImages();
 
+    //更新 NameNode 的 StartupProgress 信息
     StartupProgress prog = NameNode.getStartupProgress();
     prog.beginPhase(Phase.LOADING_FSIMAGE);
     File phaseFile = imageFiles.get(0).getFile();
@@ -699,7 +705,8 @@ public class FSImage implements Closeable {
         // for the rolling upgrade
         toAtLeastTxId = imageFiles.get(0).getCheckpointTxId() + 2;
       }
-      //根据 CheckpointTxId 选择需要合并的 editlog
+      //根据 CheckpointTxId 选择需要合并的 editlog，不会读  inProgress 文件
+      //从 imageFiles.get(0).getCheckpointTxId() + 1 开始后续 editlog 都需要合并
       editStreams = editLog.selectInputStreams(
           imageFiles.get(0).getCheckpointTxId() + 1,
           toAtLeastTxId, recovery, false);
