@@ -259,6 +259,7 @@ public class JournalSet implements JournalManager {
   @Override
   public void selectInputStreams(Collection<EditLogInputStream> streams,
       long fromTxId, boolean inProgressOk, boolean onlyDurableTxns) {
+    //获取到的流根据 txid 排序
     final PriorityQueue<EditLogInputStream> allStreams = 
         new PriorityQueue<EditLogInputStream>(64,
             EDIT_LOG_INPUT_STREAM_COMPARATOR);
@@ -275,10 +276,15 @@ public class JournalSet implements JournalManager {
             ". Skipping.", ioe);
       }
     }
-    //检查是否有冗余的 editlog Stream
+    //检查合并重复的文件
     chainAndMakeRedundantStreams(streams, allStreams, fromTxId);
   }
-  
+
+  /**
+   * @param outStreams 需要回放的 editlog 集合
+   * @param allStreams 按照 txid 排序后的 stream
+   * @param fromTxId
+   * */
   public static void chainAndMakeRedundantStreams(
       Collection<EditLogInputStream> outStreams,
       PriorityQueue<EditLogInputStream> allStreams, long fromTxId) {
@@ -298,26 +304,32 @@ public class JournalSet implements JournalManager {
         EditLogInputStream accFirst = acc.get(0);
         long accFirstTxId = accFirst.getFirstTxId();
         if (accFirstTxId == elis.getFirstTxId()) {
+          //对比 FirstTxId 如果相等
           // if we have a finalized log segment available at this txid,
           // we should throw out all in-progress segments at this txid
-          if (elis.isInProgress()) {
+          //如果我们有 finalized log segment 则用该 segment 的 txid
+          //我们应该丢弃 in-progres  segments 的 txid
+          if (elis.isInProgress()) {  //且都 在 in-progres  状态中则加入到 acc
             if (accFirst.isInProgress()) {
               acc.add(elis);
             }
           } else {
             if (accFirst.isInProgress()) {
+              //如果 accFirst 为 InProgress 则清空 acc
               acc.clear();
             }
+            //如果 elis 不为 InProgress 则加入到 acc 中
             acc.add(elis);
           }
         } else if (accFirstTxId < elis.getFirstTxId()) {
           // try to read from the local logs first since the throughput should
-          // be higher
+          // be higher 如果小于则优先读取本地的 editlog
           Collections.sort(acc, LOCAL_LOG_PREFERENCE_COMPARATOR);
+          //加入到 outStreams 中
           outStreams.add(new RedundantEditLogInputStream(acc, fromTxId));
-          acc.clear();
+          acc.clear(); //清空，进行下一轮比较
           acc.add(elis);
-        } else if (accFirstTxId > elis.getFirstTxId()) {
+        } else if (accFirstTxId > elis.getFirstTxId()) { //说明排序出现问题，抛出异常
           throw new RuntimeException("sorted set invariants violated!  " +
               "Got stream with first txid " + elis.getFirstTxId() +
               ", but the last firstTxId was " + accFirstTxId);
