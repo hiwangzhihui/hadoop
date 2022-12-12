@@ -1748,7 +1748,7 @@ public class FSEditLog implements LogsPurgeable {
     }
 
     try {
-      //检查 editlog 是否有 gap
+      //检查 editlog 是否有 gap ，如果有则抛出异常
       checkForGaps(streams, fromTxId, toAtLeastTxId, inProgressOk);
     } catch (IOException e) {
       if (recovery != null) {

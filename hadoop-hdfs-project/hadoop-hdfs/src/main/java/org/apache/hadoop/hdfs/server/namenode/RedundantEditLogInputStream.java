@@ -95,6 +95,7 @@ class RedundantEditLogInputStream extends EditLogInputStream {
     this.prevException = null;
     // EditLogInputStreams in a RedundantEditLogInputStream must be finalized,
     // and can't be pre-transactional.
+    // editlog  正确性校验
     EditLogInputStream first = null;
     for (EditLogInputStream s : streams) {
       Preconditions.checkArgument(s.getFirstTxId() !=

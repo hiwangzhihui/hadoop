@@ -697,7 +697,8 @@ public class FSImage implements Closeable {
       // In the meanwhile, for HA upgrade, we will still write editlog thus need
       // this toAtLeastTxId to be set to the max-seen txid
       // For rollback in rolling upgrade, we need to set the toAtLeastTxId to
-      // the txid right before the upgrade marker.  
+      // the txid right before the upgrade marker.
+      // 从 SEEN_TXID 文件中读取，如果是 HA 则为0
       long toAtLeastTxId = editLog.isOpenForWrite() ? inspector
           .getMaxSeenTxId() : 0;
       if (rollingRollback) {

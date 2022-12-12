@@ -259,7 +259,7 @@ public class JournalSet implements JournalManager {
   @Override
   public void selectInputStreams(Collection<EditLogInputStream> streams,
       long fromTxId, boolean inProgressOk, boolean onlyDurableTxns) {
-    //获取到的流根据 txid 排序
+    //获取到的流根据 txid 排序，放入队列中
     final PriorityQueue<EditLogInputStream> allStreams = 
         new PriorityQueue<EditLogInputStream>(64,
             EDIT_LOG_INPUT_STREAM_COMPARATOR);
@@ -276,7 +276,7 @@ public class JournalSet implements JournalManager {
             ". Skipping.", ioe);
       }
     }
-    //检查合并重复的文件
+    //检查清理重复的文件
     chainAndMakeRedundantStreams(streams, allStreams, fromTxId);
   }
 

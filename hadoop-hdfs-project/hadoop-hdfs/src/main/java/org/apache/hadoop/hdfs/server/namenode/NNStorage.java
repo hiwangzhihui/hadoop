@@ -425,6 +425,19 @@ public class NNStorage extends Storage implements Closeable,
   }
   
   /**
+   * Write last checkpoint time into a separate file.
+   * @param sd storage directory
+   * @throws IOException
+   */
+  void writeTransactionIdFile(StorageDirectory sd, long txid)
+      throws IOException {
+    Preconditions.checkArgument(txid >= 0, "bad txid: " + txid);
+
+    File txIdFile = getStorageFile(sd, NameNodeFile.SEEN_TXID);
+    PersistentLongFile.writeFile(txIdFile, txid);
+  }
+
+  /**
    * Determine the last transaction ID noted in this storage directory.
    * This txid is stored in a special seen_txid file since it might not
    * correspond to the latest image or edit log. For example, an image-only
@@ -438,19 +451,6 @@ public class NNStorage extends Storage implements Closeable,
   static long readTransactionIdFile(StorageDirectory sd) throws IOException {
     File txidFile = getStorageFile(sd, NameNodeFile.SEEN_TXID);
     return PersistentLongFile.readFile(txidFile, 0);
-  }
-  
-  /**
-   * Write last checkpoint time into a separate file.
-   * @param sd storage directory
-   * @throws IOException
-   */
-  void writeTransactionIdFile(StorageDirectory sd, long txid)
-      throws IOException {
-    Preconditions.checkArgument(txid >= 0, "bad txid: " + txid);
-    
-    File txIdFile = getStorageFile(sd, NameNodeFile.SEEN_TXID);
-    PersistentLongFile.writeFile(txIdFile, txid);
   }
 
   /**
