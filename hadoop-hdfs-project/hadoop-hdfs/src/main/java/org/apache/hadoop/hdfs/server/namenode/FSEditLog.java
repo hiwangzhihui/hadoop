@@ -257,18 +257,18 @@ public class FSEditLog implements LogsPurgeable {
 
     this.sharedEditsDirs = FSNamesystem.getSharedEditsDirs(conf);
   }
-  
+
   public synchronized void initJournalsForWrite() {
     //检查之前的状态
     Preconditions.checkState(state == State.UNINITIALIZED ||
-        state == State.CLOSED, "Unexpected state: %s", state);
+            state == State.CLOSED, "Unexpected state: %s", state);
     //调用 initJournals 方法，根据 editsDirs 创建对应的 JournalManager
     initJournals(this.editsDirs);
     //更新当前状态为 BETWEEN_LOG_SEGMENTS
     state = State.BETWEEN_LOG_SEGMENTS;
   }
 
-  //在 HA 情况下会调用该方法
+  //在 HA 情况会调用该方法
   public synchronized void initSharedJournalsForRead() {
     if (state == State.OPEN_FOR_READING) {
       LOG.warn("Initializing shared journals for READ, already open for READ",
@@ -338,7 +338,9 @@ public class FSEditLog implements LogsPurgeable {
     // newer txids readable.
     // 检查 editlog 文件里是否包含新的  segmentTxId ，如果包含则抛出异常
     List<EditLogInputStream> streams = new ArrayList<EditLogInputStream>();
+    //判断 stream 是否有 最新 transactionId 的 editlog 如果有则
     journalSet.selectInputStreams(streams, segmentTxId, true, false);
+
     if (!streams.isEmpty()) {
       String error = String.format("Cannot start writing at txid %s " +
         "when there is a stream available for read: %s",
@@ -347,7 +349,7 @@ public class FSEditLog implements LogsPurgeable {
           streams.toArray(new EditLogInputStream[0]));
       throw new IllegalStateException(error);
     }
-
+    // startLogSegment 创建 inprogress 文件 、写入 OP_START_LOG_SEGMENT 事件,且 Editlog 状态转换为 IN_SEGMENT
     startLogSegmentAndWriteHeaderTxn(segmentTxId, layoutVersion);
     assert state == State.IN_SEGMENT : "Bad state: " + state;
   }
@@ -1446,9 +1448,9 @@ public class FSEditLog implements LogsPurgeable {
         ", " + getLastWrittenTxId());
     Preconditions.checkState(isSegmentOpen(),
         "Bad state: %s", state);
-    
+
     if (writeEndTxn) {
-      logEdit(LogSegmentOp.getInstance(cache.get(), 
+      logEdit(LogSegmentOp.getInstance(cache.get(),
           FSEditLogOpCodes.OP_END_LOG_SEGMENT));
     }
     // always sync to ensure all edits are flushed.
@@ -1471,7 +1473,7 @@ public class FSEditLog implements LogsPurgeable {
     //更改状态机状态
     state = State.BETWEEN_LOG_SEGMENTS;
   }
-  
+
   /**
    * Abort all current logs. Called from the backup node.
    */

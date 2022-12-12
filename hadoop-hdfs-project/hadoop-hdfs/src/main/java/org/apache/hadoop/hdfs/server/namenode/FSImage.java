@@ -848,7 +848,7 @@ public class FSImage implements Closeable {
       }
       editLog.recoverUnclosedStreams();
     } else {
-      // This NN is HA and we're not doing an upgrade.
+      // This NN is HA and we're not doing an upgrade.  HA 走这个逻辑
       editLog.initSharedJournalsForRead();
     }
   }

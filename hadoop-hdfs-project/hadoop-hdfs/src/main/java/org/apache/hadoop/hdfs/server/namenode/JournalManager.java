@@ -36,7 +36,7 @@ import org.apache.hadoop.hdfs.server.protocol.NamespaceInfo;
  * JournalManager 抽象了管理 editlog 的方法
  * 持久化到不同存储的 editlog 由不同 JournalManager 子类实现
  * FileJournalManager ： 普通文件
- * BackupJournalManager ：共享 NFS
+ * BackupJournalManager ：BackNameNode
  * QuorumJournalManager ：Quorum 集群
  */
 @InterfaceAudience.Private
