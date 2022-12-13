@@ -1342,6 +1342,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       }
       if (dir != null && getFSImage() != null) {
         if (getFSImage().editLog != null) {
+          //关闭服务时结束档期 Segment， endCurrentLogSegment
           getFSImage().editLog.close();
         }
         // Update the fsimage with the last txid that we wrote

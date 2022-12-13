@@ -488,11 +488,12 @@ public class QuorumJournalManager implements JournalManager {
     for (Map.Entry<AsyncLogger, RemoteEditLogManifest> e : resps.entrySet()) {
       AsyncLogger logger = e.getKey();
       RemoteEditLogManifest manifest = e.getValue();
+      //没发送一次 editlog 就会更新 committedTxnId 为最新的
       long committedTxnId = manifest.getCommittedTxnId();
 
       for (RemoteEditLog remoteLog : manifest.getLogs()) {
         URL url = logger.buildURLToFetchLogs(remoteLog.getStartTxId());
-
+        //endTxId 是已经落盘的数据 txnId
         long endTxId = remoteLog.getEndTxId();
 
         // If it's bounded by durable Txns, endTxId could not be larger
