@@ -66,7 +66,7 @@ public abstract class BlockPlacementPolicy {
    * @param srcPath the file to which this chooseTargets is being invoked.
    * @param numOfReplicas additional number of replicas wanted.
    * @param writer the writer's machine, null if not in the cluster.
-   * @param chosen datanodes that have been chosen as targets.
+   * @param chosen datanodes that have been chosen as targets. 已经选择的目标节点
    * @param returnChosenNodes decide if the chosenNodes are returned.
    * @param excludedNodes datanodes that should not be considered as targets.
    * @param blocksize size of the data to be written.

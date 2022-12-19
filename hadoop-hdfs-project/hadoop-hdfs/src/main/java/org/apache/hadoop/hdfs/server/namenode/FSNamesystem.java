@@ -2712,7 +2712,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     LocatedBlock lb;
     try {
       checkOperation(OperationCategory.WRITE);
-      //加入到 BlockManager 中管理 同时与 InodeFile 绑定
+      //提交保存新申请的数据块信息
       lb = FSDirWriteFileOp.storeAllocatedBlock(
           this, src, fileId, clientName, previous, targets);
     } finally {

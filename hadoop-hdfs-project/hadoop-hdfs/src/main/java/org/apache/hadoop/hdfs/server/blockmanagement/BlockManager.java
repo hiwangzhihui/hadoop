@@ -2169,7 +2169,7 @@ public class BlockManager implements BlockStatsMXBean {
     //获取数据块异构存储策略
     final BlockStoragePolicy storagePolicy =
         storagePolicySuite.getPolicy(storagePolicyID);
-    //节点选择置放策略
+    //根据数据块类型，获取数据副本置放策略
     final BlockPlacementPolicy blockplacement =
         placementPolicies.getPolicy(blockType);
     final DatanodeStorageInfo[] targets = blockplacement.chooseTarget(src,

@@ -183,12 +183,12 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       int maxNodesAndReplicas[] = getMaxNodesPerRack(0, numOfReplicas);
       numOfReplicas = maxNodesAndReplicas[0];
       int maxNodesPerRack = maxNodesAndReplicas[1];
-
+      //从尝试从偏好节点中进行副本选择
       chooseFavouredNodes(src, numOfReplicas, favoredNodes,
           favoriteAndExcludedNodes, blocksize, maxNodesPerRack, results,
           avoidStaleNodes, storageTypes);
 
-      if (results.size() < numOfReplicas) {
+      if (results.size() < numOfReplicas) {  //如果结果小于副本预期， 则再次选取一次
         // Not enough favored nodes, choose other nodes, based on block
         // placement policy (HDFS-9393).
         numOfReplicas -= results.size();
@@ -197,6 +197,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           addToExcludedNodes(storage.getDatanodeDescriptor(),
               favoriteAndExcludedNodes);
         }
+
         DatanodeStorageInfo[] remainingTargets =
             chooseTarget(src, numOfReplicas, writer,
                 new ArrayList<DatanodeStorageInfo>(numOfReplicas), false,
@@ -213,6 +214,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             + "), disregard favored nodes hint and retry.", nr);
       }
       // Fall back to regular block placement disregarding favored nodes hint
+      // favored nodes  未命中，失败重试一次
       return chooseTarget(src, numOfReplicas, writer, 
           new ArrayList<DatanodeStorageInfo>(numOfReplicas), false, 
           excludedNodes, blocksize, storagePolicy, flags);
@@ -225,6 +227,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       List<DatanodeStorageInfo> results, boolean avoidStaleNodes,
       EnumMap<StorageType, Integer> storageTypes)
       throws NotEnoughReplicasException {
+    //循环直接从偏好节点选取
     for (int i = 0; i < favoredNodes.size() && results.size() < numOfReplicas;
         i++) {
       DatanodeDescriptor favoredNode = favoredNodes.get(i);
@@ -253,7 +256,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
                                     long blocksize,
                                     final BlockStoragePolicy storagePolicy,
                                     EnumSet<AddBlockFlag> addBlockFlags) {
-     //如果目标的副本个数和当前集群节点个数为 0 则返回一个空数组
+     //如果目标的副本个数和当前集群存活节点个数为 0 则返回一个空数组
     if (numOfReplicas == 0 || clusterMap.getNumOfLeaves()==0) {
       return DatanodeStorageInfo.EMPTY_ARRAY;
     }
@@ -298,7 +301,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
           EnumSet.noneOf(StorageType.class), results.isEmpty()); //如果还没有分配任何节点则，当前行为为 newBlock
       if (results.size() < numOfReplicas) {
         // not enough nodes; discard results and fall back  节点不足返回退出
-        results = null;
+        results = null; //如果按照该逻辑分配父满足预期，则会重新走默认逻辑
       }
     }
 
@@ -338,14 +341,13 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
    *         is independent of the number of chosen nodes, as it is calculated
    *         using the target number of replicas.
    *  返回一个数组：{允许分配的总节点个数，每个机架允许分配的最大节点个数}
-   *  TODO 解读不透测
    */
   protected int[] getMaxNodesPerRack(int numOfChosen, int numOfReplicas) {
     int clusterSize = clusterMap.getNumOfLeaves(); //集群存活节点个数
     int totalNumOfReplicas = numOfChosen + numOfReplicas; //需求的总资源数
     if (totalNumOfReplicas > clusterSize) { //如果资源总需求量超过节点个数
       // numOfReplicas = numOfReplicas - （totalNumOfReplicas-clusterSize）
-      // numOfReplicas 等于在该集群中允许分配的副本（不在同一节点）
+      // numOfReplicas 等于在该集群中能分配的副本个数
       numOfReplicas -= (totalNumOfReplicas-clusterSize);
       //集群总节点数此时为能满足需求的最大副本个数
       totalNumOfReplicas = clusterSize;
@@ -358,18 +360,20 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       return new int[] {numOfReplicas, totalNumOfReplicas};
     }
 
-    //计算每个 rack 允许分配的副本个数
+    //计算每个 rack 多允许分配的副本个数 （三副本跨机架置放策略）
+    //  (totalNumOfReplicas-1)/numOfRacks  机架越多数值越小，maxNodesPerRack 越小说明存储空间充足
     int maxNodesPerRack = (totalNumOfReplicas-1)/numOfRacks + 2;
     // At this point, there are more than one racks and more than one replicas
     // to store. Avoid all replicas being in the same rack.
-    //
+    //  约束条件
     // maxNodesPerRack has the following properties at this stage.
-    //   1) maxNodesPerRack >= 2
+    //   1) maxNodesPerRack >= 2  每个节点至少可放 2 个副本
     //   2) (maxNodesPerRack-1) * numOfRacks > totalNumOfReplicas
     //          when numOfRacks > 1
-    //
+    //    maxNodesPerRack-1：是三副本跨机架的需求
     // Thus, the following adjustment will still result in a value that forces
     // multi-rack allocation and gives enough number of total nodes.
+    // 如果总需求数与单机架能存放副本个数相等，则 maxNodesPerRack 可 -1 ，落地跨机架
     if (maxNodesPerRack == totalNumOfReplicas) {
       maxNodesPerRack--;
     }
@@ -429,7 +433,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     }
     final int numOfResults = results.size();
     final int totalReplicasExpected = numOfReplicas + numOfResults;
-    //如果 writer 存在于集群 datanode 中，则第一个副本的位置就在本地节点上
+    //如果 writer 存在于集群 datanode 中，则第一个副本的优先选择本地节点
     //如果 results 中已经有选定的结果，则直接从 results 中获取第一个节点作为 writer
     //如果 result 没有值，则随机从集群中选取一个节点，作为 localNode 即 writer
     if ((writer == null || !(writer instanceof DatanodeDescriptor)) && !newBlock) {
@@ -441,7 +445,6 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     final Set<Node> oldExcludedNodes = new HashSet<>(excludedNodes);
 
     // choose storage types; use fallbacks for unavailable storages
-    //TODO 数据类型存储策略
     // 根据存储策略获取副本需要满足的存储类型列表,如果有不可用的存储类型,会采用fallback的类型
     // requiredStorageTypes 期望存储的数据类型，unavailableStorages 不可用的存储类型
     final List<StorageType> requiredStorageTypes = storagePolicy
@@ -449,7 +452,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             DatanodeStorageInfo.toStorageTypes(results),
             unavailableStorages, newBlock);
 
-    //将存储类型列表进行计数统计,并存于map中 todo
+    //统计需要指定存储类型的副本个数,并存于map中  <存储类型，副本需求个数>
     final EnumMap<StorageType, Integer> storageTypes =
         getRequiredStorageTypes(requiredStorageTypes);
     if (LOG.isTraceEnabled()) {
@@ -538,11 +541,12 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     final int numOfResults = results.size();
     // 如果已选择的目标节点数量为0,则表示3副本一个都还没开始选,首先从选本地节点开始
     if (numOfResults == 0) {
+      // 优先从本机、同机架、随机
       writer = chooseLocalStorage(writer, excludedNodes, blocksize,
           maxNodesPerRack, results, avoidStaleNodes, storageTypes, true)
           .getDatanodeDescriptor();
       // 如果此时目标需求完成的副本数为降为0,代表选择目标完成,返回第一个节点writer
-      if (--numOfReplicas == 0) {
+      if (--numOfReplicas == 0) {  //副本数-1
         return writer;
       }
     }
@@ -553,7 +557,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       chooseRemoteRack(1, dn0, excludedNodes, blocksize, maxNodesPerRack,
           results, avoidStaleNodes, storageTypes);
       // 如果此时目标需求完成的副本数为降为0,代表选择目标完成,返回第一个节点writer
-      if (--numOfReplicas == 0) {
+      if (--numOfReplicas == 0) { //副本数-1
         return writer;
       }
     }
