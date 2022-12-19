@@ -235,7 +235,7 @@ class FSDirWriteFileOp {
     final INodeFile pendingFile = fileState.inode;
     src = fileState.path;
 
-    if (onRetryBlock[0] != null) {//TODO 待补充逻辑
+    if (onRetryBlock[0] != null) {
       if (onRetryBlock[0].getLocations().length > 0) {
         // This is a retry. Just return the last block if having locations.
         return onRetryBlock[0];
