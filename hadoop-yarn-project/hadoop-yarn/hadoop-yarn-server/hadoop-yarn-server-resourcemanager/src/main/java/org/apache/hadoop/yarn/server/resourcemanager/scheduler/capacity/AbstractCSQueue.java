@@ -259,8 +259,8 @@ public abstract class AbstractCSQueue implements CSQueue {
   
   public Set<String> getAccessibleNodeLabels() {
     return accessibleLabels;
-  }
 
+  }
   @Override
   public boolean hasAccess(QueueACL acl, UserGroupInformation user) {
     return authorizer.checkPermission(

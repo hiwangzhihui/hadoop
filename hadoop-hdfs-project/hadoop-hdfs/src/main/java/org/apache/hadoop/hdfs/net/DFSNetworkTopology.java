@@ -287,6 +287,7 @@ public class DFSNetworkTopology extends NetworkTopology {
         if (node.equals(excludeRoot)) {
           continue;
         }
+        //将符合条件的 node 加入到 candidates 列表中
         DatanodeDescriptor dnDescriptor = (DatanodeDescriptor)node;
         if (dnDescriptor.hasStorageType(type)) {
           candidates.add(node);
@@ -296,7 +297,8 @@ public class DFSNetworkTopology extends NetworkTopology {
         return null;
       }
       // to this point, all nodes in candidates are valid choices, and they are
-      // all datanodes, pick a random one.
+      // all datanodes, pick a random one
+      //随机选择一个
       chosenNode = candidates.get(RANDOM.nextInt(candidates.size()));
     } else {
       // the children are inner nodes
@@ -328,6 +330,7 @@ public class DFSNetworkTopology extends NetworkTopology {
         }
         randomCounts -= countArray[i];
       }
+      //随机选取一个符合条件的 Node
       DFSTopologyNodeImpl nextRoot = candidates.get(idxChosen);
       chosenNode = chooseRandomWithStorageTypeAndExcludeRoot(
           nextRoot, excludeRoot, type);

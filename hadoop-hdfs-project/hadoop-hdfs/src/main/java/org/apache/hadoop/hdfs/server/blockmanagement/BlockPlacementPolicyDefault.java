@@ -214,7 +214,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             + "), disregard favored nodes hint and retry.", nr);
       }
       // Fall back to regular block placement disregarding favored nodes hint
-      // favored nodes  未命中，失败重试一次
+      // favored nodes  这个逻辑中不断失败重试，如果集群中指定类型的资源不足时，会卡死，直到外部请求中断
       return chooseTarget(src, numOfReplicas, writer, 
           new ArrayList<DatanodeStorageInfo>(numOfReplicas), false, 
           excludedNodes, blocksize, storagePolicy, flags);
@@ -291,7 +291,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
     // nodes can be obtained, it falls back to the default block placement
     // policy
 
-    if (avoidLocalNode) { //不期望数据写入local 节点逻辑
+    if (avoidLocalNode) { //不期望数据写入 local 节点逻辑
       results = new ArrayList<>(chosenStorage);
       Set<Node> excludedNodeCopy = new HashSet<>(excludedNodes);
       excludedNodeCopy.add(writer); // local 节点排除掉
@@ -508,7 +508,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
       // another try. No best effort is guaranteed here.
       for (StorageType type : storageTypes.keySet()) { //重试直达副本选择完成或 StorageType 尝试完毕
         if (!unavailableStorages.contains(type)) {
-          unavailableStorages.add(type);
+          unavailableStorages.add(type);  //TODO 重试一次就加入到 unavailableStorages 列表，指定存储类型节点被写满，这种概率会增加
           retry = true;
           //遍历存储类型，fallback 策略的存储类型不在 unavailableStorages 类型中，则允许重试
           //否则，推出递归结束
@@ -850,7 +850,7 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             .append(" [");
       }
       DatanodeStorageInfo storage = null;
-      //检查是否满足存储条件
+      //检查节点状态否满足存储条件
       if (isGoodDatanode(chosenNode, maxNodesPerRack, considerLoad,
           results, avoidStaleNodes)) {
         for (Iterator<Map.Entry<StorageType, Integer>> iter = storageTypes
@@ -863,6 +863,8 @@ public class BlockPlacementPolicyDefault extends BlockPlacementPolicy {
             continue;
           }
           //在节点分配对应的存储类型空间
+          //TODO 如果分配不了，后续如何重试？会不会一直卡主，异构存储情况，重试次数是有限的
+          //TODO 随机分配了存储空间不足的节点怎么办？
           storage = chooseStorage4Block(
               chosenNode, blocksize, results, entry.getKey());
           if (storage != null) {
