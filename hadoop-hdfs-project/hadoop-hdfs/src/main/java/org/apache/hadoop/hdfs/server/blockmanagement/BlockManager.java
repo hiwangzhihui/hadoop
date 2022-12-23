@@ -3441,6 +3441,7 @@ public class BlockManager implements BlockStatsMXBean {
     assert namesystem.hasWriteLock();
     stopReconstructionInitializer();
     neededReconstruction.clear();
+    //单独启动一个线程，去处理错误的数据块副本
     reconstructionQueuesInitializer = new Daemon() {
 
       @Override
@@ -3507,7 +3508,7 @@ public class BlockManager implements BlockStatsMXBean {
             LOG.trace("under replicated block {}: {}", block, res);
             nrUnderReplicated++;
             break;
-          case OVER_REPLICATED:
+          case OVER_REPLICATED: //只是简单打印和统计？
             LOG.trace("over replicated block {}: {}", block, res);
             nrOverReplicated++;
             break;
@@ -3733,6 +3734,7 @@ public class BlockManager implements BlockStatsMXBean {
       short replication, DatanodeDescriptor addedNode,
       DatanodeDescriptor delNodeHint, List<StorageType> excessTypes) {
     BlockPlacementPolicy replicator = placementPolicies.getPolicy(CONTIGUOUS);
+    //选择多余的副本进行删除
     List<DatanodeStorageInfo> replicasToDelete = replicator
         .chooseReplicasToDelete(nonExcess, nonExcess, replication, excessTypes,
             addedNode, delNodeHint);
@@ -4632,7 +4634,7 @@ public class BlockManager implements BlockStatsMXBean {
             computeDatanodeWork();
             //扫描修复超时的数据块，从新放入等待列表中
             processPendingReconstructions();
-            //扫描之前延迟汇报的数据块
+            //扫描之前延迟汇报的数据块，以及冗余副本
             rescanPostponedMisreplicatedBlocks();
           }
 
