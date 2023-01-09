@@ -110,25 +110,33 @@ class BlockManagerSafeMode {
    * */
   private final int safeReplication;
   /** Threshold for populating needed replication queues.
-   *
+   * dfs.namenode.replqueue.threshold-pct 默认等于 threshold
    * */
   private final double replQueueThreshold;
   /** Number of blocks needed before populating replication queues.
-   *
+   *  replQueueThreshold * total 恢复数据块阈值
    * */
   private long blockReplQueueThreshold;
 
-  /** How long (in ms) is the extension period. */
+  /** How long (in ms) is the extension period.
+   *  退出安全模式等待时间
+   * */
   @VisibleForTesting
   final long extension;
-  /** Timestamp of the first time when thresholds are met. */
+  /** Timestamp of the first time when thresholds are met.
+   *  达到阈值时间
+   * */
   private final AtomicLong reachedTime = new AtomicLong();
-  /** Timestamp of the safe mode initialized. */
+  /** Timestamp of the safe mode initialized.
+   *  进入safemode 开始时间
+   * */
   private long startTime;
   /** the safe mode monitor thread. */
   private final Daemon smmthread = new Daemon(new SafeModeMonitor());
 
-  /** time of the last status printout */
+  /** time of the last status printout
+   *  sfemode 状态更新时间
+   * */
   private long lastStatusReport;
   /** Counter for tracking startup progress of reported blocks. */
   private Counter awaitingReportedBlocksCounter;
@@ -142,6 +150,7 @@ class BlockManagerSafeMode {
 
   BlockManagerSafeMode(BlockManager blockManager, Namesystem namesystem,
       boolean haEnabled, Configuration conf) {
+    //初始化基础参数
     this.blockManager = blockManager;
     this.namesystem = namesystem;
     this.haEnabled = haEnabled;
@@ -165,7 +174,7 @@ class BlockManagerSafeMode {
         conf.getInt(DFSConfigKeys.DFS_NAMENODE_SAFEMODE_REPLICATION_MIN_KEY,
             minReplication);
     // default to safe mode threshold (i.e., don't populate queues before
-    // leaving safe mode)
+    // leaving safe mode) dfs.namenode.replqueue.threshold-pct
     this.replQueueThreshold =
         conf.getFloat(DFS_NAMENODE_REPL_QUEUE_THRESHOLD_PCT_KEY,
             (float) threshold);
@@ -184,18 +193,22 @@ class BlockManagerSafeMode {
   /**
    * Initialize the safe mode information.
    * @param total initial total blocks
+   *  初始化 safemode 信息
    */
   void activate(long total) {
     assert namesystem.hasWriteLock();
     assert status == BMSafeModeStatus.OFF;
 
     startTime = monotonicNow();
+    //通过元数据加载获取数据块信息，在这更新整集群数据块个数
     setBlockTotal(total);
+    //判断当前状态是否满足阈值
     if (areThresholdsMet()) {
+      //满足则退出 safeMode
       boolean exitResult = leaveSafeMode(false);
       Preconditions.checkState(exitResult, "Failed to leave safe mode.");
     } else {
-      // enter safe mode
+      // enter safe mode 否则进入 safe mode
       status = BMSafeModeStatus.PENDING_THRESHOLD;
       initializeReplQueuesIfNecessary();
       reportStatus("STATE* Safe mode ON.", true);
@@ -218,6 +231,8 @@ class BlockManagerSafeMode {
   /**
    * The transition of the safe mode state machine.
    * If safe mode is not currently on, this is a no-op.
+   *  更新数据块汇报个数、dataNode 注册汇报、docheckPoint 都会调用该方法
+   *  NameNode startActiveServices 前、incrementSafeBlockCount、decrementSafeBlockCount
    */
   void checkSafeMode() {
     assert namesystem.hasWriteLock();
@@ -229,23 +244,28 @@ class BlockManagerSafeMode {
     switch (status) {
     case PENDING_THRESHOLD:
       if (areThresholdsMet()) {
+        //如果阈值达到，更新当前状态为 EXTENSION，
         if (extension > 0) {
           // PENDING_THRESHOLD -> EXTENSION
           status = BMSafeModeStatus.EXTENSION;
           reachedTime.set(monotonicNow());
+          //启动 SafeModeMonitor 线程
           smmthread.start();
+          //初始化 reconstructionQueuesInitializer 线程
           initializeReplQueuesIfNecessary();
           reportStatus("STATE* Safe mode extension entered.", true);
         } else {
-          // PENDING_THRESHOLD -> OFF
+          // PENDING_THRESHOLD -> OFF   如果 extension 为 0 则直接退出 safeMode
           leaveSafeMode(false);
         }
       } else {
+        //尝试初始化 reconstructionQueuesInitializer 线程
         initializeReplQueuesIfNecessary();
         reportStatus("STATE* Safe mode ON.", false);
       }
       break;
     case EXTENSION:
+      //等待 EXTENSION
       reportStatus("STATE* Safe mode ON.", false);
       break;
     case OFF:
@@ -564,7 +584,11 @@ class BlockManagerSafeMode {
                 RollingUpgradeStartupOption.ROLLBACK);
   }
 
-  /** Check if we are ready to initialize replication queues. */
+  /** Check if we are ready to initialize replication queues.
+   *  启动 reconstructionQueuesInitializer 线程，检查损坏副本, leaveSafeMode 更新 initializedReplQueues 状态
+   *  才能运行启动该线程
+   *  退出 safeMode 后才会启动
+   * */
   private void initializeReplQueuesIfNecessary() {
     assert namesystem.hasWriteLock();
     // Whether it has reached the threshold for initializing replication queues.
@@ -579,6 +603,7 @@ class BlockManagerSafeMode {
 
   /**
    * @return true if both block and datanode threshold are met else false.
+   *  判断汇报的 DataNode、block 是否达到阈值
    */
   private boolean areThresholdsMet() {
     assert namesystem.hasWriteLock();
@@ -642,7 +667,7 @@ class BlockManagerSafeMode {
             break;
           }
           if (canLeave()) {
-            // EXTENSION -> OFF
+            // EXTENSION -> OFF  如果达到阈值则退出 safeMode
             leaveSafeMode(false);
             break;
           }
@@ -651,6 +676,7 @@ class BlockManagerSafeMode {
         }
 
         try {
+          // 1s 执行一次检查
           Thread.sleep(RECHECK_INTERVAL);
         } catch (InterruptedException ignored) {
         }

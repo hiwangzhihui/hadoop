@@ -712,6 +712,7 @@ public class BlockManager implements BlockStatsMXBean {
     storageInfoDefragmenterThread.start();
     this.blockReportThread.start();
     mxBeanName = MBeans.register("NameNode", "BlockStats", this);
+    //启动服务时，初始化 BlockManagerSafeMode 信息
     bmSafeMode.activate(blockTotal);
   }
 
@@ -4261,7 +4262,6 @@ public class BlockManager implements BlockStatsMXBean {
     final boolean inStartupSafeMode = namesystem.isInStartupSafeMode();
     return countNodes(b, inStartupSafeMode).liveReplicas();
   }
-                             livelive
   /**
    * On putting the node in service, check if the node has excess replicas.
    * If there are any excess replicas, call processExtraRedundancyBlock().

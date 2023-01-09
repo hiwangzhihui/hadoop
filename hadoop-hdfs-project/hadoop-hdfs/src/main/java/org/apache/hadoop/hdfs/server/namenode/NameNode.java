@@ -747,7 +747,7 @@ public class NameNode extends ReconfigurableBase implements
       httpServer.setNameNodeAddress(getNameNodeAddress());
       httpServer.setFSImage(getFSImage());
     }
-    //启动 Http、rpc 服务和各类插件
+    //启动 Http、rpc 服务和各类插件，进入 safeMode
     startCommonServices(conf);
     //启动 MetricsLogger 服务，该服务定时将监控指标打印到日志中
     startMetricsLogger(conf);
