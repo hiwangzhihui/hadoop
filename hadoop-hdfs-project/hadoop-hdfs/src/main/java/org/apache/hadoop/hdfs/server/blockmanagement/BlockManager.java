@@ -1819,7 +1819,7 @@ public class BlockManager implements BlockStatsMXBean {
 
     int blockCnt = 0;
     for (DatanodeInfo dnInfo : nodes) {
-      //选择删除数据块副本的节点
+      //在指定节点上批量删除无效数据块副本
       int blocks = invalidateWorkForOneNode(dnInfo);
       if (blocks > 0) {
         blockCnt += blocks;
@@ -2107,7 +2107,7 @@ public class BlockManager implements BlockStatsMXBean {
     // Move the block-replication into a "pending" state.
     // The reason we use 'pending' is so we can retry
     // reconstructions that fail after an appropriate amount of time.
-    //将修复的块放入  pendingReconstruction 中便于后续，超时重试
+    //将正在修复的块放入  pendingReconstruction 中便于后续，超时重试、和修复结果监控
     pendingReconstruction.increment(block,
         DatanodeStorageInfo.toDatanodeDescriptors(targets));
     blockLog.debug("BLOCK* block {} is moved from neededReconstruction to "
@@ -2371,11 +2371,12 @@ public class BlockManager implements BlockStatsMXBean {
            * Use the blockinfo from the blocksmap to be certain we're working
            * with the most up-to-date block information (e.g. genstamp).
            */
+          //获取修复超时的数据块任务
           BlockInfo bi = blocksMap.getStoredBlock(timedOutItems[i]);
           if (bi == null) {
             continue;
           }
-          //把超时需要修复的块从新加入到 neededReconstruction 集合中重试
+          //把超时需要修复的块重新加入到 neededReconstruction 集合中重试
           NumberReplicas num = countNodes(timedOutItems[i]);
           if (isNeededReconstruction(bi, num)) {
             neededReconstruction.add(bi, num.liveReplicas(),
@@ -2654,52 +2655,6 @@ public class BlockManager implements BlockStatsMXBean {
     }
   }
 
-  /**
-   * Rescan the list of blocks which were previously postponed.
-   * 重新扫描之前延迟汇报的数据块
-   */
-  void rescanPostponedMisreplicatedBlocks() {
-    if (getPostponedMisreplicatedBlocksCount() == 0) {
-      return;
-    }
-    namesystem.writeLock();
-    long startTime = Time.monotonicNow();
-    long startSize = postponedMisreplicatedBlocks.size();
-    try {
-      Iterator<Block> it = postponedMisreplicatedBlocks.iterator();
-      for (int i=0; i < blocksPerPostpondedRescan && it.hasNext(); i++) {
-        Block b = it.next();
-        it.remove(); //scan 时把block 从 postponedMisreplicatedBlocks 列表中移除
-
-        BlockInfo bi = getStoredBlock(b);
-        if (bi == null) { //如果 block 都不存在了，则移除不用管了
-          LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
-              "Postponed mis-replicated block {} no longer found " +
-              "in block map.", b);
-          continue;
-        }
-        //获取该块"错误原因"
-        MisReplicationResult res = processMisReplicatedBlock(bi);
-        LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
-            "Re-scanned block {}, result is {}", b, res);
-        //这里只关心副本还存放在 statle 节点的数据块
-        if (res == MisReplicationResult.POSTPONE) {
-          //如果 scan 发现块还是有副本在 stale 状态的节点上 ，则再次加入到 rescannedMisreplicatedBlocks 后面重试
-          rescannedMisreplicatedBlocks.add(b);
-        }
-      }
-    } finally {
-      //下一轮再重试
-      postponedMisreplicatedBlocks.addAll(rescannedMisreplicatedBlocks);
-      rescannedMisreplicatedBlocks.clear();
-      long endSize = postponedMisreplicatedBlocks.size();
-      namesystem.writeUnlock();
-      LOG.info("Rescan of postponedMisreplicatedBlocks completed in {}" +
-          " msecs. {} blocks are left. {} blocks were removed.",
-          (Time.monotonicNow() - startTime), endSize, (startSize - endSize));
-    }
-  }
-  
   Collection<Block> processReport(
       final DatanodeStorageInfo storageInfo,
       final BlockListAsLongs report,
@@ -2747,7 +2702,7 @@ public class BlockManager implements BlockStatsMXBean {
 
     DatanodeDescriptor node = storageInfo.getDatanodeDescriptor();
     // Process the blocks on each queue
-    for (StatefulBlockInfo b : toUC) { 
+    for (StatefulBlockInfo b : toUC) {
       addStoredBlockUnderConstruction(b, storageInfo);
     }
     for (BlockInfo b : toRemove) {
@@ -2771,6 +2726,51 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     return toInvalidate;
+  }
+
+  /**
+   * Rescan the list of blocks which were previously postponed.
+   * 重新扫描之前延迟汇报的数据块
+   */
+  void rescanPostponedMisreplicatedBlocks() {
+    if (getPostponedMisreplicatedBlocksCount() == 0) {
+      return;
+    }
+    namesystem.writeLock();
+    long startTime = Time.monotonicNow();
+    long startSize = postponedMisreplicatedBlocks.size();
+    try {
+      Iterator<Block> it = postponedMisreplicatedBlocks.iterator();
+      for (int i=0; i < blocksPerPostpondedRescan && it.hasNext(); i++) {
+        Block b = it.next();
+        it.remove(); //scan 时把block 从 postponedMisreplicatedBlocks 列表中移除
+
+        BlockInfo bi = getStoredBlock(b);
+        if (bi == null) { //如果 block 都不存在了，则移除不用管了
+          LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
+                  "Postponed mis-replicated block {} no longer found " +
+                  "in block map.", b);
+          continue;
+        }
+        //数据块异常检查，并根据错误类型进行处理，最后将 "错误原因" 返回
+        MisReplicationResult res = processMisReplicatedBlock(bi);
+        LOG.debug("BLOCK* rescanPostponedMisreplicatedBlocks: " +
+                "Re-scanned block {}, result is {}", b, res);
+        //如果 scan 发现块还是有副本在 stale 状态的节点上 ，则再次加入到 rescannedMisreplicatedBlocks 后面重试
+        if (res == MisReplicationResult.POSTPONE) {
+          rescannedMisreplicatedBlocks.add(b);
+        }
+      }
+    } finally {
+      //清空postponedMisreplicatedBlocks，下一轮再重试
+      postponedMisreplicatedBlocks.addAll(rescannedMisreplicatedBlocks);
+      rescannedMisreplicatedBlocks.clear();
+      long endSize = postponedMisreplicatedBlocks.size();
+      namesystem.writeUnlock();
+      LOG.info("Rescan of postponedMisreplicatedBlocks completed in {}" +
+                      " msecs. {} blocks are left. {} blocks were removed.",
+              (Time.monotonicNow() - startTime), endSize, (startSize - endSize));
+    }
   }
 
   /**
@@ -3493,6 +3493,7 @@ public class BlockManager implements BlockStatsMXBean {
     long totalBlocks = blocksMap.size();
     reconstructionQueuesInitProgress = 0;
     long totalProcessed = 0;
+    //检查间隔时间和批量检查个数 dfs.block.misreplication.processing.limit  10000
     long sleepDuration =
         Math.max(1, Math.min(numBlocksPerIteration/1000, 10000));
 
@@ -3502,13 +3503,15 @@ public class BlockManager implements BlockStatsMXBean {
       try {
         while (processed < numBlocksPerIteration && blocksItr.hasNext()) {
           BlockInfo block = blocksItr.next();
+          //进行检查处理
           MisReplicationResult res = processMisReplicatedBlock(block);
+          //根据结果打印数据块异常信息
           switch (res) {
           case UNDER_REPLICATED:
             LOG.trace("under replicated block {}: {}", block, res);
             nrUnderReplicated++;
             break;
-          case OVER_REPLICATED: //只是简单打印和统计？
+          case OVER_REPLICATED:
             LOG.trace("over replicated block {}: {}", block, res);
             nrOverReplicated++;
             break;
@@ -3537,7 +3540,7 @@ public class BlockManager implements BlockStatsMXBean {
         // initialisation, then progress might be different.
         reconstructionQueuesInitProgress = Math.min((double) totalProcessed
             / totalBlocks, 1.0);
-
+        //遍历完所有数据块，打印总的汇报结果
         if (!blocksItr.hasNext()) {
           LOG.info("Total number of blocks            = {}", blocksMap.size());
           LOG.info("Number of invalid blocks          = {}", nrInvalid);
@@ -3592,7 +3595,8 @@ public class BlockManager implements BlockStatsMXBean {
    *
    */
   private MisReplicationResult processMisReplicatedBlock(BlockInfo block) {
-    if (block.isDeleted()) {//如果块被删除，则返回 INVALID 直接不管了
+    if (block.isDeleted()) {
+      //如果块被删除，加入到 invalidateBlocks 列表，则返回 INVALID
       // block does not belong to any file
       addToInvalidates(block);
       return MisReplicationResult.INVALID;
@@ -3617,7 +3621,8 @@ public class BlockManager implements BlockStatsMXBean {
       }
     }
 
-    if (shouldProcessExtraRedundancy(num, expectedRedundancy)) {//是否有冗余副本
+    if (shouldProcessExtraRedundancy(num, expectedRedundancy)) {
+      //冗余副副本有存在在 Stale 节点上的则等待滞后处理
       if (num.replicasOnStaleNodes() > 0) {
         // If any of the replicas of this block are on nodes that are
         // considered "stale", then these replicas may in fact have
@@ -3627,11 +3632,10 @@ public class BlockManager implements BlockStatsMXBean {
         // 如果在 stale 节点上块有副本，则不能立即删除，防止数据丢失
         // 直到 stale 节点汇报副本状态或改节点超时，就可以删除
         // 1、正常汇报后会进入 OVER_REPLICATED 流程
-        // TODO 2、如果节点超时呢？该怎么处理
         return MisReplicationResult.POSTPONE;
       }
       
-      // extra redundancy block   处理副本数超过期望值的数据块 TODO 跨 AZ 该如何处理？
+      // extra redundancy block  处理冗余副本，加入到  excessRedundancyMap 中处理
       processExtraRedundancyBlock(block, expectedRedundancy, null, null);
       return MisReplicationResult.OVER_REPLICATED;
     }
@@ -4517,7 +4521,7 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * A block needs reconstruction if the number of redundancies is less than
    * expected or if it does not have enough racks.
-   * 如果一个块写完后，副本数少于预期 或机架分布不符合和预期，才能允许被 reconstruction
+   * 如果一个块写完后，副本数少于预期或机架分布不符合和预期，才能允许被 reconstruction
    */
   boolean isNeededReconstruction(BlockInfo storedBlock,
       NumberReplicas numberReplicas, int pending) {
@@ -4630,9 +4634,10 @@ public class BlockManager implements BlockStatsMXBean {
         try {
           // Process recovery work only when active NN is out of safe mode.
           if (isPopulatingReplQueues()) {
-            //执行修复和删除数据块操作
+            //执行数据块修复、删除无效副本任务
             computeDatanodeWork();
-            //扫描修复超时的数据块，从新放入等待列表中
+            //在 pendingReconstruction 获取执行超时任务，
+            // 并检查数据块状态，如果没有恢复正常则重新放入等待列（neededReconstruction）表中
             processPendingReconstructions();
             //扫描之前延迟汇报的数据块，以及冗余副本
             rescanPostponedMisreplicatedBlocks();
@@ -4791,7 +4796,7 @@ public class BlockManager implements BlockStatsMXBean {
     } finally {
       namesystem.writeUnlock();
     }
-    //执行删除任务
+    //执行删除无效数据块副本任务
     workFound += this.computeInvalidateWork(nodesToProcess);
     return workFound;
   }
@@ -5033,10 +5038,13 @@ public class BlockManager implements BlockStatsMXBean {
             long start = Time.monotonicNow();
             do {
               processed++;
+              //执行 action
               action.run();
+              //避免持锁过长 4 ms 中断一次处理
               if (Time.monotonicNow() - start > MAX_LOCK_HOLD_MS) {
                 break;
               }
+              //从队列中拿取任务执行
               action = queue.poll();
             } while (action != null);
           } finally {

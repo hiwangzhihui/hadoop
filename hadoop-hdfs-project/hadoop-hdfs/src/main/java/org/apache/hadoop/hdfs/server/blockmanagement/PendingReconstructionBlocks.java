@@ -60,7 +60,7 @@ class PendingReconstructionBlocks {
   //
   private long timeout =
       DFS_NAMENODE_RECONSTRUCTION_PENDING_TIMEOUT_SEC_DEFAULT * 1000; // 修复超时时间 5 分钟
-  private final static long DEFAULT_RECHECK_INTERVAL = 5 * 60 * 1000; // 检查默认间隔时间 50 分钟
+  private final static long DEFAULT_RECHECK_INTERVAL = 5 * 60 * 1000; // 检查默认间隔时间 5 分钟
 
   PendingReconstructionBlocks(long timeoutPeriod) {
     if ( timeoutPeriod > 0 ) {
@@ -266,11 +266,13 @@ class PendingReconstructionBlocks {
           if (now > pendingBlock.getTimeStamp() + timeout) {
             BlockInfo block = entry.getKey();
             synchronized (timedOutItems) {
-              timedOutItems.add(block);//将超时任务加入超时列表
+              //将超时任务加入超时列表
+              timedOutItems.add(block);
             }
             LOG.warn("PendingReconstructionMonitor timed out " + block);
             NameNode.getNameNodeMetrics().incTimeoutReReplications();
-            iter.remove(); //并且从 pendingRecinsstrouctions 列表中移除
+            //并且从 pendingRecinsstrouctions 列表中移除
+            iter.remove();
           }
         }
       }

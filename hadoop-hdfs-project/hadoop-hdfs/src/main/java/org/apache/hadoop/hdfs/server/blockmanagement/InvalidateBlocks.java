@@ -305,8 +305,8 @@ class InvalidateBlocks {
         remove(dn);
       }
       //将即将删除副本加入invalidateBlocks 列表 ，生成删除指令，放入 datanode 心跳中
-      dn.addBlocksToBeInvalidated(toInvalidate);
     }
+    dn.addBlocksToBeInvalidated(toInvalidate);
     return toInvalidate;
   }
   
