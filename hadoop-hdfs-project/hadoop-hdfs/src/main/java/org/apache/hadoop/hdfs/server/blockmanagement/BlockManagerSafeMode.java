@@ -56,7 +56,7 @@ import static org.apache.hadoop.util.Time.monotonicNow;
 
 /**
  * Block manager safe mode info.
- *
+ * 管理 NameNode SafeMode 状态
  * During name node startup, counts the number of <em>safe blocks</em>, those
  * that have at least the minimal number of replicas, and calculates the ratio
  * of safe blocks to the total number of blocks in the system, which is the size
@@ -70,9 +70,9 @@ import static org.apache.hadoop.util.Time.monotonicNow;
 @InterfaceStability.Evolving
 class BlockManagerSafeMode {
   enum BMSafeModeStatus {
-    PENDING_THRESHOLD, /** Pending on more safe blocks or live datanode. */
-    EXTENSION,         /** In extension period. */
-    OFF                /** Safe mode is off. */
+    PENDING_THRESHOLD, /** Pending on more safe blocks or live datanode. 当前处于安全模式，等待 dataNode 汇报副本达到阈值 */
+    EXTENSION,         /** In extension period. 副本汇报比率已满足阈值，进入等待时间 */
+    OFF                /** Safe mode is off. 退出安全模式 */
   }
 
   static final Logger LOG = LoggerFactory.getLogger(BlockManagerSafeMode.class);
@@ -82,23 +82,40 @@ class BlockManagerSafeMode {
   private final BlockManager blockManager;
   private final Namesystem namesystem;
   private final boolean haEnabled;
+  //当前 NameNode 状态
   private volatile BMSafeModeStatus status = BMSafeModeStatus.OFF;
 
-  /** Safe mode threshold condition %.*/
+  /** Safe mode threshold condition %.
+   *  退出 SafeMode 是安全数据块阈值比例
+   * */
   private final double threshold;
-  /** Number of blocks needed to satisfy safe mode threshold condition. */
+  /** Number of blocks needed to satisfy safe mode threshold condition.
+   * 退出 SafeMode 是安全数据块阈值个数
+   * */
   private long blockThreshold;
-  /** Total number of blocks. */
+  /** Total number of blocks.
+   * HDFS 集群中总数据块个数
+   * */
   private long blockTotal;
-  /** Number of safe blocks. */
+  /** Number of safe blocks.
+   *  当前 HDFS 恢复安全状态的数据块个数
+   * */
   private long blockSafe;
-  /** Safe mode minimum number of datanodes alive. */
+  /** Safe mode minimum number of datanodes alive.
+   *  退出 safeMode 存活的 DataNode 阈值
+   * */
   private final int datanodeThreshold;
-  /** Min replication required by safe mode. */
+  /** Min replication required by safe mode.
+   *  数据块最低副本系数
+   * */
   private final int safeReplication;
-  /** Threshold for populating needed replication queues. */
+  /** Threshold for populating needed replication queues.
+   *
+   * */
   private final double replQueueThreshold;
-  /** Number of blocks needed before populating replication queues. */
+  /** Number of blocks needed before populating replication queues.
+   *
+   * */
   private long blockReplQueueThreshold;
 
   /** How long (in ms) is the extension period. */
@@ -204,6 +221,7 @@ class BlockManagerSafeMode {
    */
   void checkSafeMode() {
     assert namesystem.hasWriteLock();
+    //当 NameNode 状态成功转换为 ACTIVE，不需要后续判断
     if (namesystem.inTransitionToActive()) {
       return;
     }

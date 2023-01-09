@@ -580,8 +580,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    * startup, we assume it came out of startup safemode and it is now in low
    * resources safemode.
    */
-  private boolean manualSafeMode = false;
-  private boolean resourceLowSafeMode = false;
+  private boolean manualSafeMode = false; //手动命令进入 safeMode
+  private boolean resourceLowSafeMode = false; //集群存储资源不足进入 safeMode
   private String nameNodeHostName = null;
 
   /**

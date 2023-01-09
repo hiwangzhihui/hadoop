@@ -170,7 +170,7 @@ public class BlockManager implements BlockStatsMXBean {
   private static final long BLOCK_RECOVERY_TIMEOUT_MULTIPLIER = 30;
 
   private final Namesystem namesystem;
-
+  // safeMode 管理类
   private final BlockManagerSafeMode bmSafeMode;
 
   private final DatanodeManager datanodeManager;
@@ -4261,7 +4261,7 @@ public class BlockManager implements BlockStatsMXBean {
     final boolean inStartupSafeMode = namesystem.isInStartupSafeMode();
     return countNodes(b, inStartupSafeMode).liveReplicas();
   }
-  
+                             livelive
   /**
    * On putting the node in service, check if the node has excess replicas.
    * If there are any excess replicas, call processExtraRedundancyBlock().
