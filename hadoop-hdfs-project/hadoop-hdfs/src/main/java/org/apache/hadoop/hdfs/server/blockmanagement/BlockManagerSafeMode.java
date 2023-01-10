@@ -70,9 +70,9 @@ import static org.apache.hadoop.util.Time.monotonicNow;
 @InterfaceStability.Evolving
 class BlockManagerSafeMode {
   enum BMSafeModeStatus {
-    PENDING_THRESHOLD, /** Pending on more safe blocks or live datanode. 当前处于安全模式，等待 dataNode 汇报副本达到阈值 */
-    EXTENSION,         /** In extension period. 副本汇报比率已满足阈值，进入等待时间 */
-    OFF                /** Safe mode is off. 退出安全模式 */
+    PENDING_THRESHOLD, /** Pending on more safe blocks or live datanode. 当前处于安全模式，等待 DataNode 和恢复数据块个数达到阈值 */
+    EXTENSION,         /** In extension period. 数据块恢复比率已满足阈值，进入等待时间 */
+    OFF                /** Safe mode is off. 已退出安全模式 */
   }
 
   static final Logger LOG = LoggerFactory.getLogger(BlockManagerSafeMode.class);
@@ -82,15 +82,15 @@ class BlockManagerSafeMode {
   private final BlockManager blockManager;
   private final Namesystem namesystem;
   private final boolean haEnabled;
-  //当前 NameNode 状态
+  //当前 NameNode 安全模式状态，默认 off
   private volatile BMSafeModeStatus status = BMSafeModeStatus.OFF;
 
   /** Safe mode threshold condition %.
-   *  退出 SafeMode 是安全数据块阈值比例
+   *  退出 SafeMode 时恢复数据块阈值比例
    * */
   private final double threshold;
   /** Number of blocks needed to satisfy safe mode threshold condition.
-   * 退出 SafeMode 是安全数据块阈值个数
+   * 退出 SafeMode 是复数据块阈值个数
    * */
   private long blockThreshold;
   /** Total number of blocks.
@@ -98,7 +98,7 @@ class BlockManagerSafeMode {
    * */
   private long blockTotal;
   /** Number of safe blocks.
-   *  当前 HDFS 恢复安全状态的数据块个数
+   *  当前恢复的数据块个数
    * */
   private long blockSafe;
   /** Safe mode minimum number of datanodes alive.
@@ -106,7 +106,7 @@ class BlockManagerSafeMode {
    * */
   private final int datanodeThreshold;
   /** Min replication required by safe mode.
-   *  数据块最低副本系数
+   *  确认数据块恢复的最低副本系数
    * */
   private final int safeReplication;
   /** Threshold for populating needed replication queues.
@@ -114,7 +114,7 @@ class BlockManagerSafeMode {
    * */
   private final double replQueueThreshold;
   /** Number of blocks needed before populating replication queues.
-   *  replQueueThreshold * total 恢复数据块阈值
+   *  replQueueThreshold * total 恢复数据块阈值，与 blockSafe 语义一致
    * */
   private long blockReplQueueThreshold;
 
@@ -124,11 +124,11 @@ class BlockManagerSafeMode {
   @VisibleForTesting
   final long extension;
   /** Timestamp of the first time when thresholds are met.
-   *  达到阈值时间
+   *  满足阈值时间，进入 EXTENSION
    * */
   private final AtomicLong reachedTime = new AtomicLong();
   /** Timestamp of the safe mode initialized.
-   *  进入safemode 开始时间
+   *  进入 safemode 开始时间
    * */
   private long startTime;
   /** the safe mode monitor thread. */
