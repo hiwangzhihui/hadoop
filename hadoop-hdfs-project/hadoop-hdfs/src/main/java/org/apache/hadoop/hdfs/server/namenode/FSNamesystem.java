@@ -5510,8 +5510,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         throw new IOException("Cannot run listCorruptFileBlocks because " +
                               "replication queues have not been initialized.");
       }
+      //从 neededReconstruction 列表中，拿取  QUEUE_WITH_CORRUPT_BLOCKS （不可修复）的数据块
       // print a limited # of corrupt files per call
-
       final Iterator<BlockInfo> blkIterator =
           blockManager.getCorruptReplicaBlockIterator();
 
@@ -6279,6 +6279,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    *                  to start from.
    * @return a list in which each entry describes a corrupt file/block
    * @throws IOException
+   * 从 neededReconstruction 列表中，拿取  QUEUE_WITH_CORRUPT_BLOCKS （不可修复）的数据块
    */
   List<String> listCorruptFileBlocksWithSnapshot(String path,
       List<String> snapshottableDirs, String[] cookieTab) throws IOException {

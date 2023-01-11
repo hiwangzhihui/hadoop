@@ -35,6 +35,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 /**
  * This class is used in Namesystem's web server to do fsck on namenode.
+ * 接收 fsck 请求的 Servlet
  */
 @InterfaceAudience.Private
 public class FsckServlet extends DfsServlet {
@@ -63,7 +64,8 @@ public class FsckServlet extends DfsServlet {
           final FSNamesystem namesystem = nn.getNamesystem();
           final BlockManager bm = namesystem.getBlockManager();
           final int totalDatanodes = 
-              namesystem.getNumberOfDatanodes(DatanodeReportType.LIVE); 
+              namesystem.getNumberOfDatanodes(DatanodeReportType.LIVE);
+          //构造 NamenodeFsck 处理类，调用 fsck 方法
           new NamenodeFsck(conf, nn,
               bm.getDatanodeManager().getNetworkTopology(), pmap, out,
               totalDatanodes, remoteAddress).fsck();

@@ -109,6 +109,7 @@ import com.google.common.annotations.VisibleForTesting;
  *  Additionally, the tool collects a detailed overall DFS statistics, and
  *  optionally can print detailed statistics on block locations and replication
  *  factors of each file.
+ *  Fsck 处理类
  */
 @InterfaceAudience.Private
 public class NamenodeFsck implements DataEncryptionKeyFactory {
@@ -220,6 +221,7 @@ public class NamenodeFsck implements DataEncryptionKeyFactory {
         conf(TraceUtils.wrapHadoopConf("namenode.fsck.htrace.", conf)).
         build();
 
+    //参数解析，命令赋值
     for (Iterator<String> it = pmap.keySet().iterator(); it.hasNext();) {
       String key = it.next();
       if (key.equals("path")) { this.path = pmap.get("path")[0]; }
@@ -334,6 +336,7 @@ public class NamenodeFsck implements DataEncryptionKeyFactory {
 
   /**
    * Check files on DFS, starting from the indicated path.
+   * 处理入口
    */
   public void fsck() {
     final long startTime = Time.monotonicNow();
@@ -379,13 +382,14 @@ public class NamenodeFsck implements DataEncryptionKeyFactory {
 
       final HdfsFileStatus file = namenode.getRpcServer().getFileInfo(path);
       if (file != null) {
-
+         //扫描文件损坏数据块
         if (showCorruptFileBlocks) {
           listCorruptFileBlocks();
           return;
         }
 
         if (this.showStoragePolcies) {
+          //查询异构存储置放策略
           storageTypeSummary = new StoragePolicySummary(
               namenode.getNamesystem().getBlockManager().getStoragePolicies());
         }
@@ -863,7 +867,9 @@ public class NamenodeFsck implements DataEncryptionKeyFactory {
       if (isOpen) {
         LOG.info("Fsck: ignoring open file " + path);
       } else {
+        //移动损坏文件目录到  /lost+found 下
         if (doMove) copyBlocksToLostFound(parent, file, blocks);
+        //立即删除损坏文件、目录
         if (doDelete) deleteCorruptedFile(path);
       }
     }
@@ -932,6 +938,7 @@ public class NamenodeFsck implements DataEncryptionKeyFactory {
           "lost+found, because " + target + " already exists.");
         return;
       }
+      //lostFound 下创建目录
       if (!namenode.getRpcServer().mkdirs(
           target, file.getPermission(), true)) {
         throw new IOException("failed to create directory " + target);
