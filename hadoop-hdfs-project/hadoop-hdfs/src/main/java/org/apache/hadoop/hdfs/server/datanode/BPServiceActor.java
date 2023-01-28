@@ -505,7 +505,7 @@ class BPServiceActor implements Runnable {
     
     final long now = monotonicNow();
     scheduler.updateLastHeartbeatTime(now);
-    //获取不可以存储目录向 NameNode 汇报
+    //获取不可使用存储目录向 NameNode 汇报
     VolumeFailureSummary volumeFailureSummary = dn.getFSDataset()
         .getVolumeFailureSummary();
     int numFailedVolumes = volumeFailureSummary != null ?
@@ -651,6 +651,7 @@ class BPServiceActor implements Runnable {
           boolean requestBlockReportLease = (fullBlockReportLeaseId == 0) &&
                   scheduler.isBlockReportDue(startTime);
           if (!dn.areHeartbeatsDisabledForTests()) {
+            //心跳汇报，包含 datanode 存储空间信息
             resp = sendHeartBeat(requestBlockReportLease);
             assert resp != null;
             if (resp.getFullBlockReportLeaseId() != 0) {
@@ -684,7 +685,7 @@ class BPServiceActor implements Runnable {
             if (!processCommand(resp.getCommands()))
               continue;
             long endProcessCommands = monotonicNow();
-            //处理 NN 过长的表现
+            // NN 处理时间过长的表现
             if (endProcessCommands - startProcessCommands > 2000) {
               LOG.info("Took " + (endProcessCommands - startProcessCommands)
                   + "ms to process " + resp.getCommands().length
@@ -694,6 +695,7 @@ class BPServiceActor implements Runnable {
         }
         // 默认情况 IBR 会立即发送给 NameNode
         if (ibrManager.sendImmediately() || sendHeartbeat) {
+           //增量汇报数据块信息
           ibrManager.sendIBRs(bpNamenode, bpRegistration,
               bpos.getBlockPoolId());
         }

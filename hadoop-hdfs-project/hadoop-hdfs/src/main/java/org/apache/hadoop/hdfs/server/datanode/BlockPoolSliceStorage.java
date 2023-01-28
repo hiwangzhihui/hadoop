@@ -109,7 +109,7 @@ public class BlockPoolSliceStorage extends Storage {
    * per storage on each heartbeat response.
    */
   private static Set<String> storagesWithRollingUpgradeMarker;
-  private static Set<String> storagesWithoutRollingUpgradeMarker;
+  private static Set<String> getstoragesWithoutRollingUpgradeMarker;
 
   BlockPoolSliceStorage(int namespaceID, String bpID, long cTime,
       String clusterId) {
