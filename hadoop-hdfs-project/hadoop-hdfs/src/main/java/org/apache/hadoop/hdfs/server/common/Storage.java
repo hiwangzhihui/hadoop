@@ -130,6 +130,7 @@ public abstract class Storage extends StorageInfo {
     public StorageDirType getStorageDirType();
   }
 
+  //维护和管理所有磁盘目录
   private final List<StorageDirectory> storageDirs =
       new CopyOnWriteArrayList<>();
 

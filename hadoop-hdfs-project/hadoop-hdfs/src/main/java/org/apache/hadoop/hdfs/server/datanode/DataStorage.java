@@ -105,6 +105,7 @@ public class DataStorage extends Storage {
   private volatile String datanodeUuid = null;
   
   // Maps block pool IDs to block pool storage
+  // 块池目录的管理
   private final Map<String, BlockPoolSliceStorage> bpStorageMap
       = Collections.synchronizedMap(new HashMap<String, BlockPoolSliceStorage>());
 
