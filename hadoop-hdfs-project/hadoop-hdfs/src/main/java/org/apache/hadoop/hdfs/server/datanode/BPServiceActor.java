@@ -494,8 +494,9 @@ class BPServiceActor implements Runnable {
 
   HeartbeatResponse sendHeartBeat(boolean requestBlockReportLease)
       throws IOException {
+    //更新下次汇报时间 3s 之后
     scheduler.scheduleNextHeartbeat();
-    //获取 DataNode 上存储报告给 NameNode
+    //获取 DataNode 存储报告给 NameNode
     StorageReport[] reports =
         dn.getFSDataset().getStorageReports(bpos.getBlockPoolId());
     if (LOG.isDebugEnabled()) {
@@ -504,6 +505,7 @@ class BPServiceActor implements Runnable {
     }
     
     final long now = monotonicNow();
+    //更新上一次心跳汇报开始时间
     scheduler.updateLastHeartbeatTime(now);
     //获取不可使用存储目录向 NameNode 汇报
     VolumeFailureSummary volumeFailureSummary = dn.getFSDataset()
@@ -520,6 +522,7 @@ class BPServiceActor implements Runnable {
         outliersReportDue && dn.getDiskMetrics() != null ?
             SlowDiskReports.create(dn.getDiskMetrics().getDiskOutliersStats()) :
             SlowDiskReports.EMPTY_REPORT;
+    //发送心跳汇报
     HeartbeatResponse response = bpNamenode.sendHeartbeat(bpRegistration,
         reports,
         dn.getFSDataset().getCacheCapacity(),//汇报 DataNode 容量信息
@@ -637,7 +640,7 @@ class BPServiceActor implements Runnable {
 
         //
         // Every so often, send heartbeat or block-report
-        //
+        // 是否允许进行一次心跳汇报
         final boolean sendHeartbeat = scheduler.isHeartbeatDue(startTime);
         HeartbeatResponse resp = null;
         if (sendHeartbeat) {
@@ -665,6 +668,7 @@ class BPServiceActor implements Runnable {
               }
               fullBlockReportLeaseId = resp.getFullBlockReportLeaseId();
             }
+            //更新汇报耗时监控指标
             dn.getMetrics().addHeartbeat(scheduler.monotonicNow() - startTime);
 
             // If the state of this NN has changed (eg STANDBY->ACTIVE)
@@ -682,10 +686,11 @@ class BPServiceActor implements Runnable {
             }
 
             long startProcessCommands = monotonicNow();
+            //处理心跳返回的命令
             if (!processCommand(resp.getCommands()))
               continue;
             long endProcessCommands = monotonicNow();
-            // NN 处理时间过长的表现
+            // 处理 NameNode 下发的命令，时间超过2ms则打印以下日志
             if (endProcessCommands - startProcessCommands > 2000) {
               LOG.info("Took " + (endProcessCommands - startProcessCommands)
                   + "ms to process " + resp.getCommands().length
@@ -693,9 +698,13 @@ class BPServiceActor implements Runnable {
             }
           }
         }
-        // 默认情况 IBR 会立即发送给 NameNode
+        /**
+         * 是否进行一次增量数据块汇报
+         *  sendImmediately 条件达成 或  sendHeartbeat 条件达成
+         * */
         if (ibrManager.sendImmediately() || sendHeartbeat) {
-           //增量汇报数据块信息
+          // 默认情况 IBR 会立即发送给 NameNode
+          //增量汇报数据块信息
           ibrManager.sendIBRs(bpNamenode, bpRegistration,
               bpos.getBlockPoolId());
         }
@@ -724,7 +733,7 @@ class BPServiceActor implements Runnable {
 
         // There is no work to do;  sleep until hearbeat timer elapses, 
         // or work arrives, and then iterate again.
-        // 等待下次发送 IBR 的间隔时间
+        // 等待触发一次心跳汇报或则增量数据块汇报
         ibrManager.waitTillNextIBR(scheduler.getHeartbeatWaitTime());
       } catch(RemoteException re) {
         String reClass = re.getClassName();
@@ -826,7 +835,7 @@ class BPServiceActor implements Runnable {
       while (true) {
         // init stuff
         try {
-          // setup storage
+          // setup storage 初始化与 NameNode 握手注册 DataNode 并汇报节点上数据块和存储空间信息
           connectToNNAndHandshake();
           break;
         } catch (IOException ioe) {
@@ -852,6 +861,7 @@ class BPServiceActor implements Runnable {
 
       while (shouldRun()) {
         try {
+          //定时发送心跳，向NameNode 发送心跳，汇报数据块、存储容量信息
           offerService();
         } catch (Exception ex) {
           LOG.error("Exception in BPOfferService for " + this, ex);
@@ -1085,6 +1095,7 @@ class BPServiceActor implements Runnable {
           .getVolumeFailureSummary();
       int numFailedVolumes = volumeFailureSummary != null ?
           volumeFailureSummary.getFailedStorageLocations().length : 0;
+      //发送一个节点上的存储容量报告信息
       lifelineNamenode.sendLifeline(bpRegistration,
                                     reports,
                                     dn.getFSDataset().getCacheCapacity(),
@@ -1107,6 +1118,7 @@ class BPServiceActor implements Runnable {
     @VisibleForTesting
     volatile long nextBlockReportTime = monotonicNow();
 
+    //下一次心跳汇报时间
     @VisibleForTesting
     volatile long nextHeartbeatTime = monotonicNow();
 
@@ -1116,6 +1128,7 @@ class BPServiceActor implements Runnable {
     @VisibleForTesting
     volatile long lastBlockReportTime = monotonicNow();
 
+    //最后上一次心跳汇报时间
     @VisibleForTesting
     volatile long lastHeartbeatTime = monotonicNow();
 
@@ -1159,6 +1172,7 @@ class BPServiceActor implements Runnable {
     long scheduleNextHeartbeat() {
       // Numerical overflow is possible here and is okay.
       nextHeartbeatTime = monotonicNow() + heartbeatIntervalMs;
+      //更新 Lifeline 汇报时间，避免冲突
       scheduleNextLifeline(nextHeartbeatTime);
       return nextHeartbeatTime;
     }
@@ -1189,6 +1203,7 @@ class BPServiceActor implements Runnable {
       return nextLifelineTime;
     }
 
+    //判断是否允许进行下一次心跳汇报
     boolean isHeartbeatDue(long startTime) {
       return (nextHeartbeatTime - startTime <= 0);
     }
@@ -1252,7 +1267,7 @@ class BPServiceActor implements Runnable {
                   blockReportIntervalMs)) * blockReportIntervalMs;
       }
     }
-
+   //到下次心跳汇报需要等待的时间
     long getHeartbeatWaitTime() {
       return nextHeartbeatTime - monotonicNow();
     }

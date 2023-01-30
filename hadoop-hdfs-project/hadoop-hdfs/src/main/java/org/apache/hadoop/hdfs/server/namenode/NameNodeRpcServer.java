@@ -1632,6 +1632,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
       VolumeFailureSummary volumeFailureSummary) throws IOException {
     checkNNStartup();
     verifyRequest(nodeReg);
+    //处理 DataNode 发送的轻量级心跳汇报信息
     namesystem.handleLifeline(nodeReg, report, dnCacheCapacity, dnCacheUsed,
         xceiverCount, xmitsInProgress, failedVolumes, volumeFailureSummary);
   }

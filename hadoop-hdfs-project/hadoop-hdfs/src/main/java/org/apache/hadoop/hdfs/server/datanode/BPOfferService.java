@@ -678,6 +678,7 @@ class BPOfferService {
     writeLock();
     try {
       if (actor == bpServiceToActive) {
+        //处理 active 节点发送过来的命令
         return processCommandFromActive(cmd, actor);
       } else {
         return processCommandFromStandby(cmd, actor);
@@ -718,25 +719,26 @@ class BPOfferService {
       cmd instanceof BlockIdCommand ? (BlockIdCommand)cmd: null;
 
     switch(cmd.getAction()) {
-    case DatanodeProtocol.DNA_TRANSFER:
-      // Send a copy of a block to another datanode
+    case DatanodeProtocol.DNA_TRANSFER: //数据块副本传输
+      // Send a copy of a block to another datanode 开启一个独立线程去做
       dn.transferBlocks(bcmd.getBlockPoolId(), bcmd.getBlocks(),
           bcmd.getTargets(), bcmd.getTargetStorageTypes(),
           bcmd.getTargetStorageIDs());
       break;
-    case DatanodeProtocol.DNA_INVALIDATE:
+    case DatanodeProtocol.DNA_INVALIDATE: //删除数据块副本
       //
       // Some local block(s) are obsolete and can be 
       // safely garbage-collected.
       //
       Block toDelete[] = bcmd.getBlocks();
       try {
-        // using global fsdataset
+        // using global fsdataset 同步进行删除操作
         dn.getFSDataset().invalidate(bcmd.getBlockPoolId(), toDelete);
       } catch(IOException e) {
         // Exceptions caught here are not expected to be disk-related.
         throw e;
       }
+      //删除数据块个数
       dn.metrics.incrBlocksRemoved(toDelete.length);
       break;
     case DatanodeProtocol.DNA_CACHE:

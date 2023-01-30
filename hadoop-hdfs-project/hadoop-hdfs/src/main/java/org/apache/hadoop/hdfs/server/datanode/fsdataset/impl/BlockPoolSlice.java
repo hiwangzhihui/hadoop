@@ -302,6 +302,7 @@ class BlockPoolSlice {
   /**
    * Temporary files. They get moved to the finalized block directory when
    * the block is finalized.
+   * 在 tmp 目录下创建一个块副本文件 TODO 什么场景会调用
    */
   File createTmpFile(Block b) throws IOException {
     File f = new File(tmpDir, b.getBlockName());
@@ -316,6 +317,7 @@ class BlockPoolSlice {
   /**
    * RBW files. They get moved to the finalized block directory when
    * the block is finalized.
+   *  在 rbw 目录下创建一个块副本文件 TODO 什么时候会调用
    */
   File createRbwFile(Block b) throws IOException {
     File f = new File(rbwDir, b.getBlockName());
@@ -327,6 +329,10 @@ class BlockPoolSlice {
     return rbwFile;
   }
 
+  /**
+   *  创建一个 Finalized 状态数据块副文件
+   *  TODO 如何处理的，什么情况下会调用
+   * */
   File addFinalizedBlock(Block b, ReplicaInfo replicaInfo) throws IOException {
     File blockDir = DatanodeUtil.idToBlockDir(finalizedDir, b.getBlockId());
     fileIoProvider.mkdirsWithExistsCheck(volume, blockDir);

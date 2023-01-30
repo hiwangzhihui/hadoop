@@ -411,6 +411,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
     rollBlocksScheduled(getLastUpdateMonotonic());
   }
 
+  //更新节点存储容量，和负载信息
   private void updateStorageStats(StorageReport[] reports, long cacheCapacity,
       long cacheUsed, int xceiverCount, int volFailures,
       VolumeFailureSummary volumeFailureSummary) {

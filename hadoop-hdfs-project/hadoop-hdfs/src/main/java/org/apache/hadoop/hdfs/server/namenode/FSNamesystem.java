@@ -3878,11 +3878,13 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       boolean requestFullBlockReportLease,
       @Nonnull SlowPeerReports slowPeers,
       @Nonnull SlowDiskReports slowDisks) throws IOException {
+    //进行获取读锁操作
     readLock();
     try {
       //get datanode commands
       final int maxTransfer = blockManager.getMaxReplicationStreams()
           - xmitsInProgress;
+      //处理 datanode 心跳汇报信息
       DatanodeCommand[] cmds = blockManager.getDatanodeManager().handleHeartbeat(
           nodeReg, reports, getBlockPoolId(), cacheCapacity, cacheUsed,
           xceiverCount, maxTransfer, failedVolumes, volumeFailureSummary,
@@ -3899,6 +3901,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       return new HeartbeatResponse(cmds, haState, rollingUpgradeInfo,
           blockReportLeaseId);
     } finally {
+      //释放读锁
       readUnlock("handleHeartbeat");
     }
   }
