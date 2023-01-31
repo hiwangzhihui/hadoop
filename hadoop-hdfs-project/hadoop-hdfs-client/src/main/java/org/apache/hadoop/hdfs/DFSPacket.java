@@ -44,6 +44,7 @@ public class DFSPacket {
   private static SpanId[] EMPTY = new SpanId[0];
   private final long seqno; // sequence number of buffer in block
   private final long offsetInBlock; // offset in block
+  //数据包写入到 datanode 磁盘 ，默认 false
   private boolean syncBlock; // this packet forces the current block to disk
   private int numChunks; // number of chunks currently in packet
   private final int maxChunks; // max chunks in packet

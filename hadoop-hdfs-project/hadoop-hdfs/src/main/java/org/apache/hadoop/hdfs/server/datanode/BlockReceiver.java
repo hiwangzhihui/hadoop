@@ -571,7 +571,7 @@ class BlockReceiver implements Closeable {
     }
     
     // put in queue for pending acks, unless sync was requested
-    // 如果不是数据管理中最后一个数据节点，则立即向上游发送响应消息
+    // 如果不是数据管道中最后一个数据节点，则立即向上游发送响应消息
     if (responder != null && !syncBlock && !shouldVerifyChecksum()) {
       ((PacketResponder) responder.getRunnable()).enqueue(seqno,
           lastPacketInBlock, offsetInBlock, Status.SUCCESS);
@@ -964,6 +964,7 @@ class BlockReceiver implements Closeable {
     boolean responderClosed = false;
     mirrorOut = mirrOut;
     mirrorAddr = mirrAddr;
+    //冲洗 downstreams ，下游的 downstreams为 target - 1
     initPerfMonitoring(downstreams);
     throttler = throttlerArg;
 

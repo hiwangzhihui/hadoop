@@ -226,7 +226,7 @@ class DataXceiver extends Receiver implements Runnable {
       synchronized(this) {
         xceiver = Thread.currentThread();
       }
-      //在 dataXceiverServer 添加 peer 与 DataXceiver 的关系
+      //在 DataXceiverServer 添加 peer 与 DataXceiver 的关系
       dataXceiverServer.addPeer(peer, Thread.currentThread(), this);
 
       peer.setWriteTimeout(datanode.getDnConf().socketWriteTimeout);
@@ -842,7 +842,7 @@ class DataXceiver extends Receiver implements Runnable {
             targetStorageId = targetStorageIds[0];
           }
           if (targetPinnings != null && targetPinnings.length > 0) {
-            //向下游节点发送数据块写入请求
+            //向下游节点发送数据块写入请求,先发送 OP 通知读取数据，构建 pipeline 过程
             new Sender(mirrorOut).writeBlock(originalBlock, targetStorageTypes[0],
                 blockToken, clientname, targets, targetStorageTypes,
                 srcDataNode, stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
@@ -878,6 +878,7 @@ class DataXceiver extends Receiver implements Runnable {
 
         } catch (IOException e) {
           if (isClient) {
+            //数据发送到下游异常标记失败信息
             BlockOpResponseProto.newBuilder()
               .setStatus(ERROR)
                // NB: Unconditionally using the xfer addr w/o hostname
@@ -923,6 +924,7 @@ class DataXceiver extends Receiver implements Runnable {
       if (blockReceiver != null) {
         String mirrorAddr = (mirrorSock == null) ? null : mirrorNode;
         //调用 receiveBlock 方法从上游节点接收数据块，然后将数据块发送到下游节点
+        //循环读取数据包
         blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
             mirrorAddr, null, targets, false);
 

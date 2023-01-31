@@ -792,9 +792,10 @@ class DataStreamer extends Daemon {
         LOG.debug("{} sending {}", this, one);
 
         // write out data to remote datanode
+        //将数据发送到远程的 pipeline 中去
         try (TraceScope ignored = dfsClient.getTracer().
             newScope("DataStreamer#writeTo", spanId)) {
-          one.writeTo(blockStream); //将数据发送出去
+          one.writeTo(blockStream);
           blockStream.flush();
         } catch (IOException e) {
           // HDFS-3398 treat primary DN is down since client is unable to
@@ -1208,7 +1209,7 @@ class DataStreamer extends Daemon {
             pipelineRecoveryCount = 0;
             ackQueue.removeFirst(); //从 ack 列表中移除
             packetSendTime.remove(seqno);
-            dataQueue.notifyAll();
+            dataQueue.notifyAll();//通知 dataQueue 消费线程继续工作
 
             one.releaseBuffer(byteArrayManager);
           }

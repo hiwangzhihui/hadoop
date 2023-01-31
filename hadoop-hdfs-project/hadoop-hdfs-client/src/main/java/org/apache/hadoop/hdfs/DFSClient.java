@@ -1208,6 +1208,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         src, masked, flag, createParent, replication, blockSize, progress,
         dfsClientConf.createChecksum(checksumOpt),
         getFavoredNodesStr(favoredNodes), ecPolicyName);
+    //为文件操作续租
     beginFileLease(result.getFileId(), result);
     return result;
   }
