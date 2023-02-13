@@ -456,6 +456,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
 
   /**
    * interface implementation of Zookeeper callback for create
+   * 处理 Client 执行函数结果的回调函数
    */
   @Override
   public synchronized void processResult(int rc, String path, Object ctx,
@@ -471,6 +472,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     if (isSuccess(code)) {
       // we successfully created the znode. we are the leader. start monitoring
       if (becomeActive()) {
+        //对节点进行监听
         monitorActiveStatus();
       } else {
         reJoinElectionAfterFailureToBecomeActive();
@@ -590,6 +592,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   /**
    * interface implementation of Zookeeper watch events (connection and node),
    * proxied by {@link WatcherWithClientRef}.
+   * 处理监听事件
    */
   synchronized void processWatchEvent(ZooKeeper zk, WatchedEvent event) {
     Event.EventType eventType = event.getType();
@@ -648,11 +651,11 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     String path = event.getPath();
     if (path != null) {
       switch (eventType) {
-      case NodeDeleted:
+      case NodeDeleted:  //检测到 临时节点被删除
         if (state == State.ACTIVE) {
-          enterNeutralMode();
+          enterNeutralMode();   //如果当前节点为 Active
         }
-        joinElectionInternal();
+        joinElectionInternal();  //参与竞选
         break;
       case NodeDataChanged:
         monitorActiveStatus();
@@ -738,7 +741,10 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     }
 
     createRetryCount = 0;
+    //wantToBeInElection 设置为 true
+    // ZK 节点创建成功回调 processResult 函数，通知 RM  becomeActive
     wantToBeInElection = true;
+     //创建临时节点
     createLockNodeAsync();
   }
 
@@ -1000,10 +1006,10 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   }
 
   private void enterNeutralMode() {
-    if (state != State.NEUTRAL) {
+    if (state != State.NEUTRAL) {    //进入  NEUTRAL 状态
       LOG.debug("Entering neutral mode for {}", this);
       state = State.NEUTRAL;
-      appClient.enterNeutralMode();
+      appClient.enterNeutralMode();  //转换为 Standby 节点
     }
   }
 
@@ -1182,6 +1188,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
         if (!hasSetZooKeeper.await(zkSessionTimeout, TimeUnit.MILLISECONDS)) {
           LOG.debug("Event received with stale zk");
         }
+        //调用 processWatchEvent 函数处理所有接收到的事件
         ActiveStandbyElector.this.processWatchEvent(
             zk, event);
       } catch (Throwable t) {
