@@ -60,9 +60,14 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
 
   private ResourceManager rm;
 
+  //当前 RM 信息 clusterId-rmid
   private byte[] localActiveNodeInfo;
+  //选主程序
   private ActiveStandbyElector elector;
+  // Zk 回话超时时间
   private long zkSessionTimeout;
+
+  //执行 enterNeutralMode 计时器
   private Timer zkDisconnectTimer;
   @VisibleForTesting
   final Object zkDisconnectLock = new Object();
@@ -78,35 +83,42 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
     conf = conf instanceof YarnConfiguration
         ? conf
         : new YarnConfiguration(conf);
-
+    //获取 ZK 集群配置信息
     String zkQuorum = conf.get(YarnConfiguration.RM_ZK_ADDRESS);
     if (zkQuorum == null) {
       throw new YarnRuntimeException("Embedded automatic failover " +
           "is enabled, but " + YarnConfiguration.RM_ZK_ADDRESS +
           " is not set");
     }
-
+    //获取当前 ResourceManager 的 RM_ID
     String rmId = HAUtil.getRMHAId(conf);
+    //获取集群名称
     String clusterId = YarnConfiguration.getClusterId(conf);
     localActiveNodeInfo = createActiveNodeInfo(clusterId, rmId);
 
+    //选主文件存放目录 yarn.resourcemanager.ha.automatic-failover.zk-base-path
     String zkBasePath = conf.get(YarnConfiguration.AUTO_FAILOVER_ZK_BASE_PATH,
         YarnConfiguration.DEFAULT_AUTO_FAILOVER_ZK_BASE_PATH);
     String electionZNode = zkBasePath + "/" + clusterId;
 
+    //Zk 回话超时时间，默认 10s （ yarn.resourcemanager.zk-timeout-ms）
     zkSessionTimeout = conf.getLong(YarnConfiguration.RM_ZK_TIMEOUT_MS,
         YarnConfiguration.DEFAULT_RM_ZK_TIMEOUT_MS);
 
+    //临时节点acl  hadoop.zk.acl 默认 world:anyone:rwcda
     List<ACL> zkAcls = ZKCuratorManager.getZKAcls(conf);
+    //链接 ZK 认证信息 hadoop.zk.auth
     List<ZKUtil.ZKAuthInfo> zkAuths = ZKCuratorManager.getZKAuths(conf);
-
+    //链接失败重试次数 ha.failover-controller.active-standby-elector.zk.op.retries
     int maxRetryNum =
         conf.getInt(YarnConfiguration.RM_HA_FC_ELECTOR_ZK_RETRIES_KEY, conf
           .getInt(CommonConfigurationKeys.HA_FC_ELECTOR_ZK_OP_RETRIES_KEY,
             CommonConfigurationKeys.HA_FC_ELECTOR_ZK_OP_RETRIES_DEFAULT));
+    //创建选主 成员变量
     elector = new ActiveStandbyElector(zkQuorum, (int) zkSessionTimeout,
         electionZNode, zkAcls, zkAuths, this, maxRetryNum, false);
 
+    //初始化选主目录
     elector.ensureParentZNode();
     if (!isParentZnodeSafe(clusterId)) {
       notifyFatalError(String.format("invalid data in znode, %s, " +
@@ -119,6 +131,7 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
 
   @Override
   protected void serviceStart() throws Exception {
+    //启动服务，开始进行选主
     elector.joinElection(localActiveNodeInfo);
     super.serviceStart();
   }
@@ -177,6 +190,7 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
    * immediately. Instead the method starts a timer that will wait
    * {@link YarnConfiguration#RM_ZK_TIMEOUT_MS} milliseconds before
    * initiating the transition into standby state.
+   * 当ZK客户端与ZK失去联系时，会调用该方法
    */
   @Override
   public void enterNeutralMode() {
@@ -185,6 +199,7 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
 
     // If we've just become disconnected, start a timer.  When the time's up,
     // we'll transition to standby.
+    //如果与 Zk 断开链接时，延迟（10s）执行 becomeStandby
     synchronized (zkDisconnectLock) {
       if (zkDisconnectTimer == null) {
         zkDisconnectTimer = new Timer("Zookeeper disconnect timer");
