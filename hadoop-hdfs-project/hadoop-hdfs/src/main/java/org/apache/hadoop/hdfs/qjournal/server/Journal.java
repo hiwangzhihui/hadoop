@@ -932,7 +932,7 @@ public class Journal implements Closeable {
           updateHighestWrittenTxId(segment.getEndTxId());
         }
       }
-      syncedFile = syncLog(reqInfo, segment, fromUrl);
+      syncedFile = syncLog(reqInfo, segment, fromUrl); //执行同步
       
     } else {
       LOG.info("Skipping download of log " +

@@ -392,6 +392,7 @@ public class QuorumJournalManager implements JournalManager {
     URL syncFromUrl = bestLogger.buildURLToFetchLogs(segmentTxId);
     
     QuorumCall<AsyncLogger,Void> accept = loggers.acceptRecovery(logToSync, syncFromUrl);
+    //等待结果
     loggers.waitForWriteQuorum(accept, acceptRecoveryTimeoutMs,
         "acceptRecovery(" + TextFormat.shortDebugString(logToSync) + ")");
 
