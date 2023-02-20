@@ -1687,6 +1687,7 @@ public class DFSUtil {
       }
       target.add(filterInitializer);
     }
+    //添加 AuthFilterInitializer 认证
     target.add(AuthFilterInitializer.class.getName());
     initializers = StringUtils.join(target, ",");
     conf.set(filterInitializerConfKey, initializers);

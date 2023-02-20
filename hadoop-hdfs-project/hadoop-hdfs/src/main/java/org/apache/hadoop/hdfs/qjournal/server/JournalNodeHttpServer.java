@@ -72,7 +72,7 @@ public class JournalNodeHttpServer {
         httpsAddr = new InetSocketAddress(bindHost, httpsAddr.getPort());
       }
     }
-
+    //创建 Jn 的HttpServer ，并在 httpServerTemplateForNNAndJN 中初始化 Filter
     HttpServer2.Builder builder = DFSUtil.httpServerTemplateForNNAndJN(conf,
         httpAddr, httpsAddr, "journal",
         DFSConfigKeys.DFS_JOURNALNODE_KERBEROS_INTERNAL_SPNEGO_PRINCIPAL_KEY,
@@ -81,6 +81,7 @@ public class JournalNodeHttpServer {
     httpServer = builder.build();
     httpServer.setAttribute(JN_ATTRIBUTE_KEY, localJournalNode);
     httpServer.setAttribute(JspHelper.CURRENT_CONF, conf);
+    //JN getJournal Http 接口
     httpServer.addInternalServlet("getJournal", "/getJournal",
         GetJournalEditServlet.class, true);
     httpServer.start();
