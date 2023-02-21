@@ -515,6 +515,7 @@ public class AuthenticationFilter implements Filter {
       boolean newToken = false;
       AuthenticationToken token;
       try {
+        //如果是 Cookie 中存储 token 信息则直接从 cookie 中获取
         token = getToken(httpRequest);
         if (LOG.isDebugEnabled()) {
           LOG.debug("Got token {} from httpRequest {}", token,
@@ -533,6 +534,7 @@ public class AuthenticationFilter implements Filter {
             LOG.debug("Request [{}] triggering authentication. handler: {}",
                 getRequestURL(httpRequest), authHandler.getClass());
           }
+          //从请求头中获取认证信息（token）
           token = authHandler.authenticate(httpRequest, httpResponse);
           if (token != null && token != AuthenticationToken.ANONYMOUS) {
             if (token.getMaxInactives() > 0) {
@@ -553,6 +555,7 @@ public class AuthenticationFilter implements Filter {
                 getRequestURL(httpRequest), token.getUserName());
           }
           final AuthenticationToken authToken = token;
+          //将用户信息保存到 httpRequest 中
           httpRequest = new HttpServletRequestWrapper(httpRequest) {
 
             @Override
