@@ -54,10 +54,12 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
     ActiveStandbyElector.ActiveStandbyElectorCallback {
   private static final Log LOG = LogFactory.getLog(
       ActiveStandbyElectorBasedElectorService.class.getName());
+  //指定状态变化的请求信息：自动切主
   private static final HAServiceProtocol.StateChangeRequestInfo req =
       new HAServiceProtocol.StateChangeRequestInfo(
           HAServiceProtocol.RequestSource.REQUEST_BY_ZKFC);
 
+  //当前 RM 信息
   private ResourceManager rm;
 
   //当前 RM 信息 clusterId-rmid
@@ -151,9 +153,10 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
 
   @Override
   public void becomeActive() throws ServiceFailedException {
+    //计时器的作用？TODO
     cancelDisconnectTimer();
-
     try {
+      //调用  AdminService 的 transitionToActive 启动其它服务
       rm.getRMContext().getRMAdminService().transitionToActive(req);
     } catch (Exception e) {
       throw new ServiceFailedException("RM could not transition to Active", e);
@@ -162,6 +165,7 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
 
   @Override
   public void becomeStandby() {
+    //关闭定时 ？
     cancelDisconnectTimer();
 
     try {

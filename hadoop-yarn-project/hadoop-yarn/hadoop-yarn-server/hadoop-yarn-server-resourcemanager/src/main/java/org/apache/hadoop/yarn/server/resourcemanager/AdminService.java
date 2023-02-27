@@ -294,16 +294,19 @@ public class AdminService extends CompositeService implements
     // call refreshAdminAcls before HA state transition
     // for the case that adminAcls have been updated in previous active RM
     try {
+      //转换为 active 节点之前，属性 admin acl 信息
       refreshAdminAcls(false);
     } catch (YarnException ex) {
       throw new ServiceFailedException("Can not execute refreshAdminAcls", ex);
     }
 
     UserGroupInformation user = checkAccess("transitionToActive");
+    //检查发起请求的信息
     checkHaStateChange(reqInfo);
 
     try {
       // call all refresh*s for active RM to get the updated configurations.
+      //刷新 RM 所有配置
       refreshAll();
     } catch (Exception e) {
       rm.getRMContext()
@@ -317,6 +320,7 @@ public class AdminService extends CompositeService implements
     }
 
     try {
+      //执行 transitionToActive 操作
       rm.transitionToActive();
     } catch (Exception e) {
       RMAuditLogger.logFailure(user.getShortUserName(), "transitionToActive",
@@ -341,6 +345,7 @@ public class AdminService extends CompositeService implements
       throw new ServiceFailedException("Can not execute refreshAdminAcls", ex);
     }
     UserGroupInformation user = checkAccess("transitionToStandby");
+    //请求类型检查
     checkHaStateChange(reqInfo);
     try {
       rm.transitionToStandby(true);
@@ -420,9 +425,10 @@ public class AdminService extends CompositeService implements
   @Private
   public void refreshQueues() throws IOException, YarnException {
     Configuration conf = loadNewConfiguration();
+    //调度配置
     rm.getRMContext().getScheduler().reinitialize(conf,
         this.rm.getRMContext());
-    // refresh the reservation system
+    // refresh the reservation system 系统预留资源
     ReservationSystem rSystem = rm.getRMContext().getReservationSystem();
     if (rSystem != null) {
       rSystem.reinitialize(conf, rm.getRMContext());
@@ -542,6 +548,7 @@ public class AdminService extends CompositeService implements
     if (checkRMHAState) {
       checkRMStatus(user.getShortUserName(), operation, "refresh Admin ACLs.");
     }
+    //yarn.admin.acl
     Configuration conf =
         getConfiguration(new Configuration(false),
             YarnConfiguration.YARN_SITE_CONFIGURATION_FILE);
@@ -751,10 +758,15 @@ public class AdminService extends CompositeService implements
           throw new IOException("Failed to refresh configuration:", e);
         }
       }
+      //队列调度配置
       refreshQueues();
+      //刷新 include、exclude 节点信息
       refreshNodes();
+      //刷新超级用户信息
       refreshSuperUserGroupsConfiguration();
+      //刷新用户组映射信息
       refreshUserToGroupsMappings();
+      //刷新各服务 acl 信息
       if (getConfig().getBoolean(
           CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHORIZATION,
           false)) {

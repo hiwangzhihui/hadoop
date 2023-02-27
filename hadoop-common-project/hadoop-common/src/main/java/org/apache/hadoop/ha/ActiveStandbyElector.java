@@ -161,6 +161,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   private WatcherWithClientRef watcher;
   private ConnectionState zkConnectionState = ConnectionState.TERMINATED;
 
+  //ActiveStandbyElectorBasedElectorService 作为当前 RM 状态变换的 Client
   private final ActiveStandbyElectorCallback appClient;
   private final String zkHostPort;
   private final int zkSessionTimeout;
@@ -896,12 +897,15 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
       return true;
     }
     try {
+
       Stat oldBreadcrumbStat = fenceOldActive();
+      //更新 ZK 上 active 节点信息
       writeBreadCrumbNode(oldBreadcrumbStat);
 
       LOG.debug("Becoming active for {}", this);
-
+      //内部服务初始化拉取完成
       appClient.becomeActive();
+      //更新当前 RM 的状态，当前系统对外提供服务
       state = State.ACTIVE;
       return true;
     } catch (Exception e) {
@@ -1005,6 +1009,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   private void becomeStandby() {
     if (state != State.STANDBY) {
       LOG.debug("Becoming standby for {}", this);
+      //先更新状态为 STANDBY，不对外提供服务
       state = State.STANDBY;
       appClient.becomeStandby();
     }
