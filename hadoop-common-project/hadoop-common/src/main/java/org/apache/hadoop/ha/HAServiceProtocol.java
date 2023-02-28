@@ -66,9 +66,9 @@ public interface HAServiceProtocol {
   }
   
   public enum RequestSource {
-    REQUEST_BY_USER,
-    REQUEST_BY_USER_FORCED,
-    REQUEST_BY_ZKFC;
+    REQUEST_BY_USER, //用户手动切换
+    REQUEST_BY_USER_FORCED, //用户强制手动切换
+    REQUEST_BY_ZKFC; //自动切换
   }
   
   /**

@@ -161,6 +161,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   private WatcherWithClientRef watcher;
   private ConnectionState zkConnectionState = ConnectionState.TERMINATED;
 
+  //ActiveStandbyElectorBasedElectorService 作为当前 RM 状态变换的 Client
   private final ActiveStandbyElectorCallback appClient;
   private final String zkHostPort;
   private final int zkSessionTimeout;
@@ -456,7 +457,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
 
   /**
    * interface implementation of Zookeeper callback for create
-   * 处理 Client 执行函数结果的回调函数
+   * 处理 Client 执行 create 函数结果的回调函数
    */
   @Override
   public synchronized void processResult(int rc, String path, Object ctx,
@@ -475,22 +476,23 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
         //对节点进行监听
         monitorActiveStatus();
       } else {
+        //如果 becomeActive 失败，等待 1s 后再尝试选举
         reJoinElectionAfterFailureToBecomeActive();
       }
       return;
     }
 
-    if (isNodeExists(code)) {
+    if (isNodeExists(code)) { //如果选举的临时节点已经存在
       if (createRetryCount == 0) {
         // znode exists and we did not retry the operation. so a different
         // instance has created it. become standby and monitor lock.
-        becomeStandby();
+        becomeStandby(); //如果尝试次数为 0 则转换为 Standby
       }
       // if we had retried then the znode could have been created by our first
       // attempt to the server (that we lost) and this node exists response is
       // for the second attempt. verify this case via ephemeral node owner. this
       // will happen on the callback for monitoring the lock.
-      monitorActiveStatus();
+      monitorActiveStatus();  //再次 watch Zonde
       return;
     }
 
@@ -498,26 +500,28 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
         + code.toString() + " for path " + path;
     LOG.debug(errorMessage);
 
+     //CONNECTIONLOSS、OPERATIONTIMEOUT 则尝试重试
     if (shouldRetry(code)) {
       if (createRetryCount < maxRetryNum) {
         LOG.debug("Retrying createNode createRetryCount: " + createRetryCount);
-        ++createRetryCount;
-        createLockNodeAsync();
+        ++createRetryCount;  //次数+1
+        createLockNodeAsync();  //创建 Znode 进行选主
         return;
       }
       errorMessage = errorMessage
           + ". Not retrying further znode create connection errors.";
-    } else if (isSessionExpired(code)) {
+    } else if (isSessionExpired(code)) {   //Session 超时
       // This isn't fatal - the client Watcher will re-join the election
       LOG.warn("Lock acquisition failed because session was lost");
       return;
     }
-
+    //超过最大重试次数，则 fatal 退出
     fatalError(errorMessage);
   }
 
   /**
    * interface implementation of Zookeeper callback for monitor (exists)
+   * 处理 Client 执行 exists 函数结果的回调函数
    */
   @Override
   public synchronized void processResult(int rc, String path, Object ctx,
@@ -534,26 +538,26 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     }
 
     Code code = Code.get(rc);
-    if (isSuccess(code)) {
+    if (isSuccess(code)) {  //如果 Znode 存在
       // the following owner check completes verification in case the lock znode
       // creation was retried
-      if (stat.getEphemeralOwner() == zkClient.getSessionId()) {
+      if (stat.getEphemeralOwner() == zkClient.getSessionId()) {  //临时接的 owner 与当前 session 一致，则尝试当前 RM 转换为 Active 节点
         // we own the lock znode. so we are the leader
         if (!becomeActive()) {
-          reJoinElectionAfterFailureToBecomeActive();
+          reJoinElectionAfterFailureToBecomeActive(); //如果转换失败，则等待 1s  ，再次参与选主
         }
       } else {
         // we dont own the lock znode. so we are a standby.
-        becomeStandby();
+        becomeStandby();  //如果不是当前 session 创建的 Znode 则，becomeStandby
       }
       // the watch set by us will notify about changes
       return;
     }
 
-    if (isNodeDoesNotExist(code)) {
+    if (isNodeDoesNotExist(code)) {  //如果 Zonde 不存
       // the lock znode disappeared before we started monitoring it
-      enterNeutralMode();
-      joinElectionInternal();
+      enterNeutralMode();   //首先进入 NEUTRAL 状态，转换为 Standby
+      joinElectionInternal();    //再次参与选主
       return;
     }
 
@@ -561,7 +565,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
         + code.toString();
     LOG.debug(errorMessage);
 
-    if (shouldRetry(code)) {
+    if (shouldRetry(code)) { // CONNECTIONLOSS、OPERATIONTIMEOUT 情况重试
       if (statRetryCount < maxRetryNum) {
         ++statRetryCount;
         monitorLockNodeAsync();
@@ -575,7 +579,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
       return;
     }
 
-    fatalError(errorMessage);
+    fatalError(errorMessage); //超过重试上限则 Fatal 退出进程
   }
 
   /**
@@ -584,6 +588,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
    * session, so that other nodes have a chance to become active.
    * The failure to become active is already logged inside
    * becomeActive().
+   * 等待 1s ，重新创建链接，再次参与选主
    */
   private void reJoinElectionAfterFailureToBecomeActive() {
     reJoinElection(SLEEP_AFTER_FAILURE_TO_BECOME_ACTIVE);
@@ -730,6 +735,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     monitorLockNodeAsync();
   }
 
+  //参与选主
   private void joinElectionInternal() {
     Preconditions.checkState(appData != null,
         "trying to join election without any app data");
@@ -891,12 +897,15 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
       return true;
     }
     try {
+
       Stat oldBreadcrumbStat = fenceOldActive();
+      //更新 ZK 上 active 节点信息
       writeBreadCrumbNode(oldBreadcrumbStat);
 
       LOG.debug("Becoming active for {}", this);
-
+      //内部服务初始化拉取完成
       appClient.becomeActive();
+      //更新当前 RM 的状态，当前系统对外提供服务
       state = State.ACTIVE;
       return true;
     } catch (Exception e) {
@@ -918,11 +927,11 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     LOG.info("Writing znode {} to indicate that the local " +
         "node is the most recent active...", zkBreadCrumbPath);
     if (oldBreadcrumbStat == null) {
-      // No previous active, just create the node
+      // No previous active, just create the node  如果历史 Active 信息不存在，则将首个 Active 节点信息写入到 Zk 中
       createWithRetries(zkBreadCrumbPath, appData, zkAcl,
         CreateMode.PERSISTENT);
     } else {
-      // There was a previous active, update the node
+      // There was a previous active, update the node  否则更新当前 Active 节点信息到 Zk 中
       setDataWithRetries(zkBreadCrumbPath, appData, oldBreadcrumbStat.getVersion());
     }
   }
@@ -1000,11 +1009,13 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   private void becomeStandby() {
     if (state != State.STANDBY) {
       LOG.debug("Becoming standby for {}", this);
+      //先更新状态为 STANDBY，不对外提供服务
       state = State.STANDBY;
       appClient.becomeStandby();
     }
   }
 
+   //
   private void enterNeutralMode() {
     if (state != State.NEUTRAL) {    //进入  NEUTRAL 状态
       LOG.debug("Entering neutral mode for {}", this);
@@ -1013,6 +1024,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     }
   }
 
+    //创建 Znode 进行选主
   private void createLockNodeAsync() {
     zkClient.create(zkLockFilePath, appData, zkAcl, CreateMode.EPHEMERAL,
         this, zkClient);
@@ -1210,7 +1222,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   private static boolean isNodeDoesNotExist(Code code) {
     return (code == Code.NONODE);
   }
-  
+
   private static boolean isSessionExpired(Code code) {
     return (code == Code.SESSIONEXPIRED);
   }

@@ -800,6 +800,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
     @Override
     protected void serviceStart() throws Exception {
+      //从 Zk 获取元数据
       RMStateStore rmStore = rmContext.getStateStore();
       // The state store needs to start irrespective of recoveryEnabled as apps
       // need events to move to further states.
@@ -807,6 +808,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
       if(recoveryEnabled) {
         try {
+          //进行 Recovery 操作
           LOG.info("Recovery started");
           rmStore.checkVersion();
           if (rmContext.isWorkPreservingRecoveryEnabled()) {
@@ -842,6 +844,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
       if (rmContext != null) {
         RMStateStore store = rmContext.getStateStore();
         try {
+          //关闭元数据，存储操作服务
           if (null != store) {
             store.close();
           }
@@ -1207,10 +1210,13 @@ public class ResourceManager extends CompositeService implements Recoverable {
   }
 
   void reinitialize(boolean initialize) {
+    //清空指标信息
     ClusterMetrics.destroy();
     QueueMetrics.clearQueueMetrics();
     if (initialize) {
+      //重置各个服务信息
       resetRMContext();
+      //重置 RMActiveServices 信息
       createAndInitActiveServices(true);
     }
   }
@@ -1231,6 +1237,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
       @Override
       public Void run() throws Exception {
         try {
+          //进行 recover 操作
           startActiveServices();
           return null;
         } catch (Exception e) {
@@ -1254,8 +1261,10 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
     LOG.info("Transitioning to standby state");
     HAServiceState state = rmContext.getHAServiceState();
+    //更新 RM 当前状态为 STANDBY
     rmContext.setHAServiceState(HAServiceProtocol.HAServiceState.STANDBY);
     if (state == HAServiceProtocol.HAServiceState.ACTIVE) {
+      //停止 activeServices 服务
       stopActiveServices();
       reinitialize(initialize);
     }
@@ -1427,17 +1436,17 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
   @Override
   public void recover(RMState state) throws Exception {
-    // recover RMdelegationTokenSecretManager
+    // recover RMdelegationTokenSecretManager  恢复续租 token相信
     rmContext.getRMDelegationTokenSecretManager().recover(state);
 
-    // recover AMRMTokenSecretManager
+    // recover AMRMTokenSecretManager  恢复 AMRMToken
     rmContext.getAMRMTokenSecretManager().recover(state);
 
-    // recover reservations
+    // recover reservations 恢复资源预留信息
     if (reservationSystem != null) {
       reservationSystem.recover(state);
     }
-    // recover applications
+    // recover applications 恢复 App 信息
     rmAppManager.recover(state);
 
     setSchedulerRecoveryStartAndWaitTime(state, conf);
@@ -1507,6 +1516,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
   private void setSchedulerRecoveryStartAndWaitTime(RMState state,
       Configuration conf) {
     if (!state.getApplicationState().isEmpty()) {
+      //调度等待 recover 时间，work-preserving-recovery.scheduling-wait-ms 默认 10s
       long waitTime =
           conf.getLong(YarnConfiguration.RM_WORK_PRESERVING_RECOVERY_SCHEDULING_WAIT_MS,
             YarnConfiguration.DEFAULT_RM_WORK_PRESERVING_RECOVERY_SCHEDULING_WAIT_MS);
