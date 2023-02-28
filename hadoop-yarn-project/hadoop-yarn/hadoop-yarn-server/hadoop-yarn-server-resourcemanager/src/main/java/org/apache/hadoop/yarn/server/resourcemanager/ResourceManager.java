@@ -594,6 +594,8 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
   /**
    * RMActiveServices handles all the Active services in the RM.
+   * RMActiveServices 是一个复合类型的服务（CompositeService）
+   *   serviceStart、serviceStop 方法会级联操作 serviceList 中的 Service
    */
   @Private
   public class RMActiveServices extends CompositeService {
@@ -1237,7 +1239,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
       @Override
       public Void run() throws Exception {
         try {
-          //进行 recover 操作
+          //启动 activeServices 级联子服务都被启动
           startActiveServices();
           return null;
         } catch (Exception e) {
@@ -1264,7 +1266,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     //更新 RM 当前状态为 STANDBY
     rmContext.setHAServiceState(HAServiceProtocol.HAServiceState.STANDBY);
     if (state == HAServiceProtocol.HAServiceState.ACTIVE) {
-      //停止 activeServices 服务
+      //停止 activeServices 服务，相关的级联子服务都会被关闭
       stopActiveServices();
       reinitialize(initialize);
     }
