@@ -43,12 +43,13 @@ public class ConfiguredRMFailoverProxyProvider<T>
       LogFactory.getLog(ConfiguredRMFailoverProxyProvider.class);
 
   private int currentProxyIndex = 0;
+  //key:rmId,value:RMProxy
   Map<String, T> proxies = new HashMap<String, T>();
 
   protected RMProxy<T> rmProxy;
   protected Class<T> protocol;
   protected YarnConfiguration conf;
-  protected String[] rmServiceIds;
+  protected String[] rmServiceIds; //rmId 信息
 
   @Override
   public void init(Configuration configuration, RMProxy<T> rmProxy,
@@ -73,6 +74,7 @@ public class ConfiguredRMFailoverProxyProvider<T>
 
   protected T getProxyInternal() {
     try {
+      //通过配置、协议获取不同协议的端口地址信息
       final InetSocketAddress rmAddress = rmProxy.getRMAddress(conf, protocol);
       return rmProxy.getProxy(conf, protocol, rmAddress);
     } catch (IOException ioe) {
@@ -82,17 +84,21 @@ public class ConfiguredRMFailoverProxyProvider<T>
     }
   }
 
+  //通过 rmId 获取对应的 rm RMProxy
   @Override
   public synchronized ProxyInfo<T> getProxy() {
     String rmId = rmServiceIds[currentProxyIndex];
     T current = proxies.get(rmId);
     if (current == null) {
-      current = getProxyInternal();
+      current = getProxyInternal();//如何获取当 rmId 的 RMProxy ？
       proxies.put(rmId, current);
     }
     return new ProxyInfo<T>(current, rmId);
   }
 
+  /**
+   * 出错更新当前 currentProxyIndex 轮询获取各个 RM 的Proxy
+   * */
   @Override
   public synchronized void performFailover(T currentProxy) {
     currentProxyIndex = (currentProxyIndex + 1) % rmServiceIds.length;

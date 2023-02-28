@@ -53,6 +53,9 @@ import com.google.common.annotations.VisibleForTesting;
 
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
+/**
+ * 访问 ResourceManager 的代理类
+ * */
 @SuppressWarnings("unchecked")
 public class RMProxy<T> {
 
@@ -97,6 +100,7 @@ public class RMProxy<T> {
     YarnConfiguration conf = (configuration instanceof YarnConfiguration)
         ? (YarnConfiguration) configuration
         : new YarnConfiguration(configuration);
+    //根据是否开启 HA 、Federatio 启用不同到的 retryPolicy
     RetryPolicy retryPolicy = createRetryPolicy(conf,
         (HAUtil.isHAEnabled(conf) || HAUtil.isFederationFailoverEnabled(conf)));
     return newProxyInstance(conf, protocol, instance, retryPolicy);
@@ -127,6 +131,7 @@ public class RMProxy<T> {
     if (HAUtil.isHAEnabled(conf) || HAUtil.isFederationEnabled(conf)) {
       RMFailoverProxyProvider<T> provider =
           instance.createRMFailoverProxyProvider(conf, protocol);
+      //protocol 被代理的接口，RetryInvocationHandler 为代理类实现类
       return (T) RetryProxy.create(protocol, provider, retryPolicy);
     } else {
       InetSocketAddress rmAddress = instance.getRMAddress(conf, protocol);
@@ -160,6 +165,7 @@ public class RMProxy<T> {
       Configuration conf, Class<T> protocol) {
     Class<? extends RMFailoverProxyProvider<T>> defaultProviderClass;
     try {
+      //默认的 Provider ConfiguredRMFailoverProxyProvider
       defaultProviderClass = (Class<? extends RMFailoverProxyProvider<T>>)
           Class.forName(
               YarnConfiguration.DEFAULT_CLIENT_FAILOVER_PROXY_PROVIDER);
@@ -171,6 +177,7 @@ public class RMProxy<T> {
     RMFailoverProxyProvider<T> provider = ReflectionUtils.newInstance(
         conf.getClass(YarnConfiguration.CLIENT_FAILOVER_PROXY_PROVIDER,
             defaultProviderClass, RMFailoverProxyProvider.class), conf);
+    //初始化 provider， RMProxy，ApplicationMasterProtocol 等协议
     provider.init(conf, (RMProxy<T>) this, protocol);
     return provider;
   }
@@ -182,10 +189,12 @@ public class RMProxy<T> {
   @VisibleForTesting
   public static RetryPolicy createRetryPolicy(Configuration conf,
       boolean isHAEnabled) {
+    // 链接超时最大等待时间 ：15min  connect.max-wait.ms
     long rmConnectWaitMS =
         conf.getLong(
             YarnConfiguration.RESOURCEMANAGER_CONNECT_MAX_WAIT_MS,
             YarnConfiguration.DEFAULT_RESOURCEMANAGER_CONNECT_MAX_WAIT_MS);
+    //链接重试间隔时间: 30s connect.retry-interval.ms
     long rmConnectionRetryIntervalMS =
         conf.getLong(
             YarnConfiguration.RESOURCEMANAGER_CONNECT_RETRY_INTERVAL_MS,
@@ -225,10 +234,11 @@ public class RMProxy<T> {
 
     // Handle HA case first
     if (isHAEnabled) {
+      //默认 30s
       final long failoverSleepBaseMs = conf.getLong(
           YarnConfiguration.CLIENT_FAILOVER_SLEEPTIME_BASE_MS,
           rmConnectionRetryIntervalMS);
-
+     //默认：30s
       final long failoverSleepMaxMs = conf.getLong(
           YarnConfiguration.CLIENT_FAILOVER_SLEEPTIME_MAX_MS,
           rmConnectionRetryIntervalMS);
@@ -240,10 +250,11 @@ public class RMProxy<T> {
         if (waitForEver) {
           maxFailoverAttempts = Integer.MAX_VALUE;
         } else {
+          //最大重试次数，默认：30次
           maxFailoverAttempts = (int) (rmConnectWaitMS / failoverSleepBaseMs);
         }
       }
-
+      //使用 TRY_ONCE_THEN_FAIL 策略
       return RetryPolicies.failoverOnNetworkException(
           RetryPolicies.TRY_ONCE_THEN_FAIL, maxFailoverAttempts,
           failoverSleepBaseMs, failoverSleepMaxMs);
