@@ -184,6 +184,7 @@ public class JobHistory extends AbstractService implements HistoryContext {
     return "Job History Server";
   }
 
+  //定时将运行完成的作业移动到 done 目录的线程
   private class MoveIntermediateToDoneRunnable implements Runnable {
     @Override
     public void run() {
@@ -195,7 +196,7 @@ public class JobHistory extends AbstractService implements HistoryContext {
       }
     }
   }
-  
+  //定期清理过期的 日志 线程
   private class HistoryCleaner implements Runnable {
     public void run() {
       LOG.info("History Cleaner started");

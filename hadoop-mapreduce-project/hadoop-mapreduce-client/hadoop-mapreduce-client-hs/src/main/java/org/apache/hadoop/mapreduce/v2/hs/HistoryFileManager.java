@@ -1135,7 +1135,7 @@ public class HistoryFileManager extends AbstractService {
     return new Path(doneDirPrefixPath, JobHistoryUtils.historyLogSubdirectory(
         id, timestampComponent, serialNumberFormat));
   }
-
+ // 获取文件修改时间
   private long getEffectiveTimestamp(long finishTime, FileStatus fileStatus) {
     if (finishTime == 0) {
       return fileStatus.getModificationTime();
@@ -1163,6 +1163,7 @@ public class HistoryFileManager extends AbstractService {
   void clean() throws IOException {
     long cutoff = System.currentTimeMillis() - maxHistoryAge;
     boolean halted = false;
+    //找到待清理的日志文件列表
     List<FileStatus> serialDirList = getHistoryDirsForCleaning(cutoff);
     // Sort in ascending order. Relies on YYYY/MM/DD/Serial
     Collections.sort(serialDirList);
@@ -1174,10 +1175,10 @@ public class HistoryFileManager extends AbstractService {
             .getPath().getName());
         long effectiveTimestamp = getEffectiveTimestamp(
             jobIndexInfo.getFinishTime(), historyFile);
-        if (effectiveTimestamp <= cutoff) {
+        if (effectiveTimestamp <= cutoff) {//再对比时间确认是否要删除文件
           HistoryFileInfo fileInfo = this.jobListCache.get(jobIndexInfo
               .getJobId());
-          if (fileInfo == null) {
+          if (fileInfo == null) {//为什么不存在再创建？
             String confFileName = JobHistoryUtils
                 .getIntermediateConfFileName(jobIndexInfo.getJobId());
 
@@ -1185,13 +1186,15 @@ public class HistoryFileManager extends AbstractService {
                 historyFile.getPath().getParent(), confFileName), null,
                 jobIndexInfo, true);
           }
+           //从内存中将文件移除
           deleteJobFromDone(fileInfo);
         } else {
-          halted = true;
+          halted = true;//有一个文件没超时，就不会删除作业日志募
           break;
         }
       }
       if (!halted) {
+        //如果所有文件都超时，则将整个作业日志目录删除
         deleteDir(serialDir);
         removeDirectoryFromSerialNumberIndex(serialDir.getPath());
         existingDoneSubdirs.remove(serialDir.getPath());
@@ -1204,6 +1207,7 @@ public class HistoryFileManager extends AbstractService {
   protected boolean deleteDir(FileStatus serialDir)
       throws AccessControlException, FileNotFoundException,
       UnsupportedFileSystemException, IOException {
+    //递归删除文件
     return doneDirFc.delete(doneDirFc.makeQualified(serialDir.getPath()), true);
   }
 
