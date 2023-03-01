@@ -284,6 +284,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     }
 
     // register the handlers for all AlwaysOn services using setupDispatcher().
+    //创建 RM 异步事件转发器
     rmDispatcher = setupDispatcher();
     addIfService(rmDispatcher);
     rmContext.setDispatcher(rmDispatcher);
@@ -292,7 +293,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     // started in same order
     // As elector service needs admin service to be initialized and started,
     // first we add admin service then elector service
-
+    //创建 adminServer服务
     adminService = createAdminService();
     addService(adminService);
     rmContext.setRMAdminService(adminService);
@@ -304,6 +305,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
       if (HAUtil.isAutomaticFailoverEnabled(conf)
           && HAUtil.isAutomaticFailoverEmbedded(conf)) {
         EmbeddedElector elector = createEmbeddedElector();
+        //创建自动选取服务
         addIfService(elector);
         rmContext.setLeaderElectorService(elector);
       }
@@ -316,7 +318,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
     webAppAddress = WebAppUtils.getWebAppBindURL(this.conf,
                       YarnConfiguration.RM_BIND_HOST,
                       WebAppUtils.getRMWebAppURLWithoutScheme(this.conf));
-
+    //rmApplicationHistoryWriter 服务也交给 RM 管理
     RMApplicationHistoryWriter rmApplicationHistoryWriter =
         createRMApplicationHistoryWriter();
     addService(rmApplicationHistoryWriter);

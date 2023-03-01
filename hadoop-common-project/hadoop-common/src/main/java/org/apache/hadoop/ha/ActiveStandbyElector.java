@@ -264,6 +264,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     zkAuthInfo = authInfo;
     appClient = app;
     znodeWorkingDir = parentZnodeName;
+    // ActiveStandbyElectorLock
     zkLockFilePath = znodeWorkingDir + "/" + LOCK_FILENAME;
     zkBreadCrumbPath = znodeWorkingDir + "/" + BREADCRUMB_FILENAME;
     this.maxRetryNum = maxRetryNum;
@@ -744,8 +745,8 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
         fatalError("Failed to reEstablish connection with ZooKeeper");
         return;
       }
-    }
 
+    }
     createRetryCount = 0;
     //wantToBeInElection 设置为 true
     // ZK 节点创建成功回调 processResult 函数，通知 RM  becomeActive
