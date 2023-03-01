@@ -1250,7 +1250,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
         }
       }
     });
-
+    //更新服务状态
     rmContext.setHAServiceState(HAServiceProtocol.HAServiceState.ACTIVE);
     LOG.info("Transitioned to active state");
   }

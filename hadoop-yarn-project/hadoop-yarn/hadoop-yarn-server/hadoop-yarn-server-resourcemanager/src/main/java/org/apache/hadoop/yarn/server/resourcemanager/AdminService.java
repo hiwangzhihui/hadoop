@@ -247,7 +247,7 @@ public class AdminService extends CompositeService implements
                   "because automatic failover is enabled.");
         }
         break;
-      case REQUEST_BY_USER_FORCED:
+      case REQUEST_BY_USER_FORCED: //如果是强制切主，切开启了故障转移，则打印告警信息
         if (autoFailoverEnabled) {
           LOG.warn("Allowing manual failover from " +
               org.apache.hadoop.ipc.Server.getRemoteAddress() +
@@ -301,7 +301,7 @@ public class AdminService extends CompositeService implements
     }
 
     UserGroupInformation user = checkAccess("transitionToActive");
-    //检查发起请求的信息
+    //检查发起请求的信息, 不同场景下的切主请求校验
     checkHaStateChange(reqInfo);
 
     try {

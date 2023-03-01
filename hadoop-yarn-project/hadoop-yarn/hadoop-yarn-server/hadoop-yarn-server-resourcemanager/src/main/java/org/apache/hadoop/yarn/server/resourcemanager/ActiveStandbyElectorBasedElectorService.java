@@ -165,7 +165,7 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
 
   @Override
   public void becomeStandby() {
-    //关闭定时 ？
+    //关闭定时
     cancelDisconnectTimer();
 
     try {
