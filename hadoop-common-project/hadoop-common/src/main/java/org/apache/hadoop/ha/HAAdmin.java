@@ -152,18 +152,23 @@ public abstract class HAAdmin extends Configured implements Tool {
       return -1;
     }
     /*  returns true if other target node is active or some exception occurred 
-        and forceActive was not set  */
+        and forceActive was not set
+        必须包含 forceactive 参数
+      */
     if(!cmd.hasOption(FORCEACTIVE)) {
       if(isOtherTargetNodeActive(argv[0], cmd.hasOption(FORCEACTIVE))) {
         return -1;
       }
     }
+    //获取要切换为 Active 的管理接的服务 Id
     HAServiceTarget target = resolveTarget(argv[0]);
     if (!checkManualStateManagementOK(target)) {
       return -1;
     }
+    //获取对应服务的管理接口的代理对象
     HAServiceProtocol proto = target.getProxy(
         getConf(), 0);
+    //调用 transitionToActive 方法
     HAServiceProtocolHelper.transitionToActive(proto, createReqInfo());
     return 0;
   }
@@ -403,7 +408,7 @@ public abstract class HAAdmin extends Configured implements Tool {
       return -1;
     }
   }
-  
+   //接收管理命令
   protected int runCmd(String[] argv) throws Exception {
     if (argv.length < 1) {
       printUsage(errOut);
