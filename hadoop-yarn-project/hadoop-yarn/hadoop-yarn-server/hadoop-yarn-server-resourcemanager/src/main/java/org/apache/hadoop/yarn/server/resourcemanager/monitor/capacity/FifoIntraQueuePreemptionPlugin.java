@@ -122,6 +122,10 @@ public class FifoIntraQueuePreemptionPlugin
     // 1. AM used resource can be considered as a frozen resource for now.
     // Hence such containers in a queue can be omitted from the preemption
     // calculation.
+    /** perUserAMUsed 当前队列用户使用的AM 资源量 （Runing App）
+       amUsed 当前队列 Am 使用的资源量
+       这些资源不会被抢占
+     **/
     Map<String, Resource> perUserAMUsed = new HashMap<String, Resource>();
     Resource amUsed = calculateUsedAMResourcesPerQueue(tq.partition,
         tq.leafQueue, perUserAMUsed);
@@ -129,7 +133,7 @@ public class FifoIntraQueuePreemptionPlugin
 
     // 2. tq.leafQueue will not be null as we validated it in caller side
     Collection<FiCaSchedulerApp> apps = tq.leafQueue.getAllApplications();
-
+    //没有作业在跑的空队列不参与后续排序
     // We do not need preemption for a single app
     if (apps.size() == 1) {
       return;
@@ -137,6 +141,7 @@ public class FifoIntraQueuePreemptionPlugin
 
     // 3. Create all tempApps for internal calculation and return a list from
     // high priority to low priority order.
+    //创建 TempApp 列表 orderedByPriority 用于优先级排序，初始化使用的比较器为 TAPriorityComparator
     PriorityQueue<TempAppPerPartition> orderedByPriority = createTempAppForResCalculation(
         tq, apps, clusterResource, perUserAMUsed);
 
@@ -355,6 +360,7 @@ public class FifoIntraQueuePreemptionPlugin
       TempQueuePerPartition tq, Collection<FiCaSchedulerApp> apps,
       Resource clusterResource,
       Map<String, Resource> perUserAMUsed) {
+    //使用的比较器为 TAPriorityComparator
     TAPriorityComparator taComparator = new TAPriorityComparator();
     PriorityQueue<TempAppPerPartition> orderedByPriority = new PriorityQueue<>(
         100, taComparator);
@@ -385,12 +391,12 @@ public class FifoIntraQueuePreemptionPlugin
           app.getAppAttemptResourceUsage().getNodePartitionsSet());
       partitions.addAll(app.getTotalPendingRequestsPerPartition().keySet());
 
-      // Create TempAppPerQueue for further calculation.
+      // Create TempAppPerQueue for further calculation.  其它资源信息复制 FiCaSchedulerApp 的即可
       TempAppPerPartition tmpApp = new TempAppPerPartition(app,
           Resources.clone(used), Resources.clone(amUsed),
           Resources.clone(reserved), Resources.clone(pending));
 
-      // Set ideal allocation of app as 0.
+      // Set ideal allocation of app as 0. 初始化理想的分配资源个数为 0
       tmpApp.idealAssigned = Resources.createResource(0, 0);
 
       orderedByPriority.add(tmpApp);
@@ -398,6 +404,7 @@ public class FifoIntraQueuePreemptionPlugin
       // Create a TempUserPerPartition structure to hold more information
       // regarding each user's entities such as UserLimit etc. This could
       // be kept in a user to TempUserPerPartition map for further reference.
+      //用户资源约束信息统计
       String userName = app.getUser();
       if (!usersPerPartition.containsKey(userName)) {
         ResourceUsage userResourceUsage = tq.leafQueue.getUser(userName)

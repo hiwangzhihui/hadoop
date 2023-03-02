@@ -52,6 +52,10 @@ public class IntraQueueCandidatesSelector extends PreemptionCandidatesSelector {
         Serializable,
         Comparator<TempAppPerPartition> {
 
+    /**
+     * 1、优先比较配置的优先级
+     * 2、最后比较 AppId
+     * */
     @Override
     public int compare(TempAppPerPartition ta1, TempAppPerPartition ta2) {
       Priority p1 = Priority.newInstance(ta1.getPriority());
