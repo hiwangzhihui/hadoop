@@ -537,6 +537,7 @@ public class DirectoryScanner implements Runnable {
         }
         ReportCompiler reportCompiler =
             new ReportCompiler(datanode, volumes.get(i));
+         //并行扫描不同的目录
         Future<ScanInfoPerBlockPool> result =
             reportCompileThreadPool.submit(reportCompiler);
         compilersInProgress.put(i, result);
@@ -619,9 +620,11 @@ public class DirectoryScanner implements Runnable {
         LinkedList<ScanInfo> report = new LinkedList<>();
 
         perfTimer.reset().start();
+        //限流器
         throttleTimer.reset().start();
 
         try {
+          //调用 compileReport 方法获取数据块报告
           result.put(bpid, volume.compileReport(bpid, report, this));
         } catch (InterruptedException ex) {
           // Exit quickly and flag the scanner to do the same

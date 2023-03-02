@@ -60,7 +60,7 @@ public class SchedulingMonitorManager {
       return;
     }
 
-    // When monitor is enabled, loading policies
+    // When monitor is enabled, loading policies 启用调度监控插件
     String[] configuredPolicies = conf.getStrings(
         YarnConfiguration.RM_SCHEDULER_MONITOR_POLICIES);
     if (configuredPolicies == null || configuredPolicies.length == 0) {

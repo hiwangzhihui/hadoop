@@ -1369,7 +1369,7 @@ public class CapacityScheduler extends
     if (null != node) {
       int offswitchCount = 0;
       int assignedContainers = 0; //该节点上已经分配的 Container 个数
-
+      //待分配的节点资源
       CandidateNodeSet<FiCaSchedulerNode> candidates =
           new SimpleCandidateNodeSet<>(node);
       CSAssignment assignment = allocateContainersToNode(candidates,

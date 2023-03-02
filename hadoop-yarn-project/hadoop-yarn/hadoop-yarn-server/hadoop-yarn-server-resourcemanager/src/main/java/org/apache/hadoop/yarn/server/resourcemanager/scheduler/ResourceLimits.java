@@ -26,19 +26,19 @@ import org.apache.hadoop.yarn.util.resource.Resources;
  * that, it's not "extra") resource you can get.
  */
 public class ResourceLimits {
-  private volatile Resource limit;
+  private volatile Resource limit;//队列或资源使用上限
 
   // This is special limit that goes with the RESERVE_CONT_LOOK_ALL_NODES
   // config. This limit indicates how much we need to unreserve to allocate
   // another container.
-  private volatile Resource amountNeededUnreserve;
+  private volatile Resource amountNeededUnreserve; //需要再节点预留的资源量
 
   // How much resource you can use for next allocation, if this isn't enough for
   // next container allocation, you may need to consider unreserve some
   // containers.
-  private volatile Resource headroom;
+  private volatile Resource headroom; //下次调需要被满足的资源量
 
-  private boolean allowPreempt = false;
+  private boolean allowPreempt = false;//是否允许抢占
 
   public ResourceLimits(Resource limit) {
     this(limit, Resources.none());

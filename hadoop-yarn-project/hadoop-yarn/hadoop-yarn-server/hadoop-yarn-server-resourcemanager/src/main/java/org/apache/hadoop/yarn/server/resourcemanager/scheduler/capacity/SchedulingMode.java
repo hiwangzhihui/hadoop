@@ -33,12 +33,16 @@ public enum SchedulingMode {
    * When a node has no partition, only application requires non-partitioned
    * resource can get chance to allocate on the node.
    * </p>
+   * 严格资源分区模式
+   * 资源分区独占 partition=x 的作业指允许使用 partition=x  的Node 资源
    */
   RESPECT_PARTITION_EXCLUSIVITY,
   
   /**
    * Only used when a node has partition AND the partition isn't an exclusive
    * partition AND application requires non-partitioned resource.
+   * 非独占分区调度模式
+   * 作业可以使用没有标记 partition 的节点资源
    */
   IGNORE_PARTITION_EXCLUSIVITY
 }

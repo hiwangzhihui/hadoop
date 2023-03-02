@@ -1005,7 +1005,9 @@ public class LeafQueue extends AbstractCSQueue {
       ApplicationAttemptId applicationAttemptId) {
     return applicationAttemptMap.get(applicationAttemptId);
   }
-
+  /**
+   * 判断子队列是否允许抢占 todo
+   * */
   private void setPreemptionAllowed(ResourceLimits limits, String nodePartition) {
     // Set preemption-allowed:
     // For leaf queue, only under-utilized queue is allowed to preempt resources from other queues
@@ -1048,30 +1050,40 @@ public class LeafQueue extends AbstractCSQueue {
     return null;
   }
 
+  /**
+   *
+   * @param clusterResource 整集群资源
+   * @param candidates 被调度的节点
+   * @param currentResourceLimits 队列资源使用限制
+   * @param schedulingMode 调度模式
+   * */
   @Override
   public CSAssignment assignContainers(Resource clusterResource,
       CandidateNodeSet<FiCaSchedulerNode> candidates,
       ResourceLimits currentResourceLimits, SchedulingMode schedulingMode) {
+    //更新资源限制信息
     updateCurrentResourceLimits(currentResourceLimits, clusterResource);
+    //获取资源供给的节点信息
     FiCaSchedulerNode node = CandidateNodeSetUtils.getSingleNode(candidates);
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("assignContainers: partition=" + candidates.getPartition()
           + " #applications=" + orderingPolicy.getNumSchedulableEntities());
     }
-
+    //设置抢占参数
     setPreemptionAllowed(currentResourceLimits, candidates.getPartition());
 
     // Check for reserved resources, try to allocate reserved container first.
+    //检查是否在该节点有预留资源，如果有则直接尝试分配
     CSAssignment assignment = allocateFromReservedContainer(clusterResource,
         candidates, currentResourceLimits, schedulingMode);
     if (null != assignment) {
       return assignment;
     }
 
-    // if our queue cannot access this node, just return
+    // if our queue cannot access this node, just return  检查队列是否允许再该节点分配资源
     if (schedulingMode == SchedulingMode.RESPECT_PARTITION_EXCLUSIVITY
-        && !accessibleToPartition(candidates.getPartition())) {
+        && !accessibleToPartition(candidates.getPartition())) { //如果是独占模式，就对比 Label 即可
       ActivitiesLogger.QUEUE.recordQueueActivity(activitiesManager, node,
           getParent().getQueueName(), getQueueName(), ActivityState.REJECTED,
           ActivityDiagnosticConstant.NOT_ABLE_TO_ACCESS_PARTITION + candidates
@@ -1080,7 +1092,7 @@ public class LeafQueue extends AbstractCSQueue {
     }
 
     // Check if this queue need more resource, simply skip allocation if this
-    // queue doesn't need more resources.
+    // queue doesn't need more resources.  检查是否有资源需求，如果没有则直接返回
     if (!hasPendingResourceRequest(candidates.getPartition(), clusterResource,
         schedulingMode)) {
       if (LOG.isDebugEnabled()) {
@@ -1097,6 +1109,7 @@ public class LeafQueue extends AbstractCSQueue {
 
     Map<String, CachedUserLimit> userLimits = new HashMap<>();
     boolean needAssignToQueueCheck = true;
+    //按照作业优先级顺序尝试在该节点分配资源
     for (Iterator<FiCaSchedulerApp> assignmentIterator =
          orderingPolicy.getAssignmentIterator();
          assignmentIterator.hasNext(); ) {
@@ -1108,6 +1121,7 @@ public class LeafQueue extends AbstractCSQueue {
       // Check queue max-capacity limit
       Resource appReserved = application.getCurrentReservation();
       if (needAssignToQueueCheck) {
+        // 检查队列资源配额上限等约束，是否允许在该节点继续分配资源
         if (!super.canAssignToThisQueue(clusterResource, node.getPartition(),
             currentResourceLimits, appReserved, schedulingMode)) {
           ActivitiesLogger.APP.recordRejectedAppActivityFromLeafQueue(
@@ -1131,6 +1145,7 @@ public class LeafQueue extends AbstractCSQueue {
       if (cul != null) {
         cachedUserLimit = cul.userLimit;
       }
+      //计算用户资源使用约束和Headroom（当前该用户在该队列可使用的资源）
       Resource userLimit = computeUserLimitAndSetHeadroom(application,
           clusterResource, candidates.getPartition(), schedulingMode,
           cachedUserLimit);
@@ -1138,7 +1153,7 @@ public class LeafQueue extends AbstractCSQueue {
         cul = new CachedUserLimit(userLimit);
         userLimits.put(application.getUser(), cul);
       }
-      // Check user limit
+      // Check user limit 检查用户资源在该队列的使用约束
       boolean userAssignable = true;
       if (!cul.canAssign && Resources.fitsIn(appReserved, cul.reservation)) {
         userAssignable = false;
@@ -1159,7 +1174,7 @@ public class LeafQueue extends AbstractCSQueue {
         continue;
       }
 
-      // Try to schedule
+      // Try to schedule 开始为作业分配资源
       assignment = application.assignContainers(clusterResource,
           candidates, currentResourceLimits, schedulingMode, null);
 
@@ -1449,17 +1464,18 @@ public class LeafQueue extends AbstractCSQueue {
 
     // Compute user limit respect requested labels,
     // TODO, need consider headroom respect labels also
-    if (userLimit == null) {
+    if (userLimit == null) { //获取当前用户资源使用限制和 headRoom
       userLimit = getResourceLimitForActiveUsers(application.getUser(),
           clusterResource, nodePartition, schedulingMode);
     }
+    //更新集群资源和队列资源使用限制
     setQueueResourceLimitsInfo(clusterResource);
 
     Resource headroom =
         metrics.getUserMetrics(user) == null ? Resources.none() :
         getHeadroom(queueUser, cachedResourceLimitsForHeadroom.getLimit(),
             clusterResource, userLimit, nodePartition);
-    
+
     if (LOG.isDebugEnabled()) {
       LOG.debug("Headroom calculation for user " + user + ": " + " userLimit="
           + userLimit + " queueMaxAvailRes="
