@@ -248,7 +248,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
           new FinalSavingTransition(
             new UnexpectedAMRegisteredTransition(), RMAppAttemptState.FAILED))
           
-       // Transitions from SCHEDULED State
+       // Transitions from SCHEDULED State  为 AM 申请资源
       .addTransition(RMAppAttemptState.SCHEDULED,
           EnumSet.of(RMAppAttemptState.ALLOCATED_SAVING,
             RMAppAttemptState.SCHEDULED),
@@ -1136,7 +1136,7 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
     @Override
     public RMAppAttemptState transition(RMAppAttemptImpl appAttempt,
         RMAppAttemptEvent event) {
-      // Acquire the AM container from the scheduler.
+      // Acquire the AM container from the scheduler. 向调度器发起申请为 Am 申请资源
       Allocation amContainerAllocation =
           appAttempt.scheduler.allocate(appAttempt.applicationAttemptId,
             EMPTY_CONTAINER_REQUEST_LIST, null, EMPTY_CONTAINER_RELEASE_LIST, null,
@@ -1151,11 +1151,12 @@ public class RMAppAttemptImpl implements RMAppAttempt, Recoverable {
       // return to the previous state and keep retry until am container is
       // fetched.
       if (amContainerAllocation.getContainers().size() == 0) {
+        //等待 500 ms 再重试, 启动一个异步线程发送 CONTAINER_ALLOCATED  事件
         appAttempt.retryFetchingAMContainer(appAttempt);
-        return RMAppAttemptState.SCHEDULED;
+        return RMAppAttemptState.SCHEDULED; //申请不到资源状态转换为 SCHEDULED
       }
 
-      // Set the masterContainer
+      // Set the masterContainer  申请到资源则进入后续流程
       appAttempt.setMasterContainer(amContainerAllocation.getContainers()
           .get(0));
       RMContainerImpl rmMasterContainer = (RMContainerImpl)appAttempt.scheduler

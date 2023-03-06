@@ -243,7 +243,7 @@ public class CapacityScheduler extends
 
   private ResourceCalculator calculator;
   private boolean usePortForNodeName;
-
+ //yarn.scheduler.capacity.schedule-asynchronously.enable 是否开启异步调度
   private boolean scheduleAsynchronously;
   private List<AsyncScheduleThread> asyncSchedulerThreads;
   private ResourceCommitterService resourceCommitterService;
@@ -978,7 +978,7 @@ public class CapacityScheduler extends
       // 3. ScheduelerApplcationAttempt is set in
       // SchedulerApplication#setCurrentAppAttempt.
       attempt.setPriority(application.getPriority());
-
+      //通过调度提交一个作业，直接提交到子队列
       queue.submitApplicationAttempt(attempt, application.getUser());
       LOG.info("Added Application Attempt " + applicationAttemptId
           + " to scheduler from user " + application.getUser() + " in queue "
@@ -989,6 +989,7 @@ public class CapacityScheduler extends
               + " is recovering. Skipping notifying ATTEMPT_ADDED");
         }
       } else{
+          //转换到下一个状态
         rmContext.getDispatcher().getEventHandler().handle(
             new RMAppAttemptEvent(applicationAttemptId,
                 RMAppAttemptEventType.ATTEMPT_ADDED));
@@ -1122,15 +1123,15 @@ public class CapacityScheduler extends
       return EMPTY_ALLOCATION;
     }
 
-    // Handle all container updates
+    // Handle all container updates 检查 APP 的中 Container 资源变化信息，并做相应处理
     handleContainerUpdates(application, updateRequests);
 
-    // Release containers
+    // Release containers 释放 Container （运行结束 或 长时间没有启动）
     releaseContainers(release, application);
 
     LeafQueue updateDemandForQueue = null;
 
-    // Sanity check for new allocation requests
+    // Sanity check for new allocation requests 归一化资源请求单位
     normalizeResourceRequests(ask);
 
     // Normalize scheduling requests
@@ -1156,7 +1157,7 @@ public class CapacityScheduler extends
           application.showRequests();
         }
 
-        // Update application requests
+        // Update application requests 更新资源请求，包含 pending 资源
         if (application.updateResourceRequests(ask) || application
             .updateSchedulingRequests(schedulingRequests)) {
           updateDemandForQueue = (LeafQueue) application.getQueue();
@@ -1167,9 +1168,9 @@ public class CapacityScheduler extends
           application.showRequests();
         }
       }
-
+      //更新节点资源白名单和黑名单
       application.updateBlacklist(blacklistAdditions, blacklistRemovals);
-
+      //获取 App 的资源视图
       allocation = application.getAllocation(getResourceCalculator(),
           getClusterResource(), getMinimumResourceCapability());
     } finally {
@@ -1372,6 +1373,7 @@ public class CapacityScheduler extends
       //待分配的节点资源
       CandidateNodeSet<FiCaSchedulerNode> candidates =
           new SimpleCandidateNodeSet<>(node);
+      //尝试在一个 Node 上分配一个节点资源
       CSAssignment assignment = allocateContainersToNode(candidates,
           withNodeHeartbeat);
       // Only check if we can allocate more container on the same node when
@@ -1390,6 +1392,7 @@ public class CapacityScheduler extends
             assignedContainers)) {
           // Try to see if it is possible to allocate multiple container for
           // the same node heartbeat
+          // 启用心跳调度的话，继续下面流程是否能在该节点分配更多资源出来
           assignment = allocateContainersToNode(candidates, true);
 
           if (null != assignment
@@ -1495,9 +1498,9 @@ public class CapacityScheduler extends
       return null;
     }
 
-    // First check if we can schedule
-    // When this time look at one node only, try schedule if the node
-    // has any available or killable resource
+    // Assign new containers... 为一个新的 Container 分配资源
+    // 1. Check for reserved applications 1、检查资源预留的 App
+    // 2. Schedule if there are no reservations 2、其次再调度没有资源预留的 App
     if (calculator.computeAvailableContainers(Resources
             .add(node.getUnallocatedResource(), node.getTotalKillableResources()),
         minimumAllocation) <= 0) {
@@ -1513,13 +1516,14 @@ public class CapacityScheduler extends
           "Trying to schedule on node: " + node.getNodeName() + ", available: "
               + node.getUnallocatedResource());
     }
-
+    //进行正常的调度
     return allocateOrReserveNewContainers(candidates, withNodeHeartbeat);
   }
 
   private CSAssignment allocateOrReserveNewContainers(
       CandidateNodeSet<FiCaSchedulerNode> candidates,
       boolean withNodeHeartbeat) {
+    //从根队列开始获取资源需求,确定资源预案
     CSAssignment assignment = getRootQueue().assignContainers(
         getClusterResource(), candidates, new ResourceLimits(labelManager
             .getResourceByLabel(candidates.getPartition(),
@@ -1527,6 +1531,7 @@ public class CapacityScheduler extends
         SchedulingMode.RESPECT_PARTITION_EXCLUSIVITY);
 
     assignment.setSchedulingMode(SchedulingMode.RESPECT_PARTITION_EXCLUSIVITY);
+    //提交资源提案
     submitResourceCommitRequest(getClusterResource(), assignment);
 
     if (Resources.greaterThan(calculator, getClusterResource(),
@@ -1536,6 +1541,7 @@ public class CapacityScheduler extends
             CandidateNodeSetUtils.getSingleNode(candidates).getNodeID(),
             assignment);
       }
+      //分配到资源返回
       return assignment;
     }
 
@@ -1684,6 +1690,7 @@ public class CapacityScheduler extends
     break;
     case APP_ATTEMPT_ADDED:
     {
+        //指定 ATTEMPT_ADDED 开始进入资源调度
       AppAttemptAddedSchedulerEvent appAttemptAddedEvent =
           (AppAttemptAddedSchedulerEvent) event;
       addApplicationAttempt(appAttemptAddedEvent.getApplicationAttemptId(),
@@ -2601,7 +2608,7 @@ public class CapacityScheduler extends
     }
 
     if (scheduleAsynchronously) {
-      // Submit to a commit thread and commit it async-ly
+      // Submit to a commit thread and commit it async-ly  提交资源预案到异步 Coomit 服务中
       resourceCommitterService.addNewCommitRequest(request);
     } else{
       // Otherwise do it sync-ly.

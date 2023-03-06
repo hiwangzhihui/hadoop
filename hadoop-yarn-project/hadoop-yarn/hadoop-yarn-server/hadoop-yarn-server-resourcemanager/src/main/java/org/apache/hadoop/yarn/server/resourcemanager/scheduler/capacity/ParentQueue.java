@@ -557,7 +557,7 @@ public class ParentQueue extends AbstractCSQueue {
     }
 
     // Check if this queue need more resource, simply skip allocation if this
-    // queue doesn't need more resources.
+    // queue doesn't need more resources. 查看队列是否更多的资源需求，如果没有这直接跳过，不分配
     if (!super.hasPendingResourceRequest(candidates.getPartition(),
         clusterResource, schedulingMode)) {
       if (LOG.isDebugEnabled()) {
@@ -580,7 +580,7 @@ public class ParentQueue extends AbstractCSQueue {
 
     CSAssignment assignment = new CSAssignment(Resources.createResource(0, 0),
         NodeType.NODE_LOCAL);
-
+    //判断队列 NODE_LOCAL 模式下，是否允许进行资源分配
     while (canAssign(clusterResource, node)) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Trying to assign containers to child-queue of "

@@ -97,7 +97,7 @@ import com.google.common.annotations.VisibleForTesting;
 @Unstable
 public class FiCaSchedulerApp extends SchedulerApplicationAttempt {
   private static final Log LOG = LogFactory.getLog(FiCaSchedulerApp.class);
-
+  //该 App 被抢占的 Container
   private final Set<ContainerId> containersToPreempt =
     new HashSet<ContainerId>();
 
@@ -715,10 +715,10 @@ public class FiCaSchedulerApp extends SchedulerApplicationAttempt {
    * This method produces an Allocation that includes the current view
    * of the resources that will be allocated to and preempted from this
    * application.
-   *
-   * @param resourceCalculator resourceCalculator
-   * @param clusterResource clusterResource
-   * @param minimumAllocation minimumAllocation
+   *  该方法是获取 App 的资源视图，包含 app 将要被分配的资源和 App 被抢占的资源
+   * @param resourceCalculator resourceCalculator 资源计算器
+   * @param clusterResource clusterResource 集群资源总和
+   * @param minimumAllocation minimumAllocation 资源最小单位
    * @return an allocation
    */
   public Allocation getAllocation(ResourceCalculator resourceCalculator,
@@ -728,16 +728,21 @@ public class FiCaSchedulerApp extends SchedulerApplicationAttempt {
       Set<ContainerId> currentContPreemption = Collections.unmodifiableSet(
           new HashSet<ContainerId>(containersToPreempt));
       containersToPreempt.clear();
+
       Resource tot = Resource.newInstance(0, 0);
+      //统计将要抢占的资源总和
       for (ContainerId c : currentContPreemption) {
         Resources.addTo(tot, liveContainers.get(c).getContainer()
             .getResource());
       }
+
       int numCont = (int) Math.ceil(
           Resources.divide(rc, clusterResource, tot, minimumAllocation));
+
       ResourceRequest rr = ResourceRequest.newBuilder()
           .priority(Priority.UNDEFINED).resourceName(ResourceRequest.ANY)
           .capability(minimumAllocation).numContainers(numCont).build();
+
       List<Container> previousAttemptContainers =
           pullPreviousAttemptContainers();
       List<Container> newlyAllocatedContainers = pullNewlyAllocatedContainers();

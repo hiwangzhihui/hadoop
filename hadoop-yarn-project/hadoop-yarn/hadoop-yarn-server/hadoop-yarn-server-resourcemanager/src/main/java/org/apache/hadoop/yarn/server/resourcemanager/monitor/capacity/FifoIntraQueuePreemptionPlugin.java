@@ -148,6 +148,10 @@ public class FifoIntraQueuePreemptionPlugin
     // 4. Calculate idealAssigned per app by checking based on queue's
     // unallocated resource.Also return apps arranged from lower priority to
     // higher priority.
+    /**
+     * 计算队列中各应用的"理想资源分配量" （idealAssigned）基于队列中未分配的子
+     * 并对 app 进行从低到高的优先级排序
+     * */
     TreeSet<TempAppPerPartition> orderedApps = calculateIdealAssignedResourcePerApp(
         clusterResource, tq, selectedCandidates, queueReassignableResource,
         orderedByPriority);
@@ -227,6 +231,7 @@ public class FifoIntraQueuePreemptionPlugin
   }
 
   /**
+   * 计算理想分配量算法
    * Algorithm for calculating idealAssigned is as follows:
    * For each partition:
    *  Q.reassignable = Q.used - Q.selected;

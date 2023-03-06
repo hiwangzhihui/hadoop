@@ -579,7 +579,9 @@ public class LeafQueue extends AbstractCSQueue {
     reinitialize(newlyParsedQueue, clusterResource,
         csContext.getConfiguration());
   }
-
+  /**
+   * 子队列中新增一个作业
+   * */
   @Override
   public void submitApplicationAttempt(FiCaSchedulerApp application,
       String userName) {
@@ -591,7 +593,7 @@ public class LeafQueue extends AbstractCSQueue {
       // which is caused by wrong invoking order, will fix UT separately
       User user = usersManager.getUserAndAddIfAbsent(userName);
 
-      // Add the attempt to our data-structures
+      // Add the attempt to our data-structures  在队列中更新作业信息
       addApplicationAttempt(application, user);
     } finally {
       writeLock.unlock();
@@ -601,7 +603,7 @@ public class LeafQueue extends AbstractCSQueue {
     if (application.isPending()) {
       metrics.submitAppAttempt(userName);
     }
-
+    //在父队列中更新作业信息
     getParent().submitApplicationAttempt(application, userName);
   }
 
@@ -884,7 +886,9 @@ public class LeafQueue extends AbstractCSQueue {
           }
         }
         user.activateApplication();
+        //加入到 orderingPolicy 列表
         orderingPolicy.addSchedulableEntity(application);
+        //加入之后更新诊断信息
         application.updateAMContainerDiagnostics(AMState.ACTIVATED, null);
 
         queueUsage.incAMUsed(partitionName,
@@ -904,13 +908,16 @@ public class LeafQueue extends AbstractCSQueue {
       writeLock.unlock();
     }
   }
-  
+  /**
+   * 将作业加入到子队列
+   * */
   private void addApplicationAttempt(FiCaSchedulerApp application,
       User user) {
     try {
       writeLock.lock();
       // Accept
       user.submitApplication();
+      //加入到 pendingOrderingPolicy 中
       getPendingAppsOrderingPolicy().addSchedulableEntity(application);
       applicationAttemptMap.put(application.getApplicationAttemptId(),
           application);
@@ -1111,7 +1118,7 @@ public class LeafQueue extends AbstractCSQueue {
     boolean needAssignToQueueCheck = true;
     //按照作业优先级顺序尝试在该节点分配资源
     for (Iterator<FiCaSchedulerApp> assignmentIterator =
-         orderingPolicy.getAssignmentIterator();
+         orderingPolicy.getAssignmentIterator(); //参与调度的作业资
          assignmentIterator.hasNext(); ) {
       FiCaSchedulerApp application = assignmentIterator.next();
 
@@ -1155,9 +1162,11 @@ public class LeafQueue extends AbstractCSQueue {
       }
       // Check user limit 检查用户资源在该队列的使用约束
       boolean userAssignable = true;
+      //如果受到资源约束同时 app 资源预留量大于限制量，则跳过资源分配
       if (!cul.canAssign && Resources.fitsIn(appReserved, cul.reservation)) {
         userAssignable = false;
       } else {
+        //判断用户是否允许继续分配资源
         userAssignable = canAssignToUser(clusterResource, application.getUser(),
             userLimit, application, node.getPartition(), currentResourceLimits);
         if (!userAssignable && Resources.fitsIn(cul.reservation, appReserved)) {
@@ -1165,7 +1174,9 @@ public class LeafQueue extends AbstractCSQueue {
           cul.reservation = appReserved;
         }
       }
+      //判断是否继续分配资源
       if (!userAssignable) {
+        //更新诊断信息,因为用户资源使用过限
         application.updateAMContainerDiagnostics(AMState.ACTIVATED,
             "User capacity has reached its maximum limit.");
         ActivitiesLogger.APP.recordRejectedAppActivityFromLeafQueue(

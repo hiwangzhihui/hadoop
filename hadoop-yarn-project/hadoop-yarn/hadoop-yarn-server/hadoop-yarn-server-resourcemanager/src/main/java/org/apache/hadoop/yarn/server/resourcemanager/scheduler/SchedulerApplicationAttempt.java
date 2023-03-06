@@ -136,7 +136,7 @@ public class SchedulerApplicationAttempt implements SchedulableEntity {
       new ResourceUsage();
   private AtomicLong firstAllocationRequestSentTime = new AtomicLong(0);
   private AtomicLong firstContainerAllocatedTime = new AtomicLong(0);
-
+  //申请到的 Container
   protected List<RMContainer> newlyAllocatedContainers = new ArrayList<>();
   protected List<RMContainer> tempContainerToKill = new ArrayList<>();
   protected Map<ContainerId, RMContainer> newlyPromotedContainers = new HashMap<>();

@@ -348,7 +348,7 @@ public class AppSchedulingInfo {
     return internalAddResourceRequests(recoverPreemptedRequestForAContainer,
         dedupRequests);
   }
-
+  //更新作业&级联队列的 pending信息
   private void updatePendingResources(PendingAskUpdateResult updateResult,
       SchedulerRequestKey schedulerKey, QueueMetrics metrics) {
 
@@ -390,7 +390,9 @@ public class AppSchedulingInfo {
         newPendingAsk.getCount(), newPendingAsk.getPerAllocationResource());
     Resource increasedResource = Resources.multiply(
         newPendingAsk.getPerAllocationResource(), newPendingAsk.getCount());
+    //更新子队列、父队列pending信息
     queue.incPendingResource(newNodePartition, increasedResource);
+    //更新作业本身的 pending 信息
     appResourceUsage.incPending(newNodePartition, increasedResource);
   }
 

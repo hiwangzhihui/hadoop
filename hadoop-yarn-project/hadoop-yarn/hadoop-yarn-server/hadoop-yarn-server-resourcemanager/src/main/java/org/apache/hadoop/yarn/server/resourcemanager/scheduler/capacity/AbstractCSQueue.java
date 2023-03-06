@@ -102,6 +102,7 @@ public abstract class AbstractCSQueue implements CSQueue {
   private boolean intraQueuePreemptionDisabledInHierarchy;
 
   // Track resource usage-by-label like used-resource/pending-resource, etc.
+  //跟踪资源的使用量和资源需求量
   volatile ResourceUsage queueUsage;
   
   // Track capacities like used-capcity/abs-used-capacity/capacity/abs-capacity,
@@ -1064,7 +1065,7 @@ public abstract class AbstractCSQueue implements CSQueue {
     return SchedulerUtils.hasPendingResourceRequest(resourceCalculator,
         queueUsage, nodePartition, cluster, schedulingMode);
   }
-  
+  //队列 label 判断
   public boolean accessibleToPartition(String nodePartition) {
     // if queue's label is *, it can access any node
     if (accessibleLabels != null
