@@ -77,6 +77,7 @@ import com.google.protobuf.TextFormat;
  * A JournalNode can manage journals for several clusters at once.
  * Each such journal is entirely independent despite being hosted by
  * the same JVM.
+ * 管理 JournalNode 的 Eitlog 的读、写以及 doFinalize、startLogSegment、以及处理其它JournalNode 心跳
  */
 public class Journal implements Closeable {
   static final Log LOG = LogFactory.getLog(Journal.class);

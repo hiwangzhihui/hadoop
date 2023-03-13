@@ -58,6 +58,7 @@ import java.util.List;
  * A Journal Sync thread runs through the lifetime of the JN. It periodically
  * gossips with other journal nodes to compare edit log manifests and if it
  * detects any missing log segment, it downloads it from the other journal node
+ * 定时检查缺失的 eitlog 并下载
  */
 @InterfaceAudience.Private
 public class JournalNodeSyncer {

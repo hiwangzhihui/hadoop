@@ -85,7 +85,7 @@ public class JournalNode implements Tool, Configurable, JournalNodeMXBean {
    * When stopped, the daemon will exit with this code. 
    */
   private int resultCode = 0;
-
+  //Journal 用于管理指定目录下 Editlog
   synchronized Journal getOrCreateJournal(String jid,
                                           String nameServiceId,
                                           StartupOption startOpt)
@@ -147,10 +147,10 @@ public class JournalNode implements Tool, Configurable, JournalNodeMXBean {
   @Override
   public void setConf(Configuration conf) {
     this.conf = conf;
-
+    //editlog 存放目录 dfs.journalnode.edits.dir
     String journalNodeDir = null;
     Collection<String> nameserviceIds;
-
+    // dfs.internal.nameservices JournalNode 支持多集群 editlog 存放
     nameserviceIds = conf.getTrimmedStringCollection(
         DFSConfigKeys.DFS_INTERNAL_NAMESERVICES_KEY);
 
@@ -210,7 +210,7 @@ public class JournalNode implements Tool, Configurable, JournalNodeMXBean {
     Preconditions.checkState(!isStarted(), "JN already running");
 
     try {
-
+      //初始本检查存储 editlog 日志目录
       for (File journalDir : localDir) {
         validateAndCreateJournalDir(journalDir);
       }
@@ -219,18 +219,19 @@ public class JournalNode implements Tool, Configurable, JournalNodeMXBean {
           conf.get(DFSConfigKeys.DFS_METRICS_SESSION_ID_KEY),
           DefaultMetricsSystem.instance());
 
+     //默认接口 8481
       InetSocketAddress socAddr = JournalNodeRpcServer.getAddress(conf);
       SecurityUtil.login(conf, DFSConfigKeys.DFS_JOURNALNODE_KEYTAB_FILE_KEY,
           DFSConfigKeys.DFS_JOURNALNODE_KERBEROS_PRINCIPAL_KEY,
           socAddr.getHostName());
 
       registerJNMXBean();
-
+      //Http 服务
       httpServer = new JournalNodeHttpServer(conf, this);
       httpServer.start();
 
       httpServerURI = httpServer.getServerURI().toString();
-
+      //rpc 服务
       rpcServer = new JournalNodeRpcServer(conf, this);
       rpcServer.start();
     } catch (IOException ioe) {

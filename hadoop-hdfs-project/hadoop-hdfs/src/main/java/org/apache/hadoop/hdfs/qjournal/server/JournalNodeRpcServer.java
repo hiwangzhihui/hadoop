@@ -170,7 +170,9 @@ public class JournalNodeRpcServer implements QJournalProtocol,
       throws IOException {
     jn.getOrCreateJournal(journalId, nameServiceId).format(nsInfo);
   }
-
+  /**
+   * 负责接收写入的 eitlog 数据
+   * */
   @Override
   public void journal(RequestInfo reqInfo,
       long segmentTxId, long firstTxnId,
