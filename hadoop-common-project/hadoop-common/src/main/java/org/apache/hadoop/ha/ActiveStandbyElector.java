@@ -598,7 +598,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
   /**
    * interface implementation of Zookeeper watch events (connection and node),
    * proxied by {@link WatcherWithClientRef}.
-   * 处理监听事件
+   * 处理 Zk 连接监听事件
    */
   synchronized void processWatchEvent(ZooKeeper zk, WatchedEvent event) {
     Event.EventType eventType = event.getType();
@@ -613,7 +613,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     if (eventType == Event.EventType.None) {
       // the connection state has changed
       switch (event.getState()) {
-      case SyncConnected:
+      case SyncConnected:  //连接成功
         LOG.info("Session connected.");
         // if the listener was asked to move to safe state then it needs to
         // be undone
@@ -624,7 +624,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
           monitorActiveStatus();
         }
         break;
-      case Disconnected:
+      case Disconnected: //连接断开
         LOG.info("Session disconnected. Entering neutral mode...");
 
         // ask the app to move to safe state because zookeeper connection
@@ -634,7 +634,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
         break;
       case Expired:
         // the connection got terminated because of session timeout
-        // call listener to reconnect
+        // call listener to reconnect 会话超时
         LOG.info("Session expired. Entering neutral mode and rejoining...");
         enterNeutralMode();
         reJoinElection(0);
@@ -696,12 +696,16 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
     // watcher after constructing ZooKeeper, we may miss that event. Instead,
     // we construct the watcher first, and have it block any events it receives
     // before we can set its ZooKeeper reference.
+    //连接 ZK 创建对应的 WatcherWithClientRef 监听连接的结果
     watcher = new WatcherWithClientRef();
+    //创建 Zk 会话
     ZooKeeper zk = createZooKeeper();
+    //Zk 会话与 watcher 绑定
     watcher.setZooKeeperRef(zk);
 
     // Wait for the asynchronous success/failure. This may throw an exception
     // if we don't connect within the session timeout.
+    //watcher 设置 ZK 等待连接超时时间
     watcher.waitForZKConnectionEvent(zkSessionTimeout);
     
     for (ZKAuthInfo auth : zkAuthInfo) {
@@ -860,6 +864,7 @@ public class ActiveStandbyElector implements StatCallback, StringCallback {
       zkClient = null;
       watcher = null;
     }
+    //创建 Zk Client
     zkClient = connectToZooKeeper();
     if (LOG.isDebugEnabled()) {
       LOG.debug("Created new connection for " + this);
