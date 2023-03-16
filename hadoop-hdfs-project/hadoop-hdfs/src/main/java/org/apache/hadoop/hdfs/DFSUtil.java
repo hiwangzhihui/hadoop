@@ -1583,12 +1583,15 @@ public class DFSUtil {
     HttpConfig.Policy policy = getHttpPolicy(conf);
 
     HttpServer2.Builder builder = new HttpServer2.Builder().setName(name)
+        //dfs.cluster.administrators 管理员名单
         .setConf(conf).setACL(new AccessControlList(conf.get(DFS_ADMIN, " ")))
+        //启用 spnego 认证
         .setSecurityEnabled(UserGroupInformation.isSecurityEnabled())
         .setUsernameConfKey(spnegoUserNameKey)
         .setKeytabConfKey(getSpnegoKeytabKey(conf, spnegoKeytabFileKey));
 
     // initialize the webserver for uploading/downloading files.
+    //如果启用了 Kerberos 认证则打印 spnegoUserNameKey 信息
     if (UserGroupInformation.isSecurityEnabled()) {
       LOG.info("Starting web server as: "
           + SecurityUtil.getServerPrincipal(conf.get(spnegoUserNameKey),

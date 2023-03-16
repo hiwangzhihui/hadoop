@@ -421,6 +421,7 @@ public final class HttpServer2 implements FilterContainer {
       HttpServer2 server = new HttpServer2(this);
 
       if (this.securityEnabled) {
+        //如果启用了 Spnego 认证则初始化 Spnego 相关信息
         server.initSpnego(conf, hostName, usernameConfKey, keytabConfKey);
       }
 
@@ -1115,16 +1116,20 @@ public final class HttpServer2 implements FilterContainer {
       String usernameConfKey, String keytabConfKey) throws IOException {
     Map<String, String> params = new HashMap<>();
     String principalInConf = conf.get(usernameConfKey);
+    //加载 principal 信息，放入到 FilterHolder 中给 Filter 使用
     if (principalInConf != null && !principalInConf.isEmpty()) {
       params.put("kerberos.principal", SecurityUtil.getServerPrincipal(
           principalInConf, hostName));
     }
+    //加载 httpKeytab 存放位置信息，放入到 FilterHolder 中给 Filter 使用
     String httpKeytab = conf.get(keytabConfKey);
     if (httpKeytab != null && !httpKeytab.isEmpty()) {
       params.put("kerberos.keytab", httpKeytab);
     }
+    //存放认证类型信息
     params.put(AuthenticationFilter.AUTH_TYPE, "kerberos");
-
+    //分别添加 SpnegoFilter 指定其实现为 AuthenticationFilter
+    // SpnegoFilter 不与任何目录绑定
     defineFilter(webAppContext, SPNEGO_FILTER,
                  AuthenticationFilter.class.getName(), params, null);
   }

@@ -160,6 +160,10 @@ public class AuthenticationFilter implements Filter {
     config = getConfiguration(configPrefix, filterConfig);
     String authHandlerName = config.getProperty(AUTH_TYPE, null);
     String authHandlerClassName;
+    /** 根据 Http上下文传入的 AUTH_TYPE 认证类型指定 Handler
+     *  simple 为 PseudoAuthenticationHandler
+     *  Kerberos 为 KerberosAuthenticationHandler
+     * **/
     if (authHandlerName == null) {
       throw new ServletException("Authentication type must be specified: " +
           PseudoAuthenticationHandler.TYPE + "|" + 
@@ -176,7 +180,7 @@ public class AuthenticationFilter implements Filter {
     validity = Long.parseLong(config.getProperty(AUTH_TOKEN_VALIDITY, "36000"))
         * 1000; //10 hours
     initializeSecretProvider(filterConfig);
-
+    //初始化 Handler
     initializeAuthHandler(authHandlerClassName, filterConfig);
 
     cookieDomain = config.getProperty(COOKIE_DOMAIN, null);

@@ -261,11 +261,14 @@ public class KerberosAuthenticationHandler implements AuthenticationHandler {
       final HttpServletResponse response)
       throws IOException, AuthenticationException {
     AuthenticationToken token = null;
+    //从请求头中获取认证方式
     String authorization = request.getHeader(
         KerberosAuthenticator.AUTHORIZATION);
 
+    //获取 Negotiate 请求头信息  Authorization=Negotiate
     if (authorization == null
         || !authorization.startsWith(KerberosAuthenticator.NEGOTIATE)) {
+      //如果是不是 Negotiate 该类型的认证，则返回异常信息 401
       response.setHeader(WWW_AUTHENTICATE, KerberosAuthenticator.NEGOTIATE);
       response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
       if (authorization == null) {
@@ -276,11 +279,14 @@ public class KerberosAuthenticationHandler implements AuthenticationHandler {
             KerberosAuthenticator.NEGOTIATE + "' :  {}", authorization);
       }
     } else {
+      //否则从请求头中获取认证信息  Authorization=Negotiatexxxxxx
       authorization = authorization.substring(
           KerberosAuthenticator.NEGOTIATE.length()).trim();
       final Base64 base64 = new Base64(0);
+      //获取到 Client token
       final byte[] clientToken = base64.decode(authorization);
       try {
+        //通过 KerberosUtil 从 clientToken 中获取 serverPrincipal 信息
         final String serverPrincipal =
             KerberosUtil.getTokenServerName(clientToken);
         if (!serverPrincipal.startsWith("HTTP/")) {
@@ -288,6 +294,10 @@ public class KerberosAuthenticationHandler implements AuthenticationHandler {
               "Invalid server principal " + serverPrincipal +
               "decoded from client request");
         }
+        /**
+         *  serverSubject 为 Server 端的 Subject
+         *  根据 clientToken 生成 token
+         * */
         token = Subject.doAs(serverSubject,
             new PrivilegedExceptionAction<AuthenticationToken>() {
               @Override
@@ -339,7 +349,9 @@ public class KerberosAuthenticationHandler implements AuthenticationHandler {
         LOG.trace("SPNEGO in progress");
       } else {
         String clientPrincipal = gssContext.getSrcName().toString();
+        //从 clientPrincipal 获取  kerberosName
         KerberosName kerberosName = new KerberosName(clientPrincipal);
+        //根据 rules 解析 shortName
         String userName = kerberosName.getShortName();
         token = new AuthenticationToken(userName, clientPrincipal, getType());
         response.setStatus(HttpServletResponse.SC_OK);

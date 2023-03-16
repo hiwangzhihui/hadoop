@@ -55,17 +55,24 @@ public class JournalNodeHttpServer {
         DFSConfigKeys.DFS_JOURNALNODE_HTTPS_ADDRESS_KEY,
         DFSConfigKeys.DFS_JOURNALNODE_HTTPS_ADDRESS_DEFAULT);
     InetSocketAddress httpsAddr = NetUtils.createSocketAddr(httpsAddrString);
-
+    //创建 httpServer 对应的 builder
     HttpServer2.Builder builder = DFSUtil.httpServerTemplateForNNAndJN(conf,
         httpAddr, httpsAddr, "journal",
+        //dfs.journalnode.kerberos.internal.spnego.principal spnego 认证的 principal 信息
         DFSConfigKeys.DFS_JOURNALNODE_KERBEROS_INTERNAL_SPNEGO_PRINCIPAL_KEY,
+        // dfs.journalnode.keytab.file journalnode spnego 认证的 keytab 文件
         DFSConfigKeys.DFS_JOURNALNODE_KEYTAB_FILE_KEY);
 
     httpServer = builder.build();
+    //将 JournalNode 服务存放到 WebContext 上下文中
     httpServer.setAttribute(JN_ATTRIBUTE_KEY, localJournalNode);
+    //将当前配置放到 WebContext 上下文中
     httpServer.setAttribute(JspHelper.CURRENT_CONF, conf);
+    //将 getJournal Http 接口请求和 GetJournalEditServlet 绑定
+    // 并使用  SPNEGO_FILTER 拦截 getJournal 接口获取用户信息
     httpServer.addInternalServlet("getJournal", "/getJournal",
         GetJournalEditServlet.class, true);
+
     httpServer.start();
   }
 
