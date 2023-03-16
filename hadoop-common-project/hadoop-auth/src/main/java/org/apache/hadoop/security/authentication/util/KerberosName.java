@@ -77,7 +77,9 @@ public class KerberosName {
   private static final Pattern nonSimplePattern = Pattern.compile("[/@]");
 
   /**
-   * The list of translation rules.
+   * The list of translation rules
+   * hadoop.security.auth_to_local 参数指定
+   * setRules
    */
   private static List<Rule> rules;
 
