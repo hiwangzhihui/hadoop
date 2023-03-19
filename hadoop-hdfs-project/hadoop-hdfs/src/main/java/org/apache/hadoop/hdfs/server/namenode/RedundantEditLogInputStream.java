@@ -187,6 +187,7 @@ class RedundantEditLogInputStream extends EditLogInputStream {
         break;
       case OK:
         try {
+          //从JN中读取 op
           FSEditLogOp op = streams[curIdx].readOp();
           if (op == null) {
             state = State.EOF;

@@ -978,7 +978,7 @@ public class NameNode extends ReconfigurableBase implements
         haContext.writeLock();
         state.prepareToEnterState(haContext);
         //进入Active状态，则是 ActiveState,否则，是 StandbyState
-        //enterState 才会处理 JN 上的 Eitlog
+        //enterState 才会处理 JN 上最后一段 Editlog
         state.enterState(haContext);
       } finally {
         haContext.writeUnlock();

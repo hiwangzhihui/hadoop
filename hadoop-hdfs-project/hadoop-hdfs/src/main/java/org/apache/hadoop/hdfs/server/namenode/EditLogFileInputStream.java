@@ -136,6 +136,7 @@ public class EditLogFileInputStream extends EditLogInputStream {
     Preconditions.checkState(state == State.UNINIT);
     BufferedInputStream bin = null;
     try {
+      //获取当前日志段的 Eitlog
       fStream = log.getInputStream();
       bin = new BufferedInputStream(fStream);
       tracker = new FSEditLogLoader.PositionTrackingInputStream(bin);
@@ -187,7 +188,7 @@ public class EditLogFileInputStream extends EditLogInputStream {
     switch (state) {
     case UNINIT:
       try {
-        init(true);
+        init(true); //如果当前的 segment 初始化，则动 JN 读取一段 Eitlog
       } catch (Throwable e) {
         LOG.error("caught exception initializing " + this, e);
         if (skipBrokenEdits) {

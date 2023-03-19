@@ -75,7 +75,7 @@ public abstract class EditLogInputStream implements Closeable {
    * Read an operation from the stream
    * @return an operation from the stream or null if at end of stream
    * @throws IOException if there is an error reading from the stream
-   * 从 editlog 文件中读取一个 FSEditLogOp
+   * 从JN  文件中读取一个 FSEditLogOp （即一段 Segment Eitlog 文件）
    */
   public FSEditLogOp readOp() throws IOException {
     FSEditLogOp ret;
@@ -84,7 +84,7 @@ public abstract class EditLogInputStream implements Closeable {
       cachedOp = null;
       return ret;
     }
-    return nextOp();
+    return nextOp(); //EditLogFileInputStream
   }
   
   /** 
