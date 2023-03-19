@@ -744,7 +744,7 @@ public class Journal implements Closeable {
     
     PrepareRecoveryResponseProto.Builder builder =
         PrepareRecoveryResponseProto.newBuilder();
-
+    //获取 segment 的基础信息
     PersistedRecoveryPaxosData previouslyAccepted = getPersistedPaxosData(segmentTxId);
     completeHalfDoneAcceptRecovery(previouslyAccepted);
 

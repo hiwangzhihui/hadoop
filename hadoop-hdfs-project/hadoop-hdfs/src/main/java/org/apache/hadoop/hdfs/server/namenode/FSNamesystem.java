@@ -1218,7 +1218,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         // During startup, we're already open for write during initialization.
          // 当前为 active 节点才允许 ，写 Journal
         editLog.initJournalsForWrite();
-        // May need to recover
+        // May need to recover  对 JN 上的 Eitlog 进行 recover
         editLog.recoverUnclosedStreams();
         
         LOG.info("Catching up to latest edits from old active before " +

@@ -262,12 +262,15 @@ public class QuorumJournalManager implements JournalManager {
 
   /**
    * Run recovery/synchronization for a specific segment.
+   * 对特定的 segment 进行同步或恢复
    * Postconditions:
    * <ul>
+   *  该 segment 最终以大多数节点确认一致的结果恢复最终的 segment
    * <li>This segment will be finalized on a majority
    * of nodes.</li>
    * <li>All nodes which contain the finalized segment will
    * agree on the length.</li>
+   * 返回的 segment 是大多数节点确认一致的结果长度
    * </ul>
    * 
    * @param segmentTxId the starting txid of the segment
@@ -278,9 +281,10 @@ public class QuorumJournalManager implements JournalManager {
     LOG.info("Beginning recovery of unclosed segment starting at txid " +
         segmentTxId);
     
-    // Step 1. Prepare recovery
+    // Step 1. Prepare recovery 准备进行恢复操作，获取 segment 的基础信息
     QuorumCall<AsyncLogger,PrepareRecoveryResponseProto> prepare =
         loggers.prepareRecovery(segmentTxId);
+    //打印各个 JN 的 prepare 信息
     Map<AsyncLogger, PrepareRecoveryResponseProto> prepareResponses=
         loggers.waitForWriteQuorum(prepare, prepareRecoveryTimeoutMs,
             "prepareRecovery(" + segmentTxId + ")");
@@ -296,6 +300,7 @@ public class QuorumJournalManager implements JournalManager {
     // b) Has the longest log starting at this transaction ID
     
     // TODO: we should collect any "ties" and pass the URL for all of them
+    //选出最终确定要恢复的数据
     // when syncing, so we can tolerate failure during recovery better.
     Entry<AsyncLogger, PrepareRecoveryResponseProto> bestEntry = Collections.max(
         prepareResponses.entrySet(), SegmentRecoveryComparator.INSTANCE); 
@@ -355,7 +360,7 @@ public class QuorumJournalManager implements JournalManager {
     }
     
     URL syncFromUrl = bestLogger.buildURLToFetchLogs(segmentTxId);
-    
+    //通知 JN 进行 Recovery 操作，将 bestLogger 的 logger 同步到各个 JN
     QuorumCall<AsyncLogger,Void> accept = loggers.acceptRecovery(logToSync, syncFromUrl);
     loggers.waitForWriteQuorum(accept, acceptRecoveryTimeoutMs,
         "acceptRecovery(" + TextFormat.shortDebugString(logToSync) + ")");

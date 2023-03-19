@@ -978,6 +978,7 @@ public class NameNode extends ReconfigurableBase implements
         haContext.writeLock();
         state.prepareToEnterState(haContext);
         //进入Active状态，则是 ActiveState,否则，是 StandbyState
+        //enterState 才会处理 JN 上的 Eitlog
         state.enterState(haContext);
       } finally {
         haContext.writeUnlock();
@@ -1308,8 +1309,9 @@ public class NameNode extends ReconfigurableBase implements
       // the shared edits dir.
       fsns.getFSImage().getEditLog().close();
       fsns.getFSImage().getEditLog().initJournalsForWrite();
+      //向 JN 发送 recover 操作，确定 UnfinalizedSegment 并将其状态转换为 finalize
       fsns.getFSImage().getEditLog().recoverUnclosedStreams();
-
+      //从 JN 向 JN 中拷贝 Editlog
       copyEditLogSegmentsToSharedDir(fsns, sharedEditsDirs, newSharedStorage,
           conf);
     } catch (IOException ioe) {
