@@ -305,14 +305,14 @@ public class ResourceManager extends CompositeService implements Recoverable {
       if (HAUtil.isAutomaticFailoverEnabled(conf)
           && HAUtil.isAutomaticFailoverEmbedded(conf)) {
         EmbeddedElector elector = createEmbeddedElector();
-        //创建自动选取服务
+        //创建自动选住服务，并加入到 Rm 的服务列表中
         addIfService(elector);
         rmContext.setLeaderElectorService(elector);
       }
     }
 
     rmContext.setYarnConfiguration(conf);
-    
+    //创建 RMActiveServices 服务
     createAndInitActiveServices(false);
 
     webAppAddress = WebAppUtils.getWebAppBindURL(this.conf,
@@ -1277,6 +1277,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
 
   @Override
   protected void serviceStart() throws Exception {
+    //如果开启 HA 则在启动服务时首先进行 ，transitionToStandby 操作
     if (this.rmContext.isHAEnabled()) {
       transitionToStandby(false);
     } else {
@@ -1478,7 +1479,9 @@ public class ResourceManager extends CompositeService implements Recoverable {
         ShutdownHookManager.get().addShutdownHook(
           new CompositeServiceShutdownHook(resourceManager),
           SHUTDOWN_HOOK_PRIORITY);
+        //初始化服务
         resourceManager.init(conf);
+        //启动服务
         resourceManager.start();
       }
     } catch (Throwable t) {
