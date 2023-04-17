@@ -1188,6 +1188,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
   protected void createAndInitActiveServices(boolean fromActive) {
     activeServices = new RMActiveServices(this);
     activeServices.fromActive = fromActive;
+    //初始化 activeServices
     activeServices.init(conf);
   }
 
