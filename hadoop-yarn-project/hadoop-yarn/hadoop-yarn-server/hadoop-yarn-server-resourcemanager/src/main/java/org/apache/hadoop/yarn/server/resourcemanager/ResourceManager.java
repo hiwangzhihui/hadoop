@@ -942,6 +942,7 @@ public class ResourceManager extends CompositeService implements Recoverable {
           transitionToStandby(true);
           EmbeddedElector elector = rmContext.getLeaderElectorService();
           if (elector != null) {
+            //清理 Zk 上的选主数据
             elector.rejoinElection();
           }
         } catch (Exception e) {

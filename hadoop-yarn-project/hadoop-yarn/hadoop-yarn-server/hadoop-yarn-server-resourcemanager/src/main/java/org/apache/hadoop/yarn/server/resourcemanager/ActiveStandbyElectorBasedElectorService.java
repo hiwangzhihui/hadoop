@@ -62,7 +62,7 @@ public class ActiveStandbyElectorBasedElectorService extends AbstractService
   //当前 RM 信息
   private ResourceManager rm;
 
-  //当前 RM 信息 clusterId-rmid
+  //当前 RM 信息 clusterId+rmid
   private byte[] localActiveNodeInfo;
   //选主程序
   private ActiveStandbyElector elector;
