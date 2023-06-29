@@ -54,23 +54,23 @@ public final class DistCpOptions {
   /** File path (hdfs:// or file://) that contains the list of actual files to
    * copy.
    */
-  private final Path sourceFileListing;
+  private final Path sourceFileListing; //需要被复制的文件列表文件
 
   /** List of source-paths (including wildcards) to be copied to target. */
-  private final List<Path> sourcePaths;
+  private final List<Path> sourcePaths; //源目录地址
 
   /** Destination path for the dist-copy. */
-  private final Path targetPath;
+  private final Path targetPath;//目标目录地址
 
   /** Whether data need to be committed automatically. */
-  private final boolean atomicCommit;
+  private final boolean atomicCommit; //数据拷贝整体是否需要保存原子性，默认 false
 
   /** the work path for atomic commit. If null, the work
    * path would be parentOf(targetPath) + "/._WIP_" + nameOf(targetPath). */
-  private final Path atomicWorkPath;
+  private final Path atomicWorkPath; //atomicCommit 临时存放的目录
 
   /** Whether source and target folder contents be sync'ed up. */
-  private final boolean syncFolder;
+  private final boolean syncFolder; //是否为更新同步  -update
 
   /** Path to save source/dest sequence files to, if non-null. */
   private final Path trackPath;
@@ -435,20 +435,20 @@ public final class DistCpOptions {
    * pattern.
    */
   public static class Builder {
-    private Path sourceFileListing;
-    private List<Path> sourcePaths;
-    private Path targetPath;
+    private Path sourceFileListing; //源列表文件
+    private List<Path> sourcePaths; //源目录文件列表
+    private Path targetPath; //目标目录
 
-    private boolean atomicCommit = false;
-    private Path atomicWorkPath;
-    private boolean syncFolder = false;
-    private boolean deleteMissing = false;
-    private boolean ignoreFailures = false;
-    private boolean overwrite = false;
-    private boolean append = false;
-    private boolean skipCRC = false;
-    private boolean blocking = true;
-    private boolean verboseLog = false;
+    private boolean atomicCommit = false; //数据迁移是否需要全局原子性
+    private Path atomicWorkPath; //执行原子操作的临时目录
+    private boolean syncFolder = false; //是否执行 -update 同步方式
+    private boolean deleteMissing = false; //删除源目录不存在，目标目录存在的文件
+    private boolean ignoreFailures = false; //遇到错误不终止
+    private boolean overwrite = false;//覆盖同名文件
+    private boolean append = false;  //同名文件如果长度不一样，则会追加能够读取的数据块
+    private boolean skipCRC = false;//是否跳过 CRC 校验
+    private boolean blocking = true; //是否异步运行同步任务
+    private boolean verboseLog = false; //是否记录拷贝日志， -v 与 -log 命令配合使用
 
     private boolean useDiff = false;
     private boolean useRdiff = false;
@@ -457,21 +457,23 @@ public final class DistCpOptions {
 
     private String filtersFile;
 
-    private Path logPath;
-    private Path trackPath;
+    private Path logPath; // 任务日志存放的 HDFS 目录
+    private Path trackPath; //记录与源目录比对缺失的文件，配合 ATOMIC_COMMIT 使用
     private String copyStrategy = DistCpConstants.UNIFORMSIZE;
+    //拷贝策略，默认使用 UNIFORMSIZE，按照文件大小分配复制任务给 mapTask
+    //dynamic 复制块的 Maptask 会执行跟多的复制任务
 
-    private int numListstatusThreads = 0;  // 0 indicates that flag is not set.
-    private int maxMaps = DistCpConstants.DEFAULT_MAPS;
-    private float mapBandwidth = 0; // 0 indicates we should use the default
+    private int numListstatusThreads = 0;  // 0 indicates that flag is not set. 用户构建文件列表的线程数默认 40
+    private int maxMaps = DistCpConstants.DEFAULT_MAPS; //最大的 mapTask 任务个数，默认最大：20
+    private float mapBandwidth = 0; // 0 indicates we should use the default 每个 MapTask 限制的带宽数，默认 100MB/s
 
     private EnumSet<FileAttribute> preserveStatus =
         EnumSet.noneOf(FileAttribute.class);
 
-    private int blocksPerChunk = 0;
+    private int blocksPerChunk = 0; //如果为正数：则将一个文件切为多个数据块传输
 
     private int copyBufferSize =
-            DistCpConstants.COPY_BUFFER_SIZE_DEFAULT;
+            DistCpConstants.COPY_BUFFER_SIZE_DEFAULT; //复制文件的缓冲区大小，默认：8192B
 
     public Builder(List<Path> sourcePaths, Path targetPath) {
       Preconditions.checkArgument(sourcePaths != null && !sourcePaths.isEmpty(),

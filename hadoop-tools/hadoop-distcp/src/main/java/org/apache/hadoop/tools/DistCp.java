@@ -67,7 +67,7 @@ public class DistCp extends Configured implements Tool {
   static final Log LOG = LogFactory.getLog(DistCp.class);
 
   @VisibleForTesting
-  DistCpContext context;
+  DistCpContext context; //执行 cp 上下文（源路径、目标路径、任务参数信息）
 
   private Path metaFolder;
 

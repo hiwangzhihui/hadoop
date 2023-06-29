@@ -35,16 +35,16 @@ import java.util.Set;
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
 public class DistCpContext {
-  private final DistCpOptions options;
+  private final DistCpOptions options; // DistCp 命令参数选项记录
 
   /** The source paths can be set at runtime via snapshots. */
-  private List<Path> sourcePaths;
+  private List<Path> sourcePaths; //迁移源文件路径
 
   /** This is a derived field, it's initialized in the beginning of distcp. */
-  private boolean targetPathExists = true;
+  private boolean targetPathExists = true; //目标文件或目录是否已经存在
 
   /** Indicate that raw.* xattrs should be preserved if true. */
-  private boolean preserveRawXattrs = false;
+  private boolean preserveRawXattrs = false; //是否保留文件的 raw级别的扩展属性
 
   public DistCpContext(DistCpOptions options) {
     this.options = options;
@@ -196,7 +196,7 @@ public class DistCpContext {
     return options.toString() +
         ", sourcePaths=" + sourcePaths +
         ", targetPathExists=" + targetPathExists +
-        ", preserveRawXattrs" + preserveRawXattrs;
+        ", preserveRawXattrs=" + preserveRawXattrs; //TODO 提交 RP 规范样式
   }
 
 }

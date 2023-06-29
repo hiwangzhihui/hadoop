@@ -38,6 +38,7 @@ import com.google.common.base.Preconditions;
 /**
  * The OptionsParser parses out the command-line options passed to DistCp,
  * and interprets those specific to DistCp, to create an Options object.
+ *  DistCp 参数解析器
  */
 public class OptionsParser {
 
