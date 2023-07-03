@@ -69,7 +69,7 @@ public class DistCp extends Configured implements Tool {
   @VisibleForTesting
   DistCpContext context; //执行 cp 上下文（源路径、目标路径、任务参数信息）
 
-  private Path metaFolder;
+  private Path metaFolder; //Job 的工作元数据存放目录
 
   private static final String PREFIX = "_distcp";
   private static final String WIP_PREFIX = "._WIP_";
