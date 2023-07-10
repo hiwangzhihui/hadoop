@@ -79,6 +79,7 @@ public class JobSplitWriter {
         JobSubmissionFiles.getJobSplitFile(jobSubmitDir), conf);
     SplitMetaInfo[] info = writeNewSplits(conf, splits, out);
     out.close();
+    //将分片元数据写入到 HDFS 文件中
     writeJobSplitMetaInfo(fs,JobSubmissionFiles.getJobSplitMetaFile(jobSubmitDir), 
         new FsPermission(JobSubmissionFiles.JOB_FILE_PERMISSION), splitVersion,
         info);

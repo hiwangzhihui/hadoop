@@ -65,12 +65,12 @@ public class SimpleCopyListing extends CopyListing {
   public static final int DEFAULT_FILE_STATUS_SIZE = 1000;
   public static final boolean DEFAULT_RANDOMIZE_FILE_LISTING = true;
 
-  private long totalPaths = 0;
-  private long totalDirs = 0;
-  private long totalBytesToCopy = 0;
+  private long totalPaths = 0; //总文件个数
+  private long totalDirs = 0; //总目录个数
+  private long totalBytesToCopy = 0; //待拷贝的文件数据量
   private int numListstatusThreads = 1;
-  private final int fileStatusLimit;
-  private final boolean randomizeFileListing;
+  private final int fileStatusLimit; //默认 1000 个文件开始分配
+  private final boolean randomizeFileListing; //文件拷贝任务是否随机分配，默认随机
   private final int maxRetries = 3;
   private CopyFilter copyFilter;
   private DistCpSync distCpSync;
@@ -352,10 +352,10 @@ public class SimpleCopyListing extends CopyListing {
 
         FileStatus rootStatus = sourceFS.getFileStatus(path);
         Path sourcePathRoot = computeSourceRootPath(rootStatus, context);
-       //将文件目录信息写入 切片文件中
+       // 遍历 sourceFiles 源目录
         FileStatus[] sourceFiles = sourceFS.listStatus(path);
         boolean explore = (sourceFiles != null && sourceFiles.length > 0);
-        if (!explore || rootStatus.isDirectory()) {
+        if (!explore || rootStatus.isDirectory()) {//如果是空目录，则直接创建并同步目录属性
           LinkedList<CopyListingFileStatus> rootCopyListingStatus =
               DistCpUtils.toCopyListingFileStatus(sourceFS, rootStatus,
                   preserveAcls, preserveXAttrs, preserveRawXAttrs,
@@ -365,16 +365,17 @@ public class SimpleCopyListing extends CopyListing {
         }
         if (explore) {
           ArrayList<FileStatus> sourceDirs = new ArrayList<FileStatus>();
-          for (FileStatus sourceStatus: sourceFiles) {
+          for (FileStatus sourceStatus: sourceFiles) { //如果是非空目录
             if (LOG.isDebugEnabled()) {
               LOG.debug("Recording source-path: " + sourceStatus.getPath() + " for copy.");
             }
+            //获取任务列表（数据块拷贝 or 文件拷贝），如果是目录则默认拷贝 ACL、扩展属性和 RawXAttrs 信息
             LinkedList<CopyListingFileStatus> sourceCopyListingStatus =
                 DistCpUtils.toCopyListingFileStatus(sourceFS, sourceStatus,
                     preserveAcls && sourceStatus.isDirectory(),
                     preserveXAttrs && sourceStatus.isDirectory(),
                     preserveRawXAttrs && sourceStatus.isDirectory(),
-                    context.getBlocksPerChunk());
+                    context.getBlocksPerChunk()); //文件数据块个数大于指定个数，则拆分拷贝
             for (CopyListingFileStatus fs : sourceCopyListingStatus) {
               if (randomizeFileListing) {
                 //文件信息加入到 writer 列表
@@ -385,11 +386,10 @@ public class SimpleCopyListing extends CopyListing {
                 writeToFileListing(fileListWriter, fs, sourcePathRoot);
               }
             }
-            if (sourceStatus.isDirectory()) {
+            if (sourceStatus.isDirectory()) {//如果是目录则加入 sourceDirs 中
               if (LOG.isDebugEnabled()) {
                 LOG.debug("Adding source dir for traverse: " + sourceStatus.getPath());
               }
-              //目录信息加入到 sourceDirs
               sourceDirs.add(sourceStatus);
             }
           }
@@ -398,7 +398,7 @@ public class SimpleCopyListing extends CopyListing {
               sourcePathRoot, context, null, statusList);
         }
       }
-      if (randomizeFileListing) {
+      if (randomizeFileListing) { //最后收尾把 文件拷贝任务列表写入到文件中
         writeToFileListing(statusList, fileListWriter);
       }
       fileListWriter.close();
@@ -431,11 +431,12 @@ public class SimpleCopyListing extends CopyListing {
      * Shuffling paths can avoid such cases and also ensure that
      * some mappers do not get lots of similar paths.
      */
-    Collections.shuffle(fileStatusInfoList, rnd);
+    Collections.shuffle(fileStatusInfoList, rnd); //先将文件顺序随机 shuffer
     for (FileStatusInfo fileStatusInfo : fileStatusInfoList) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Adding " + fileStatusInfo.fileStatus.getPath());
       }
+      //文件列表信息写入到，任务文件中
       writeToFileListing(fileListWriter, fileStatusInfo.fileStatus,
           fileStatusInfo.sourceRootPath);
     }
@@ -443,6 +444,7 @@ public class SimpleCopyListing extends CopyListing {
       LOG.debug("Number of paths written to fileListing="
           + fileStatusInfoList.size());
     }
+    //情况文件列表
     fileStatusInfoList.clear();
   }
 
@@ -636,6 +638,7 @@ public class SimpleCopyListing extends CopyListing {
       LOG.debug("Starting thread pool of " + numListstatusThreads +
           " listStatus workers.");
     }
+    //多线程递归遍历
     ProducerConsumer<FileStatus, FileStatus[]> workers =
         new ProducerConsumer<FileStatus, FileStatus[]>(numListstatusThreads);
     for (int i = 0; i < numListstatusThreads; i++) {

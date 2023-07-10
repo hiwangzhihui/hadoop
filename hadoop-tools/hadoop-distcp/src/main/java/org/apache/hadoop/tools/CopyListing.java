@@ -83,11 +83,14 @@ public abstract class CopyListing extends Configured {
   public final void buildListing(Path pathToListFile,
       DistCpContext distCpContext) throws IOException {
     validatePaths(distCpContext);
+    //构建分片文件、目录列表
     doBuildListing(pathToListFile, distCpContext);
     Configuration config = getConf();
-
+    //任务元数据，目录
     config.set(DistCpConstants.CONF_LABEL_LISTING_FILE_PATH, pathToListFile.toString());
+    //待拷贝的总文件大小
     config.setLong(DistCpConstants.CONF_LABEL_TOTAL_BYTES_TO_BE_COPIED, getBytesToCopy());
+    //待拷贝的总文件个数
     config.setLong(DistCpConstants.CONF_LABEL_TOTAL_NUMBER_OF_RECORDS, getNumberOfPaths());
 
     validateFinalListing(pathToListFile, distCpContext);

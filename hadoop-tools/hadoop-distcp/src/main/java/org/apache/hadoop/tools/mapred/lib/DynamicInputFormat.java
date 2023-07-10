@@ -46,7 +46,8 @@ import java.io.IOException;
  * job (since the slack will be picked up by other mappers, who consume more
  * chunks.)
  * By varying the split-ratio, one can vary chunk sizes to achieve different
- * performance characteristics. 
+ * performance characteristics.
+ * 动态分片
  */
 public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
   private static final Log LOG = LogFactory.getLog(DynamicInputFormat.class);
@@ -116,6 +117,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
     final Configuration configuration = context.getConfiguration();
     int numRecords = getNumberOfRecords(configuration);
     int numMaps = getNumMapTasks(configuration);
+    //单个分片，预拉取处理的数据量默认
     int maxChunksTolerable = getMaxChunksTolerable(configuration);
 
     // Number of chunks each map will process, on average.

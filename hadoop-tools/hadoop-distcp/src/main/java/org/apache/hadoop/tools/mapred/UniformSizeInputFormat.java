@@ -66,6 +66,7 @@ public class UniformSizeInputFormat
   public List<InputSplit> getSplits(JobContext context)
                       throws IOException, InterruptedException {
     Configuration configuration = context.getConfiguration();
+    //根据 MapTask 个数获取文件分片个数
     int numSplits = DistCpUtils.getInt(configuration,
                                        JobContext.NUM_MAPS);
 
@@ -76,9 +77,16 @@ public class UniformSizeInputFormat
                           DistCpConstants.CONF_LABEL_TOTAL_BYTES_TO_BE_COPIED));
   }
 
+  /**
+   * 将文件分片
+   * @param configuration
+   * @param numSplits 分片个数
+   * @param totalSizeBytes 所有文件大小
+   * */
   private List<InputSplit> getSplits(Configuration configuration, int numSplits,
                                      long totalSizeBytes) throws IOException {
     List<InputSplit> splits = new ArrayList<InputSplit>(numSplits);
+    //每个MapTask 需要拷贝的数据量
     long nBytesPerSplit = (long) Math.ceil(totalSizeBytes * 1.0 / numSplits);
 
     CopyListingFileStatus srcFileStatus = new CopyListingFileStatus();
@@ -86,7 +94,7 @@ public class UniformSizeInputFormat
     long currentSplitSize = 0;
     long lastSplitStart = 0;
     long lastPosition = 0;
-
+    //获取待分片的文件
     final Path listingFilePath = getListingFilePath(configuration);
 
     if (LOG.isDebugEnabled()) {
@@ -99,13 +107,15 @@ public class UniformSizeInputFormat
       while (reader.next(srcRelPath, srcFileStatus)) {
         // If adding the current file would cause the bytes per map to exceed
         // limit. Add the current file to new split
+        // srcFileStatus.getChunkLength() --> 拷贝任务文件的大小
         if (currentSplitSize + srcFileStatus.getChunkLength() > nBytesPerSplit
-            && lastPosition != 0) {
+            && lastPosition != 0) { //如果 currentSplitSize + 当前文件大小 > 单个 MapTask 处理的文件大小，则新建一个分片
           FileSplit split = new FileSplit(listingFilePath, lastSplitStart,
               lastPosition - lastSplitStart, null);
           if (LOG.isDebugEnabled()) {
             LOG.debug ("Creating split : " + split + ", bytes in split: " + currentSplitSize);
           }
+          //如果没有超过指定大小则加入到分片任务列表中
           splits.add(split);
           lastSplitStart = lastPosition;
           currentSplitSize = 0;
@@ -113,7 +123,7 @@ public class UniformSizeInputFormat
         currentSplitSize += srcFileStatus.getChunkLength();
         lastPosition = reader.getPosition();
       }
-      if (lastPosition > lastSplitStart) {
+      if (lastPosition > lastSplitStart) { //创建第一个分片
         FileSplit split = new FileSplit(listingFilePath, lastSplitStart,
             lastPosition - lastSplitStart, null);
         if (LOG.isDebugEnabled()) {

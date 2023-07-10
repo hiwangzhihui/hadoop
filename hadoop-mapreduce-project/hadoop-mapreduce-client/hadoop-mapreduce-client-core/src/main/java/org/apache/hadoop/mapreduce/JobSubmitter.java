@@ -316,11 +316,12 @@ class JobSubmitter {
       ReflectionUtils.newInstance(job.getInputFormatClass(), conf);
 
     List<InputSplit> splits = input.getSplits(job);
+    //获取分片信息
     T[] array = (T[]) splits.toArray(new InputSplit[splits.size()]);
 
     // sort the splits into order based on size, so that the biggest
     // go first
-    Arrays.sort(array, new SplitComparator());
+    Arrays.sort(array, new SplitComparator()); //将分片按处理数据量大小排序
     JobSplitWriter.createSplitFiles(jobSubmitDir, conf, 
         jobSubmitDir.getFileSystem(conf), array);
     return array.length;

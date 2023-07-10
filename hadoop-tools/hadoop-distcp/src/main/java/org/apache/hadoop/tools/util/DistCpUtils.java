@@ -301,6 +301,7 @@ public class DistCpUtils {
   }
 
   /**
+   * 将待拷贝文件信息转换为 CopyListingFileStatus list
    * Converts FileStatus to a list of CopyListingFileStatus.
    * The resulted list contains either one CopyListingFileStatus per chunk of
    * file-blocks (if file-size exceeds blockSize * blocksPerChunk, and there
@@ -325,7 +326,7 @@ public class DistCpUtils {
           throws IOException {
     LinkedList<CopyListingFileStatus> copyListingFileStatus =
         new LinkedList<CopyListingFileStatus>();
-
+    //文件的基础属性信息
     final CopyListingFileStatus clfs = toCopyListingFileStatusHelper(
         fileSystem, fileStatus, preserveAcls,
         preserveXAttrs, preserveRawXAttrs,
@@ -336,32 +337,32 @@ public class DistCpUtils {
           + blocksPerChunk + " isDFS: " +
           (fileSystem instanceof DistributedFileSystem));
     }
-    if ((blocksPerChunk > 0) &&
+    if ((blocksPerChunk > 0) && //如果当前不是一个文件，且数据块个数足够多，则按数据块拆分传输任务
         !fileStatus.isDirectory() &&
         (fileStatus.getLen() > blockSize * blocksPerChunk)) {
       // split only when the file size is larger than the intended chunk size
       final BlockLocation[] blockLocations;
       blockLocations = fileSystem.getFileBlockLocations(fileStatus, 0,
-            fileStatus.getLen());
+            fileStatus.getLen()); //获取文件数据块列表
 
       int numBlocks = blockLocations.length;
       long curPos = 0;
-      if (numBlocks <= blocksPerChunk) {
+      if (numBlocks <= blocksPerChunk) { //再次对比数据块个数，如果小于  blocksPerChunk 个则直接加入到 copyListingFileStatus 列表中
         if (LOG.isDebugEnabled()) {
           LOG.debug("  add file " + clfs);
         }
         copyListingFileStatus.add(clfs);
       } else {
         int i = 0;
-        while (i < numBlocks) {
+        while (i < numBlocks) { //否则拆分文件数据块为多个任务加入到  copyListingFileStatus 列表中
           long curLength = 0;
           for (int j = 0; j < blocksPerChunk && i < numBlocks; ++j, ++i) {
             curLength += blockLocations[i].getLength();
           }
           if (curLength > 0) {
             CopyListingFileStatus clfs1 = new CopyListingFileStatus(clfs);
-            clfs1.setChunkOffset(curPos);
-            clfs1.setChunkLength(curLength);
+            clfs1.setChunkOffset(curPos); //设置数据在文件中开始位置信息
+            clfs1.setChunkLength(curLength);//设置数据在文件中截止位置信息
             if (LOG.isDebugEnabled()) {
               LOG.debug("  add file chunk " + clfs1);
             }
@@ -384,7 +385,7 @@ public class DistCpUtils {
    * Converts a FileStatus to a CopyListingFileStatus.  If preserving ACLs,
    * populates the CopyListingFileStatus with the ACLs. If preserving XAttrs,
    * populates the CopyListingFileStatus with the XAttrs.
-   *
+   * 获取文件的基础属性信息
    * @param fileSystem FileSystem containing the file
    * @param fileStatus FileStatus of file
    * @param preserveAcls boolean true if preserving ACLs

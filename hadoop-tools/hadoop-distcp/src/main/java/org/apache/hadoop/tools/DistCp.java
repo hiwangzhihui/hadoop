@@ -113,7 +113,7 @@ public class DistCp extends Configured implements Tool {
     if (inputOptions != null) {
       this.context = new DistCpContext(inputOptions);
     }
-    this.metaFolder   = createMetaFolderPath();
+    this.metaFolder   = createMetaFolderPath(); //拷贝任务元数据存放位置 yarn.app.mapreduce.staging-dir 目录+ 随机编号
   }
 
   /**
@@ -198,12 +198,13 @@ public class DistCp extends Configured implements Tool {
     try {
       synchronized(this) {
         //Don't cleanup while we are setting up.
-        metaFolder = createMetaFolderPath();
+        metaFolder = createMetaFolderPath(); //元数据目录 yarn.app.mapreduce.am.staging-dir + 随机数
+        //元数据存放目录配置 distcp.listing.file.path	、distcp.meta.folder
         jobFS = metaFolder.getFileSystem(getConf());
         job = createJob();
       }
       prepareFileListing(job);
-      job.submit();
+      job.submit(); //提交任务
       submitted = true;
     } finally {
       if (!submitted) {
@@ -362,9 +363,11 @@ public class DistCp extends Configured implements Tool {
    * @throws IOException - If any
    */
   protected Path createInputFileListing(Job job) throws IOException {
-    Path fileListingPath = getFileListingPath();
+    Path fileListingPath = getFileListingPath();//分片文件存放位置 /fileList.seq
     CopyListing copyListing = CopyListing.getCopyListing(job.getConfiguration(),
         job.getCredentials(), context);
+    //创建分片文件信息
+    //默认使用：SimpleCopyListing
     copyListing.buildListing(fileListingPath, context);
     return fileListingPath;
   }
