@@ -230,7 +230,7 @@ final class BlockChecksumHelper {
       setBytesPerCRC(checksum.getBytesPerChecksum());//bytePerCRC 默认512,分组校验数据包
       long crcPerBlock = checksum.getChecksumSize() <= 0 ? 0 : //如果校验和小于 1 则  crcPerBlock 为 0
           (metadataIn.getLength() -
-              BlockMetadataHeader.getHeaderSize()) / checksum.getChecksumSize(); //TODO ？
+              BlockMetadataHeader.getHeaderSize()) / checksum.getChecksumSize(); //总的 chunk 个数
       setCrcPerBlock(crcPerBlock);
       setCrcType(checksum.getChecksumType());
     }
