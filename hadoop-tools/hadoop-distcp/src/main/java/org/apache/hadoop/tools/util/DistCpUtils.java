@@ -385,9 +385,9 @@ public class DistCpUtils {
    * Converts a FileStatus to a CopyListingFileStatus.  If preserving ACLs,
    * populates the CopyListingFileStatus with the ACLs. If preserving XAttrs,
    * populates the CopyListingFileStatus with the XAttrs.
-   * 获取文件的基础属性信息
+   * 获取文件的属性信息
    * @param fileSystem FileSystem containing the file
-   * @param fileStatus FileStatus of file
+   * @param fileStatus FileStatus of file  文件基础信息都会被默认拷贝
    * @param preserveAcls boolean true if preserving ACLs
    * @param preserveXAttrs boolean true if preserving XAttrs
    * @param preserveRawXAttrs boolean true if preserving raw.* XAttrs

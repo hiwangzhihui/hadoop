@@ -120,6 +120,7 @@ public class RetriableFileCopyCommand extends RetriableCommand {
 
       long offset = (action == FileAction.APPEND) ?
           targetFS.getFileStatus(target).getLen() : source.getChunkOffset();
+       //执行 copy
       long bytesRead = copyToFile(targetPath, targetFS, source,
           offset, context, fileAttributes, sourceChecksum);
 
@@ -130,6 +131,7 @@ public class RetriableFileCopyCommand extends RetriableCommand {
       //At this point, src&dest lengths are same. if length==0, we skip checksum
       if ((bytesRead != 0) && (!skipCrc)) {
         if (!source.isSplit()) {
+          //如果不是数据块文件，则进行文件校验值对比
           compareCheckSums(sourceFS, source.getPath(), sourceChecksum,
               targetFS, targetPath);
         }

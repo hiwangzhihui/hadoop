@@ -142,9 +142,10 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
 
     Path target = new Path(targetWorkPath.makeQualified(targetFS.getUri(),
                           targetFS.getWorkingDirectory()) + relPath.toString());
-
+    //获取 context 传递过来的需要 cp 的属性信息集合
     EnumSet<DistCpOptions.FileAttribute> fileAttributes
             = getFileAttributeSettings(context);
+    //获取 context 传递过来的  rawxattrs 配置信息
     final boolean preserveRawXattrs = context.getConfiguration().getBoolean(
         DistCpConstants.CONF_LABEL_PRESERVE_RAWXATTRS, false);
 
@@ -160,12 +161,14 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
         sourceFS = sourcePath.getFileSystem(conf);
         final boolean preserveXAttrs =
             fileAttributes.contains(FileAttribute.XATTR);
+        //获取当前 Source 文件的属性和文件大小信息
         sourceCurrStatus = DistCpUtils.toCopyListingFileStatusHelper(sourceFS,
             sourceFS.getFileStatus(sourcePath),
             fileAttributes.contains(FileAttribute.ACL),
             preserveXAttrs, preserveRawXattrs,
             sourceFileStatus.getChunkOffset(),
             sourceFileStatus.getChunkLength());
+
       } catch (FileNotFoundException e) {
         throw new IOException(new RetriableFileCopyCommand.CopyReadException(e));
       }
@@ -173,6 +176,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
       FileStatus targetStatus = null;
 
       try {
+        //获取目标文件状态信息
         targetStatus = targetFS.getFileStatus(target);
       } catch (FileNotFoundException ignore) {
         if (LOG.isDebugEnabled())
@@ -185,7 +189,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
             getFileType(targetStatus) + ", Source is " + getFileType(sourceCurrStatus));
       }
 
-      if (sourceCurrStatus.isDirectory()) {
+      if (sourceCurrStatus.isDirectory()) { //如果是目录则创建
         createTargetDirsWithRetry(description, target, context);
         return;
       }
@@ -208,7 +212,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
                   0 : targetStatus.getLen())));
         }
       } else {
-        if (sourceCurrStatus.isSplit()) {
+        if (sourceCurrStatus.isSplit()) { //如果是分片数据这走分片数据拷贝逻辑
           tmpTarget = DistCpUtils.getSplitChunkPath(target, sourceCurrStatus);
         }
         if (LOG.isDebugEnabled()) {
@@ -217,6 +221,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
         copyFileWithRetry(description, sourceCurrStatus, tmpTarget,
             targetStatus, context, action, fileAttributes);
       }
+      //最后拷贝属性信息
       DistCpUtils.preserve(target.getFileSystem(conf), tmpTarget,
           sourceCurrStatus, fileAttributes, preserveRawXattrs);
     } catch (IOException exception) {
@@ -259,6 +264,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
       throw new IOException("File copy failed: " + sourceFileStatus.getPath() +
           " --> " + target, e);
     }
+    //进行数据信息统计
     incrementCounter(context, Counter.BYTESEXPECTED, sourceFileStatus.getLen());
     incrementCounter(context, Counter.BYTESCOPIED, bytesCopied);
     incrementCounter(context, Counter.COPY, 1);
@@ -344,11 +350,12 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
     if (!syncFolders) {
       return true;
     }
+    //对比数据大小、数据块大小
     boolean sameLength = target.getLen() == source.getLen();
     boolean sameBlockSize = source.getBlockSize() == target.getBlockSize()
         || !preserve.contains(FileAttribute.BLOCKSIZE);
     if (sameLength && sameBlockSize) {
-      return skipCrc ||
+      return skipCrc || //对比校验值
           DistCpUtils.checksumsAreEqual(sourceFS, source.getPath(), null,
               targetFS, target.getPath());
     } else {

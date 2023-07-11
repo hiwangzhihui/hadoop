@@ -210,7 +210,7 @@ final class FileChecksumHelper {
        * request length is 0 or the file is empty, return one with the
        * magic entry that matches what previous hdfs versions return.
        */
-      if (locatedBlocks == null || locatedBlocks.isEmpty()) {
+      if (locatedBlocks == null || locatedBlocks.isEmpty()) { //空文件的 checksum
         // Explicitly specified here in case the default DataOutputBuffer
         // buffer length value is changed in future. This matters because the
         // fixed value 32 has to be used to repeat the magic value for previous
@@ -221,6 +221,7 @@ final class FileChecksumHelper {
         fileChecksum =  new MD5MD5CRC32GzipFileChecksum(0, 0, fileMD5);
       } else {
         checksumBlocks();
+        //计算出 Checksum 信息
         fileChecksum = makeFinalResult();
       }
     }
@@ -235,7 +236,7 @@ final class FileChecksumHelper {
      * Make final file checksum result given the computing process done.
      */
     MD5MD5CRC32FileChecksum makeFinalResult() {
-      //compute file MD5
+      //compute file MD5  计算文件 MD5 值
       final MD5Hash fileMD5 = MD5Hash.digest(md5out.getData());
       switch (crcType) {
       case CRC32:

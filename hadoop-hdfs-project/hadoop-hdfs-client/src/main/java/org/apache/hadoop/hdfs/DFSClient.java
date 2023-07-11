@@ -1794,6 +1794,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     maker = ecPolicy != null ?
         new FileChecksumHelper.StripedFileNonStripedChecksumComputer(src,
             length, blockLocations, namenode, this, ecPolicy) :
+            //三副本的数据块校验值 FileChecksumComputer
         new FileChecksumHelper.ReplicatedFileChecksumComputer(src, length,
             blockLocations, namenode, this);
 
