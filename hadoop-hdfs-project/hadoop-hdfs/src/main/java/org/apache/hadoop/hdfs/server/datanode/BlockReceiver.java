@@ -272,6 +272,7 @@ class BlockReceiver implements Closeable {
           datanode.getConf())));
       // write data chunk header if creating a new replica
       if (isCreate) {
+        //将 diskChecksum 写入 meta
         BlockMetadataHeader.writeHeader(checksumOut, diskChecksum);
       } 
     } catch (ReplicaAlreadyExistsException bae) {

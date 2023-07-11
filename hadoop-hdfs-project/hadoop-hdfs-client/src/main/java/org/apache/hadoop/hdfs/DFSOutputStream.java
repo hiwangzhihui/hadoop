@@ -415,7 +415,7 @@ public class DFSOutputStream extends FSOutputSummer
     // csize 校验数据大小
     //bodySize 数据包的数据体大小
     final int bodySize = psize - PacketHeader.PKT_MAX_HEADER_LEN;
-    //校验块大小 （包含数据块 和校验块）
+    //校验块大小 （包含 chunk 数据内容 （占 512 byte）  + 校验值 CRC32C 占 4 byte ）
     final int chunkSize = csize + getChecksumSize();
     //每个数据包中可以包含校验块数量
     chunksPerPacket = Math.max(bodySize/chunkSize, 1);

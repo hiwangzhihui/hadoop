@@ -1018,10 +1018,12 @@ class DataXceiver extends Receiver implements Runnable {
         getOutputStream());
     checkAccess(out, true, block, blockToken, Op.BLOCK_CHECKSUM,
         BlockTokenIdentifier.AccessMode.READ);
+    //创建 BlockChecksumComputer 并获取 meta 文件数据流
     BlockChecksumComputer maker =
         new ReplicatedBlockChecksumComputer(datanode, block);
 
     try {
+      //计算 md5 值等信息
       maker.compute();
 
       //write reply

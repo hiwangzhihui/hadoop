@@ -163,6 +163,7 @@ final class BlockChecksumHelper {
 
       this.metadataIn = datanode.data.getMetaDataInputStream(block);
       this.visibleLength = datanode.data.getReplicaVisibleLength(block);
+      //只是获取数据块部分数据校验信息，则标记  partialBlk 为 true
       this.partialBlk = requestLength < visibleLength;
 
       int ioFileBufferSize =
@@ -225,11 +226,11 @@ final class BlockChecksumHelper {
       //read metadata file
       header = BlockMetadataHeader.readHeader(checksumIn);
       checksum = header.getChecksum();
-      setChecksumSize(checksum.getChecksumSize());
-      setBytesPerCRC(checksum.getBytesPerChecksum());
-      long crcPerBlock = checksum.getChecksumSize() <= 0 ? 0 :
+      setChecksumSize(checksum.getChecksumSize()); //checksumSize 数据块对应的校验和大小
+      setBytesPerCRC(checksum.getBytesPerChecksum());//bytePerCRC 默认512,分组校验数据包
+      long crcPerBlock = checksum.getChecksumSize() <= 0 ? 0 : //如果校验和小于 1 则  crcPerBlock 为 0
           (metadataIn.getLength() -
-              BlockMetadataHeader.getHeaderSize()) / checksum.getChecksumSize();
+              BlockMetadataHeader.getHeaderSize()) / checksum.getChecksumSize(); //TODO ？
       setCrcPerBlock(crcPerBlock);
       setCrcType(checksum.getChecksumType());
     }
@@ -275,13 +276,13 @@ final class BlockChecksumHelper {
     @Override
     void compute() throws IOException {
       try {
-        readHeader();
+        readHeader(); //读取 meta 信息
 
         MD5Hash md5out;
         if (isPartialBlk() && getCrcPerBlock() > 0) {
-          md5out = checksumPartialBlock();
+          md5out = checksumPartialBlock(); //计算数据块部分的数据的校验值
         } else {
-          md5out = checksumWholeBlock();
+          md5out = checksumWholeBlock();//计算数据块整块的校验值
         }
         setOutBytes(md5out.getDigest());
 
@@ -294,7 +295,7 @@ final class BlockChecksumHelper {
     }
 
     private MD5Hash checksumWholeBlock() throws IOException {
-      MD5Hash md5out = MD5Hash.digest(getChecksumIn());
+      MD5Hash md5out = MD5Hash.digest(getChecksumIn()); //即为 meta 的 md5 值
       return md5out;
     }
 
