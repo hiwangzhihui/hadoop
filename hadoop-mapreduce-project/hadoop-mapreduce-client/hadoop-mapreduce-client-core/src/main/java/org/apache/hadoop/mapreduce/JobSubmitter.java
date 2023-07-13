@@ -315,13 +315,16 @@ class JobSubmitter {
     InputFormat<?, ?> input =
       ReflectionUtils.newInstance(job.getInputFormatClass(), conf);
 
+    //由 input决定将输入文件如何分片处理
     List<InputSplit> splits = input.getSplits(job);
-    //获取分片信息
+
     T[] array = (T[]) splits.toArray(new InputSplit[splits.size()]);
 
     // sort the splits into order based on size, so that the biggest
     // go first
-    Arrays.sort(array, new SplitComparator()); //将分片按处理数据量大小排序
+    //将分片按处理数据量大小排序
+    Arrays.sort(array, new SplitComparator());
+    //将分片信息写入  HDFS 文件 job.splitmetainfo 中
     JobSplitWriter.createSplitFiles(jobSubmitDir, conf, 
         jobSubmitDir.getFileSystem(conf), array);
     return array.length;

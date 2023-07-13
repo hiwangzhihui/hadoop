@@ -362,6 +362,7 @@ public class DistCpUtils {
           if (curLength > 0) {
             CopyListingFileStatus clfs1 = new CopyListingFileStatus(clfs);
             clfs1.setChunkOffset(curPos); //设置数据在文件中开始位置信息
+            //如果是数据块拷贝，则设置数据块的长度
             clfs1.setChunkLength(curLength);//设置数据在文件中截止位置信息
             if (LOG.isDebugEnabled()) {
               LOG.debug("  add file chunk " + clfs1);

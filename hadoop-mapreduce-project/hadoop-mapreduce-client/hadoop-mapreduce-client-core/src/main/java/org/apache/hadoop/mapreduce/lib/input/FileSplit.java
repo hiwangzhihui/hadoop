@@ -41,7 +41,7 @@ import org.apache.hadoop.io.Writable;
 public class FileSplit extends InputSplit implements Writable {
   private Path file; //分片元数据目录位置
   private long start; //分片 MapTask 开始处理的文件数据位置
-  private long length; //分片 MapTask 处理的数据量大小
+  private long length; //分片 MapTask 处理的文件个数
   private String[] hosts;
   private SplitLocationInfo[] hostInfos;
 

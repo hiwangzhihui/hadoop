@@ -684,12 +684,12 @@ public class INodeFile extends INodeWithAdditionalFields
    */
   void concatBlocks(INodeFile[] inodes, BlockManager bm) {
     int size = this.blocks.length;
-    int totalAddedBlocks = 0;
+    int totalAddedBlocks = 0; //新的数据块个数
     for(INodeFile f : inodes) {
       Preconditions.checkState(f.isStriped() == this.isStriped());
       totalAddedBlocks += f.blocks.length;
     }
-    
+    //新数据跨列表扩容
     BlockInfo[] newlist =
         new BlockInfo[size + totalAddedBlocks];
     System.arraycopy(this.blocks, 0, newlist, 0, size);
@@ -698,7 +698,7 @@ public class INodeFile extends INodeWithAdditionalFields
       System.arraycopy(in.blocks, 0, newlist, size, in.blocks.length);
       size += in.blocks.length;
     }
-
+   //设置新的数据块列表
     setBlocks(newlist);
     for(BlockInfo b : blocks) {
       b.setBlockCollectionId(getId());

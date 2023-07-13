@@ -77,6 +77,9 @@ class DynamicInputChunkContext<K, V> {
     return numChunksLeft;
   }
 
+  /**
+   * 申请一个 Chunk 文件
+   * */
   public DynamicInputChunk acquire(TaskAttemptContext taskAttemptContext)
       throws IOException, InterruptedException {
 
@@ -85,10 +88,12 @@ class DynamicInputChunkContext<K, V> {
     Path acquiredFilePath = new Path(getChunkRootPath(), taskId);
 
     if (fs.exists(acquiredFilePath)) {
+      //任务启动前预分配的文件
       LOG.info("Acquiring pre-assigned chunk: " + acquiredFilePath);
       return new DynamicInputChunk(acquiredFilePath, taskAttemptContext, this);
     }
 
+    //从 Chunk 文件列表获取一个文件，然后重命名为 taskId_chunk_id, 作为当前任务的输入文件
     for (FileStatus chunkFile : getListOfChunkFiles()) {
       if (fs.rename(chunkFile.getPath(), acquiredFilePath)) {
         LOG.info(taskId + " acquired " + chunkFile.getPath());

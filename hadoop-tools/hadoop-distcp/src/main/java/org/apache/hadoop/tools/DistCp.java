@@ -297,6 +297,7 @@ public class DistCp extends Configured implements Tool {
     job.setNumReduceTasks(0);
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(Text.class);
+    //  CopyOutputFormat 的 CopyCommitter 进行收尾工作
     job.setOutputFormatClass(CopyOutputFormat.class);
     job.getConfiguration().set(JobContext.MAP_SPECULATIVE, "false");
     job.getConfiguration().set(JobContext.NUM_MAPS,

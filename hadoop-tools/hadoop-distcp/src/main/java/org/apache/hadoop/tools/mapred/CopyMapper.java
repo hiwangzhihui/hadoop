@@ -213,6 +213,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
         }
       } else {
         if (sourceCurrStatus.isSplit()) { //如果是分片数据这走分片数据拷贝逻辑
+          //先将数据块拷贝到目标目录：targetFile.toString() + ".____distcpSplit____" + srcFileStatus.getChunkOffset() + "." + srcFileStatus.getChunkLength()
           tmpTarget = DistCpUtils.getSplitChunkPath(target, sourceCurrStatus);
         }
         if (LOG.isDebugEnabled()) {
