@@ -37,16 +37,22 @@ import java.io.IOException;
 
 /**
  * DynamicInputFormat implements the "Worker pattern" for DistCp.
+ * DynamicInputFormat 实现 Work 的模式
  * Rather than to split up the copy-list into a set of static splits,
+ * 将 copylist 再进行一次静态切分
  * the DynamicInputFormat does the following:
  * 1. Splits the copy-list into small chunks on the DFS.
+ *  将 copy-list  切分为更小块
  * 2. Creates a set of empty "dynamic" splits, that each consume as many chunks
  *    as it can.
+ *    创建一组空的动态分片，让每个消费者尽可能的消费跟多的 chunk 分片
  * This arrangement ensures that a single slow mapper won't slow down the entire
  * job (since the slack will be picked up by other mappers, who consume more
  * chunks.)
+ * 这样确保某个慢的 MapTask 影响整 job 的进度
  * By varying the split-ratio, one can vary chunk sizes to achieve different
  * performance characteristics.
+ * 通过修改分割比，来慢不同数据块大小的场景
  * 动态分片
  */
 public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
@@ -115,15 +121,20 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
                                     (JobContext context) throws IOException {
 
     final Configuration configuration = context.getConfiguration();
+    //待拷贝的文件总数
     int numRecords = getNumberOfRecords(configuration);
+    //总mapTask 个数
     int numMaps = getNumMapTasks(configuration);
-    //单个分片，预拉取处理的数据量默认
+    //job 一轮最多允许处理的文件个数 默认值 400
     int maxChunksTolerable = getMaxChunksTolerable(configuration);
 
     // Number of chunks each map will process, on average.
+    //理想情况下一轮每个 MapTask 平均处理的文件数量
     int splitRatio = getListingSplitRatio(configuration, numMaps, numRecords);
+    //校验：如果一轮 mapTask 处理的文件数大于 maxChunksTolerable 则抛出异常
     validateNumChunksUsing(splitRatio, numMaps, maxChunksTolerable);
 
+     //一轮下来整 job 需要处理的文件数
     int numEntriesPerChunk = (int)Math.ceil((float)numRecords
                                           /(splitRatio * numMaps));
     DistCpUtils.publish(context.getConfiguration(),
@@ -131,10 +142,13 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
                         numEntriesPerChunk);
 
     final int nChunksTotal = (int)Math.ceil((float)numRecords/numEntriesPerChunk);
+
     int nChunksOpenAtOnce
             = Math.min(N_CHUNKS_OPEN_AT_ONCE_DEFAULT, nChunksTotal);
 
+    //待处理文件目录
     Path listingPath = getListingFilePath(configuration);
+
     SequenceFile.Reader reader
             = new SequenceFile.Reader(configuration,
                                       SequenceFile.Reader.file(listingPath));
@@ -152,6 +166,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
     try {
 
       while (reader.next(relPath, fileStatus)) {
+        //不文件任务拆解到更小粒度，写入到不同的文件中
         if (recordCounter % (nChunksOpenAtOnce*numEntriesPerChunk) == 0) {
           // All chunks full. Create new chunk-set.
           closeAll(openChunks);
@@ -254,7 +269,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
   }
   
   private static int getMaxChunksTolerable(Configuration conf) {
-    int maxChunksTolerable = conf.getInt(
+    int maxChunksTolerable = conf.getInt( // distcp.dynamic.max.chunks.tolerable 默认值 400
         DistCpConstants.CONF_LABEL_MAX_CHUNKS_TOLERABLE,
         DistCpConstants.MAX_CHUNKS_TOLERABLE_DEFAULT);
     if (maxChunksTolerable <= 0) {
@@ -267,7 +282,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
   }
   
   private static int getMaxChunksIdeal(Configuration conf) {
-    int maxChunksIdeal = conf.getInt(
+    int maxChunksIdeal = conf.getInt( // distcp.dynamic.max.chunks.ideal 默认 100
         DistCpConstants.CONF_LABEL_MAX_CHUNKS_IDEAL,
         DistCpConstants.MAX_CHUNKS_IDEAL_DEFAULT);
     if (maxChunksIdeal <= 0) {
@@ -280,7 +295,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
   }
   
   private static int getMinRecordsPerChunk(Configuration conf) {
-    int minRecordsPerChunk = conf.getInt(
+    int minRecordsPerChunk = conf.getInt( //distcp.dynamic.min.records_per_chunk 默认: 5
         DistCpConstants.CONF_LABEL_MIN_RECORDS_PER_CHUNK,
         DistCpConstants.MIN_RECORDS_PER_CHUNK_DEFAULT);
     if (minRecordsPerChunk <= 0) {
@@ -293,7 +308,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
   }
 
   private static int getSplitRatio(Configuration conf) {
-    int splitRatio = conf.getInt(
+    int splitRatio = conf.getInt(//distcp.dynamic.split.ratio 默认：2
         DistCpConstants.CONF_LABEL_SPLIT_RATIO,
         DistCpConstants.SPLIT_RATIO_DEFAULT);
     if (splitRatio <= 0) {
@@ -321,21 +336,26 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
    * @param nRecords The number of records to be copied.
    * @param conf The configuration set by users.
    * @return The number of splits each map should handle, ideally.
+   * 返回单个 MapTask 一轮处理的文件个数
    */
   static int getSplitRatio(int nMaps, int nRecords, Configuration conf) {
+    //每个 mapTask 一轮 pick 最多处理的文件个数 默认 100
     int maxChunksIdeal = getMaxChunksIdeal(conf);
+    //mapTask 每个 mapTask 一轮pick 最少处理的文件个数 默认 5
     int minRecordsPerChunk = getMinRecordsPerChunk(conf);
+    //默认每个 mapTask 一轮处理的文件个数 默认: 2
     int splitRatio = getSplitRatio(conf);
-    
+    //MapTask 个数为 1 ，处理比例为 1
     if (nMaps == 1) {
       LOG.warn("nMaps == 1. Why use DynamicInputFormat?");
       return 1;
     }
-
+    //如果 nMaps 大于  maxChunksIdeal ，则比例为 maxChunksIdeal
     if (nMaps > maxChunksIdeal)
       return splitRatio;
 
     int nPickups = (int)Math.ceil((float)maxChunksIdeal/nMaps);
+    //平均每个MapTask 处理任务数
     int nRecordsPerChunk = (int)Math.ceil((float)nRecords/(nMaps*nPickups));
 
     return nRecordsPerChunk < minRecordsPerChunk ?
