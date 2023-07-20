@@ -197,7 +197,7 @@ public class MRAppMaster extends CompositeService {
   private final int nmPort;
   private final int nmHttpPort;
   protected final MRAppMetrics metrics;
-  private Map<TaskId, TaskInfo> completedTasksFromPreviousRun;
+  private Map<TaskId, TaskInfo> completedTasksFromPreviousRun; //统计在 Job 运行完成之前已经运行完的 MapTask
   private List<AMInfo> amInfos;
   private AppContext context;
   private Dispatcher dispatcher;

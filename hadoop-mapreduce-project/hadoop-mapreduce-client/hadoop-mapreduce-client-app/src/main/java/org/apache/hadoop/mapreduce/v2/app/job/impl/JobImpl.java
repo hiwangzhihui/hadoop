@@ -629,7 +629,7 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
   private final StateMachine<JobStateInternal, JobEventType, JobEvent> stateMachine;
 
   //changing fields while the job is running
-  private int numMapTasks;
+  private int numMapTasks; //所以的 MapTask 数量
   private int numReduceTasks;
   private int completedTaskCount = 0;
   private int succeededMapTaskCount = 0;
@@ -1471,7 +1471,7 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
         //TODO JH Verify jobACLs, UserName via UGI?
 
         TaskSplitMetaInfo[] taskSplitMetaInfo = createSplits(job, job.jobId);
-        job.numMapTasks = taskSplitMetaInfo.length;
+        job.numMapTasks = taskSplitMetaInfo.length;// mapTask  个数与分片个数一致
         job.numReduceTasks = job.conf.getInt(MRJobConfig.NUM_REDUCES, 0);
 
         if (job.numMapTasks == 0 && job.numReduceTasks == 0) {
