@@ -276,6 +276,8 @@ public class RetriableFileCopyCommand extends RetriableCommand {
     long chunkLength = source2.getChunkLength();
     boolean finished = false;
     try {
+      //在拷贝数据时使用 ThrottledInputStream 限流的 InputStream，每次入数据就进行一次计数判断
+      //超过限流每次 sleep 50ms
       inStream = getInputStream(source, context.getConfiguration());
       seekIfRequired(inStream, sourceOffset);
       int bytesRead = readBytes(inStream, buf);
