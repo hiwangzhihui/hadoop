@@ -280,11 +280,16 @@ public class RMContainerAllocator extends RMContainerRequestor
     super.serviceStart();
   }
 
+
+  /**
+   * RMAM 与 ResourceManager 心跳汇报申请资源
+   * */
   @Override
   protected synchronized void heartbeat() throws Exception {
     scheduleStats.updateAndLogIfChanged("Before Scheduling: ");
     List<Container> allocatedContainers = getResources();
     if (allocatedContainers != null && allocatedContainers.size() > 0) {
+      //将申请到的资源分配的 MapTask 资源请求
       scheduledRequests.assign(allocatedContainers);
     }
 
@@ -503,6 +508,7 @@ public class RMContainerAllocator extends RMContainerRequestor
           mapResourceRequest.getMemorySize());
       reqEvent.getCapability().setVirtualCores(
           mapResourceRequest.getVirtualCores());
+      //将需要申请的资源加入到 scheduledRequests 列表
       scheduledRequests.addMap(reqEvent); //maps are immediately scheduled
     } else {
       String diagMsg = "The required MAP capability is more than the " +

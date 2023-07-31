@@ -629,7 +629,7 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
   private final StateMachine<JobStateInternal, JobEventType, JobEvent> stateMachine;
 
   //changing fields while the job is running
-  private int numMapTasks; //所以的 MapTask 数量
+  private int numMapTasks; //所有 MapTask 数量
   private int numReduceTasks;
   private int completedTaskCount = 0;
   private int succeededMapTaskCount = 0;
@@ -1509,7 +1509,9 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
         cleanupSharedCacheUploadPolicies(job.conf);
 
         // create the Tasks but don't start them yet
+        //构建 MapTask 任务基础信息
         createMapTasks(job, inputLength, taskSplitMetaInfo);
+        //构建 ReduceTask 任务基础信息
         createReduceTasks(job);
 
         job.metrics.endPreparingJob(job);
@@ -1567,6 +1569,7 @@ public class JobImpl implements org.apache.hadoop.mapreduce.v2.app.job.Job,
     private void createMapTasks(JobImpl job, long inputLength,
                                 TaskSplitMetaInfo[] splits) {
       for (int i=0; i < job.numMapTasks; ++i) {
+        // 按照下标号 为不同的 mapTask 分配不同的切片数据，并创建 task
         TaskImpl task =
             new MapTaskImpl(job.jobId, i,
                 job.eventHandler, 
