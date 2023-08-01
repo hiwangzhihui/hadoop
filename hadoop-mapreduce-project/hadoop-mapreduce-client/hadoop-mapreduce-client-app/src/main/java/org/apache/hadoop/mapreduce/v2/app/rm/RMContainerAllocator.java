@@ -287,6 +287,7 @@ public class RMContainerAllocator extends RMContainerRequestor
   @Override
   protected synchronized void heartbeat() throws Exception {
     scheduleStats.updateAndLogIfChanged("Before Scheduling: ");
+    //内部函数调用 allocate 节点向 RM 申请资源
     List<Container> allocatedContainers = getResources();
     if (allocatedContainers != null && allocatedContainers.size() > 0) {
       //将申请到的资源分配的 MapTask 资源请求

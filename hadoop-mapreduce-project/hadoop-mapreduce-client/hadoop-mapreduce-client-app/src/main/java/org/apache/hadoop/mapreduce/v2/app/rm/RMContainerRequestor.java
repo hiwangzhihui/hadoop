@@ -84,16 +84,20 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
   // use custom comparator to make sure ResourceRequest objects differing only in 
   // numContainers dont end up as duplicates
+  // 需要申请的 Container 资源
   private final Set<ResourceRequest> ask = new TreeSet<ResourceRequest>(
       RESOURCE_REQUEST_COMPARATOR);
+  //已经运行完成需要释放的 Container
   private final Set<ContainerId> release = new TreeSet<ContainerId>();
   // pendingRelease holds history or release requests.request is removed only if
   // RM sends completedContainer.
   // How it different from release? --> release is for per allocate() request.
   protected Set<ContainerId> pendingRelease = new TreeSet<ContainerId>();
 
+
   private final Map<ResourceRequest,ResourceRequest> requestLimits =
       new TreeMap<ResourceRequest,ResourceRequest>(RESOURCE_REQUEST_COMPARATOR);
+
   private final Set<ResourceRequest> requestLimitsToUpdate =
       new TreeSet<ResourceRequest>(RESOURCE_REQUEST_COMPARATOR);
 
@@ -196,6 +200,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
 
   protected AllocateResponse makeRemoteRequest() throws YarnException,
       IOException {
+    //根据当前资源使用量和限制，更新 ask 资源信息
     applyRequestLimits();
     ResourceBlacklistRequest blacklistRequest =
         ResourceBlacklistRequest.newInstance(new ArrayList<String>(blacklistAdditions),
@@ -204,6 +209,7 @@ public abstract class RMContainerRequestor extends RMCommunicator {
         AllocateRequest.newInstance(lastResponseID,
           super.getApplicationProgress(), new ArrayList<ResourceRequest>(ask),
           new ArrayList<ContainerId>(release), blacklistRequest);
+    //向 RM 发送资源请求
     AllocateResponse allocateResponse = scheduler.allocate(allocateRequest);
     lastResponseID = allocateResponse.getResponseId();
     availableResources = allocateResponse.getAvailableResources();
