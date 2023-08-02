@@ -226,6 +226,7 @@ public class CopyMapper extends Mapper<Text, CopyListingFileStatus, Text, Text> 
       DistCpUtils.preserve(target.getFileSystem(conf), tmpTarget,
           sourceCurrStatus, fileAttributes, preserveRawXattrs);
     } catch (IOException exception) {
+      //ignoreFailures 只能处理 IOException
       handleFailures(exception, sourceFileStatus, target, context);
     }
   }
