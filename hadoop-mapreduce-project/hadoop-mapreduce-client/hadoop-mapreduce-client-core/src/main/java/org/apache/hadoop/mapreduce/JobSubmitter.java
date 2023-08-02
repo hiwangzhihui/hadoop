@@ -205,10 +205,12 @@ class JobSubmitter {
       
       // Create the splits for the job
       LOG.debug("Creating splits at " + jtFs.makeQualified(submitJobDir));
+      //最终会以分片个数为准决定 MapTask 格式
       int maps = writeSplits(job, submitJobDir);
       conf.setInt(MRJobConfig.NUM_MAPS, maps);
       LOG.info("number of splits:" + maps);
 
+      //校验 MapTask 最大个数约束
       int maxMaps = conf.getInt(MRJobConfig.JOB_MAX_MAP,
           MRJobConfig.DEFAULT_JOB_MAX_MAP);
       if (maxMaps >= 0 && maxMaps < maps) {
