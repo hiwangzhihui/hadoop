@@ -197,7 +197,7 @@ public class MRAppMaster extends CompositeService {
   private final int nmPort;
   private final int nmHttpPort;
   protected final MRAppMetrics metrics;
-  private Map<TaskId, TaskInfo> completedTasksFromPreviousRun;
+  private Map<TaskId, TaskInfo> completedTasksFromPreviousRun; //统计在 Job 运行完成之前已经运行完的 MapTask
   private List<AMInfo> amInfos;
   private AppContext context;
   private Dispatcher dispatcher;
@@ -966,12 +966,13 @@ public class MRAppMaster extends CompositeService {
 
     @Override
     protected void serviceStart() throws Exception {
-      if (job.isUber()) {
+      if (job.isUber()) {//如果作业开启 Uber 模式则，使用 LocalContainerAllocator 向 RM 申请资源
         MRApps.setupDistributedCacheLocal(getConfig());
         this.containerAllocator = new LocalContainerAllocator(
             this.clientService, this.context, nmHost, nmPort, nmHttpPort
             , containerID);
       } else {
+        //RMContainerAllocator 为默认资源申请策略
         this.containerAllocator = new RMContainerAllocator(
             this.clientService, this.context, preemptionPolicy);
       }

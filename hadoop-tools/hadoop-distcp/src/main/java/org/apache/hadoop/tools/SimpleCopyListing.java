@@ -355,7 +355,7 @@ public class SimpleCopyListing extends CopyListing {
        // 遍历 sourceFiles 源目录
         FileStatus[] sourceFiles = sourceFS.listStatus(path);
         boolean explore = (sourceFiles != null && sourceFiles.length > 0);
-        if (!explore || rootStatus.isDirectory()) {//如果是空目录，则直接创建并同步目录属性
+        if (!explore || rootStatus.isDirectory()) {
           LinkedList<CopyListingFileStatus> rootCopyListingStatus =
               DistCpUtils.toCopyListingFileStatus(sourceFS, rootStatus,
                   preserveAcls, preserveXAttrs, preserveRawXAttrs,
@@ -378,11 +378,11 @@ public class SimpleCopyListing extends CopyListing {
                     context.getBlocksPerChunk()); //文件数据块个数大于指定个数，则拆分拷贝
             for (CopyListingFileStatus fs : sourceCopyListingStatus) {
               if (randomizeFileListing) {
-                //文件信息加入到 writer 列表
+                //文件信息加入到 writer 列表，满 100 个文件 shuffer 然后再落盘
                 addToFileListing(statusList,
                     new FileStatusInfo(fs, sourcePathRoot), fileListWriter);
               } else {
-                //文件信息落盘
+                //文件信息直接落盘
                 writeToFileListing(fileListWriter, fs, sourcePathRoot);
               }
             }

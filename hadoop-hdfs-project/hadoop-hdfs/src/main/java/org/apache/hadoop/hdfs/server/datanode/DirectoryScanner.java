@@ -537,7 +537,7 @@ public class DirectoryScanner implements Runnable {
         }
         ReportCompiler reportCompiler =
             new ReportCompiler(datanode, volumes.get(i));
-         //并行扫描不同的目录
+         //并行扫描不同的目录,获取数据块汇报信息
         Future<ScanInfoPerBlockPool> result =
             reportCompileThreadPool.submit(reportCompiler);
         compilersInProgress.put(i, result);

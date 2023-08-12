@@ -85,17 +85,20 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
                         splitCopyListingIntoChunksWithShuffle(jobContext));
   }
 
+
   private List<InputSplit> createSplits(JobContext jobContext,
                                         List<DynamicInputChunk> chunks)
           throws IOException {
+    //总mapTask 个数
     int numMaps = getNumMapTasks(jobContext.getConfiguration());
-
+    //最终分片个数
     final int nSplits = Math.min(numMaps, chunks.size());
     List<InputSplit> splits = new ArrayList<InputSplit>(nSplits);
-    
     for (int i=0; i< nSplits; ++i) {
+      //任务ID
       TaskID taskId = new TaskID(jobContext.getJobID(), TaskType.MAP, i);
       chunks.get(i).assignTo(taskId);
+      //初始化默认每个 mapTask 给一个 chunk，读取其前 5 条数据
       splits.add(new FileSplit(chunks.get(i).getPath(), 0,
           // Setting non-zero length for FileSplit size, to avoid a possible
           // future when 0-sized file-splits are considered "empty" and skipped
@@ -117,36 +120,42 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
     }
     return chunkContext;
   }
+
+  /**
+   * 根据总文件个数和 mapTask 个数等约束条件，将总文件数切分为多个 chunk
+   * @param context
+   * */
   private List<DynamicInputChunk> splitCopyListingIntoChunksWithShuffle
                                     (JobContext context) throws IOException {
 
     final Configuration configuration = context.getConfiguration();
-    //待拷贝的文件总数
+    //待拷贝的文件总数 （645）
     int numRecords = getNumberOfRecords(configuration);
     //总mapTask 个数
     int numMaps = getNumMapTasks(configuration);
-    //job 一轮最多允许处理的文件个数 默认值 400
+    //每个 mapTask 最多能处理的 chunk 个数（400）
     int maxChunksTolerable = getMaxChunksTolerable(configuration);
 
     // Number of chunks each map will process, on average.
-    //理想情况下一轮每个 MapTask 平均处理的文件数量
+    //理想情况下每个 mapTask 处理 Chunk 个数（20）
     int splitRatio = getListingSplitRatio(configuration, numMaps, numRecords);
-    //校验：如果一轮 mapTask 处理的文件数大于 maxChunksTolerable 则抛出异常
+    //校验：平均每个 mapTask 处理的 Chunk 个数，不能超过最大允许的 Chunk 个数 （maxChunksTolerable）
     validateNumChunksUsing(splitRatio, numMaps, maxChunksTolerable);
 
-     //一轮下来整 job 需要处理的文件数
+     //每个 chunk 文件中记录需要处理的文件数（7）
     int numEntriesPerChunk = (int)Math.ceil((float)numRecords
                                           /(splitRatio * numMaps));
     DistCpUtils.publish(context.getConfiguration(),
                         CONF_LABEL_NUM_ENTRIES_PER_CHUNK,
                         numEntriesPerChunk);
-
+    //总共需要切分的 chunk 文件数（92）
     final int nChunksTotal = (int)Math.ceil((float)numRecords/numEntriesPerChunk);
 
+     //参与洗牌的 Chunk 个数（作为下限，最少 16 个Chunk 参与洗牌）
     int nChunksOpenAtOnce
             = Math.min(N_CHUNKS_OPEN_AT_ONCE_DEFAULT, nChunksTotal);
 
-    //待处理文件目录
+    //待分片的文件列表
     Path listingPath = getListingFilePath(configuration);
 
     SequenceFile.Reader reader
@@ -155,22 +164,25 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
 
     List<DynamicInputChunk> openChunks
                   = new ArrayList<DynamicInputChunk>();
-    
+    //最终生产的所有 Chunk 文件
     List<DynamicInputChunk> chunksFinal = new ArrayList<DynamicInputChunk>();
 
     CopyListingFileStatus fileStatus = new CopyListingFileStatus();
     Text relPath = new Text();
+    //文件计数器，为了洗牌使用
     int recordCounter = 0;
+    //一轮洗牌创建的 chunk 个数
     int chunkCount = 0;
 
     try {
 
       while (reader.next(relPath, fileStatus)) {
-        //不文件任务拆解到更小粒度，写入到不同的文件中
+        //按照一轮最多处理的文件数，将文件拆解到不同的 chunk 文件中
+        // (nChunksOpenAtOnce*numEntriesPerChunk = 16 *7 = 112 参与一轮洗牌的文件个数)
         if (recordCounter % (nChunksOpenAtOnce*numEntriesPerChunk) == 0) {
           // All chunks full. Create new chunk-set.
-          closeAll(openChunks);
-          chunksFinal.addAll(openChunks);
+          closeAll(openChunks); //关闭所有已经分配好文件的chunk
+          chunksFinal.addAll(openChunks);//将已经处理完的chunk 添加到 chunksFinal 中
 
           openChunks = createChunks(chunkCount, nChunksTotal,
               nChunksOpenAtOnce);
@@ -181,7 +193,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
           recordCounter = 0;
         }
 
-        // Shuffle into open chunks.
+        // Shuffle into open chunks. 需要处理的文件洗牌后写入，不同的 chunk 文件中
         openChunks.get(recordCounter%nChunksOpenAtOnce).write(relPath, fileStatus);
         ++recordCounter;
       }
@@ -213,15 +225,18 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
       int nChunksTotal, int nChunksOpenAtOnce)
       throws IOException {
     List<DynamicInputChunk> chunks = new ArrayList<DynamicInputChunk>();
+    // 当前批次处理文件的上限 （16）
+    // chunkCount 为上一轮生成的 chunk 文件数
     int chunkIdUpperBound
             = Math.min(nChunksTotal, chunkCount + nChunksOpenAtOnce);
 
     // If there will be fewer than nChunksOpenAtOnce chunks left after
     // the current batch of chunks, fold the remaining chunks into
     // the current batch.
+    //如果剩余的文件数小于 nChunksOpenAtOnce 则将剩余的文件数也分配到当前批次中处理
     if (nChunksTotal - chunkIdUpperBound < nChunksOpenAtOnce)
       chunkIdUpperBound = nChunksTotal;
-
+     //创建chunkIdUpperBound （16）个文件
     for (int i=chunkCount; i < chunkIdUpperBound; ++i)
       chunks.add(createChunk(i));
     return chunks;
@@ -336,28 +351,29 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
    * @param nRecords The number of records to be copied.
    * @param conf The configuration set by users.
    * @return The number of splits each map should handle, ideally.
-   * 返回单个 MapTask 一轮处理的文件个数
+   * 返回每个 MapTask 处理的 Chunk 个数
    */
   static int getSplitRatio(int nMaps, int nRecords, Configuration conf) {
-    //每个 mapTask 一轮 pick 最多处理的文件个数 默认 100
+    //所有 MapTask 最多允许处理的 Chunk 个数，默认: 100
     int maxChunksIdeal = getMaxChunksIdeal(conf);
-    //mapTask 每个 mapTask 一轮pick 最少处理的文件个数 默认 5
+    //每个 chunk 最少包含的文件个数 默认: 5
     int minRecordsPerChunk = getMinRecordsPerChunk(conf);
-    //默认每个 mapTask 一轮处理的文件个数 默认: 2
+    //默认每个 mapTask 处理的 Chunk 个数，默认： 2
     int splitRatio = getSplitRatio(conf);
     //MapTask 个数为 1 ，处理比例为 1
     if (nMaps == 1) {
       LOG.warn("nMaps == 1. Why use DynamicInputFormat?");
       return 1;
     }
-    //如果 nMaps 大于  maxChunksIdeal ，则比例为 maxChunksIdeal
+    //如果 nMaps 大于  maxChunksIdeal ，则返回默认的 splitRatio
     if (nMaps > maxChunksIdeal)
       return splitRatio;
 
+    //（Ideal）最大限制情况下，平均每个MapTask 处理的 chunk 数量
     int nPickups = (int)Math.ceil((float)maxChunksIdeal/nMaps);
-    //平均每个MapTask 处理任务数
+    //（Ideal）最大限制情况下，每个 chunk 中平均包含的文件数
     int nRecordsPerChunk = (int)Math.ceil((float)nRecords/(nMaps*nPickups));
-
+    //如果每个 chunk 中包含的文件数小于 minRecordsPerChunk ，则返回默认的 splitRatio
     return nRecordsPerChunk < minRecordsPerChunk ?
               splitRatio : nPickups;
   }

@@ -98,6 +98,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Implementation of Task interface.
+ *  MapTask
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
 public abstract class TaskImpl implements Task, EventHandler<TaskEvent> {

@@ -205,10 +205,12 @@ class JobSubmitter {
       
       // Create the splits for the job
       LOG.debug("Creating splits at " + jtFs.makeQualified(submitJobDir));
+      //最终会以分片个数为准决定 MapTask 格式
       int maps = writeSplits(job, submitJobDir);
       conf.setInt(MRJobConfig.NUM_MAPS, maps);
       LOG.info("number of splits:" + maps);
 
+      //校验 MapTask 最大个数约束
       int maxMaps = conf.getInt(MRJobConfig.JOB_MAX_MAP,
           MRJobConfig.DEFAULT_JOB_MAX_MAP);
       if (maxMaps >= 0 && maxMaps < maps) {
@@ -315,13 +317,16 @@ class JobSubmitter {
     InputFormat<?, ?> input =
       ReflectionUtils.newInstance(job.getInputFormatClass(), conf);
 
+    //由 input决定将输入文件如何分片处理
     List<InputSplit> splits = input.getSplits(job);
-    //获取分片信息
+
     T[] array = (T[]) splits.toArray(new InputSplit[splits.size()]);
 
     // sort the splits into order based on size, so that the biggest
     // go first
-    Arrays.sort(array, new SplitComparator()); //将分片按处理数据量大小排序
+    //将分片按处理数据量大小排序
+    Arrays.sort(array, new SplitComparator());
+    //将分片信息写入  HDFS 文件 job.splitmetainfo 中
     JobSplitWriter.createSplitFiles(jobSubmitDir, conf, 
         jobSubmitDir.getFileSystem(conf), array);
     return array.length;

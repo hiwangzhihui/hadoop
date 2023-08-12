@@ -273,6 +273,11 @@ public final class CopyListingFileStatus implements Writable {
     this.chunkLength = chunkLength;
   }
 
+  /**
+   * 是否为数据块任务
+   * ChunkLength 为数块长度
+   * getLen 为文件长度
+   */
   public boolean isSplit() {
     return getChunkLength() != Long.MAX_VALUE &&
         getChunkLength() != getLen();

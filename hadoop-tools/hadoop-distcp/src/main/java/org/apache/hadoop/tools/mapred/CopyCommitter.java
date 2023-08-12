@@ -96,7 +96,7 @@ public class CopyCommitter extends FileOutputCommitter {
         DistCpConstants.CONF_LABEL_TARGET_PATH_EXISTS, true);
     ignoreFailures = conf.getBoolean(
         DistCpOptionSwitch.IGNORE_FAILURES.getConfigLabel(), false);
-
+    //合并 chunk 文件
     concatFileChunks(conf);
 
     super.commitJob(jobContext);
@@ -231,12 +231,14 @@ public class CopyCommitter extends FileOutputCommitter {
           continue;
         }
         Path targetFile = new Path(targetRoot.toString() + "/" + srcRelPath);
+        //根据规则获取 chunk 文件路径
         Path targetFileChunkPath =
             DistCpUtils.getSplitChunkPath(targetFile, srcFileStatus);
         if (LOG.isDebugEnabled()) {
           LOG.debug("  add " + targetFileChunkPath + " to concat.");
         }
         allChunkPaths.add(targetFileChunkPath);
+        //是否为数据块复制任务，如果是则准备合并数据
         if (srcFileStatus.getChunkOffset() + srcFileStatus.getChunkLength()
             == srcFileStatus.getLen()) {
           // This is the last chunk of the splits, consolidate allChunkPaths
@@ -610,10 +612,12 @@ public class CopyCommitter extends FileOutputCommitter {
         ++i;
       }
     }
+    //将所有 chunk 文件和第一个 Chunk 合并
     dstfs.concat(firstChunkFile, restChunkFiles);
     if (LOG.isDebugEnabled()) {
       LOG.debug("concat: result: " + dstfs.getFileStatus(firstChunkFile));
     }
+    //将合并后的 Chunk 文件重命名为目标文件
     rename(dstfs, firstChunkFile, targetFile);
   }
 

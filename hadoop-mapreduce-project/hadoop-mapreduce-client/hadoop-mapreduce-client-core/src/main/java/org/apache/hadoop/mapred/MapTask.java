@@ -343,7 +343,7 @@ public class MapTask extends Task {
       return;
     }
 
-    if (useNewApi) {
+    if (useNewApi) {//根据不同版本的 mapred api 调用不同的 runMapper 方法
       runNewMapper(job, splitMetaInfo, umbilical, reporter);
     } else {
       runOldMapper(job, splitMetaInfo, umbilical, reporter);
@@ -765,6 +765,7 @@ public class MapTask extends Task {
     org.apache.hadoop.mapreduce.InputSplit split = null;
     split = getSplitDetails(new Path(splitIndex.getSplitLocation()),
         splitIndex.getStartOffset());
+    //处理的分片数据
     LOG.info("Processing split: " + split);
 
     org.apache.hadoop.mapreduce.RecordReader<INKEY,INVALUE> input =
@@ -796,6 +797,7 @@ public class MapTask extends Task {
 
     try {
       input.initialize(split, mapperContext);
+      //循环调用用户自定义的 map 方法处理数据
       mapper.run(mapperContext);
       mapPhase.complete();
       setPhase(TaskStatus.Phase.SORT);

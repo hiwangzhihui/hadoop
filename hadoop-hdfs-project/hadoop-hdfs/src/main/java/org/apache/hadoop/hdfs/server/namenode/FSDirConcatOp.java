@@ -63,7 +63,7 @@ class FSDirConcatOp {
 
     // check the target
     verifyTargetFile(fsd, target, targetIIP);
-    // check the srcs
+    // check the srcs 转换为 NodeFile 文件列表
     INodeFile[] srcFiles = verifySrcFiles(fsd, srcs, targetIIP, pc);
 
     if(NameNode.stateChangeLog.isDebugEnabled()) {
@@ -245,6 +245,7 @@ class FSDirConcatOp {
     // the target file can be included in a snapshot
     trgInode.recordModification(targetIIP.getLatestSnapshotId());
     INodeDirectory trgParent = targetIIP.getINode(-2).asDirectory();
+    //将文件数块拼接到目标文件中
     trgInode.concatBlocks(srcList, fsd.getBlockManager());
 
     // since we are in the same dir - we can use same parent to remove files
@@ -253,6 +254,7 @@ class FSDirConcatOp {
       if(nodeToRemove != null) {
         nodeToRemove.clearBlocks();
         // Ensure the nodeToRemove is cleared from snapshot diff list
+        //将链接好文件从父目录中删除
         nodeToRemove.getParent().removeChild(nodeToRemove,
             targetIIP.getLatestSnapshotId());
         fsd.getINodeMap().remove(nodeToRemove);

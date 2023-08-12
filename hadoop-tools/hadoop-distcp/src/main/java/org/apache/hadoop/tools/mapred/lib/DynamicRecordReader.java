@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
  * 1. Presenting the contents of each chunk to DistCp's mapper.
  * 2. Acquiring a new chunk when the current chunk has been completely consumed,
  *    transparently.
+ *  动态分片 read
  */
 public class DynamicRecordReader<K, V> extends RecordReader<K, V> {
   private static final Log LOG = LogFactory.getLog(DynamicRecordReader.class);
@@ -118,7 +119,7 @@ public class DynamicRecordReader<K, V> extends RecordReader<K, V> {
     chunk.release();
     timeOfLastChunkDirScan = System.currentTimeMillis();
     isChunkDirAlreadyScanned = false;
-    
+    //申请下一个 chunk
     chunk = chunkContext.acquire(taskAttemptContext);
 
     if (chunk == null) return false;
