@@ -133,7 +133,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
     int numRecords = getNumberOfRecords(configuration);
     //总mapTask 个数
     int numMaps = getNumMapTasks(configuration);
-    //每个 mapTask 最多能处理的 chunk 个数（400）
+    // mapTask 最多能处理的 chunk 个数（400）
     int maxChunksTolerable = getMaxChunksTolerable(configuration);
 
     // Number of chunks each map will process, on average.
@@ -354,7 +354,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
    * 返回每个 MapTask 处理的 Chunk 个数
    */
   static int getSplitRatio(int nMaps, int nRecords, Configuration conf) {
-    //所有 MapTask 最多允许处理的 Chunk 个数，默认: 100
+    //期望生成的 Chunk 个数，默认: 100
     int maxChunksIdeal = getMaxChunksIdeal(conf);
     //每个 chunk 最少包含的文件个数 默认: 5
     int minRecordsPerChunk = getMinRecordsPerChunk(conf);
@@ -369,7 +369,7 @@ public class DynamicInputFormat<K, V> extends InputFormat<K, V> {
     if (nMaps > maxChunksIdeal)
       return splitRatio;
 
-    //（Ideal）最大限制情况下，平均每个MapTask 处理的 chunk 数量
+    //（Ideal）限制情况下，平均每个MapTask 处理的 chunk 数量
     int nPickups = (int)Math.ceil((float)maxChunksIdeal/nMaps);
     //（Ideal）最大限制情况下，每个 chunk 中平均包含的文件数
     int nRecordsPerChunk = (int)Math.ceil((float)nRecords/(nMaps*nPickups));
