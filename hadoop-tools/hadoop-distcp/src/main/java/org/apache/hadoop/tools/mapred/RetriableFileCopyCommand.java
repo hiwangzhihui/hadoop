@@ -103,6 +103,8 @@ public class RetriableFileCopyCommand extends RetriableCommand {
       Mapper.Context context, EnumSet<FileAttribute> fileAttributes)
       throws IOException {
     final boolean toAppend = action == FileAction.APPEND;
+    //非 append 操作的文件首先会拷贝到工作 "目录，distcp.target.work.path"
+    //默认目前文件目标，临时文件会追加 .distcp.tmp.tTaskAttemptID 后缀
     Path targetPath = toAppend ? target : getTmpFile(target, context);
     final Configuration configuration = context.getConfiguration();
     FileSystem targetFS = target.getFileSystem(configuration);
@@ -138,6 +140,7 @@ public class RetriableFileCopyCommand extends RetriableCommand {
       }
       // it's not append case, thus we first write to a temporary file, rename
       // it to the target path.
+      //非 append 文件拷贝文件后，将临时文件进行 rename 为目标文件
       if (!toAppend) {
         promoteTmpToTarget(targetPath, target, targetFS);
       }
@@ -147,6 +150,7 @@ public class RetriableFileCopyCommand extends RetriableCommand {
       // and then fail. In that case, for the next retry, we either reuse the
       // partial appended data if it is good or we overwrite the whole file
       if (!toAppend) {
+        //对于非追加场景，遇到拷贝中途异常则删除异常的临时文件
         targetFS.delete(targetPath, false);
       }
     }
