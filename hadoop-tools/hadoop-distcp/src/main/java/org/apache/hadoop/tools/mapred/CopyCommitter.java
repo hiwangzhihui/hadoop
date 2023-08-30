@@ -100,7 +100,7 @@ public class CopyCommitter extends FileOutputCommitter {
     concatFileChunks(conf);
 
     super.commitJob(jobContext);
-
+    //清理临时文件
     cleanupTempFiles(jobContext);
 
     String attributes = conf.get(DistCpConstants.CONF_LABEL_PRESERVE_STATUS);
@@ -112,6 +112,7 @@ public class CopyCommitter extends FileOutputCommitter {
 
     try {
       if (conf.getBoolean(DistCpConstants.CONF_LABEL_DELETE_MISSING, false)) {
+        //如果开启了 -delete 参数则会对比，源集群和目标集群文件列表，删除在源不存在而目标集群存在的文件
         deleteMissing(conf);
       } else if (conf.getBoolean(DistCpConstants.CONF_LABEL_ATOMIC_COPY, false)) {
         commitData(conf);

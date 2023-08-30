@@ -139,6 +139,7 @@ public class DistCp extends Configured implements Tool {
     
     try {
       context = new DistCpContext(OptionsParser.parse(argv));
+      //首先检查在启动分片是否支持 concat
       checkSplitLargeFile();
       setTargetPathExists();
       LOG.info("Input Options: " + context);

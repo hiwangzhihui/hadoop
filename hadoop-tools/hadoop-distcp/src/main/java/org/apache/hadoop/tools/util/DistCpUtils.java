@@ -356,6 +356,7 @@ public class DistCpUtils {
         int i = 0;
         while (i < numBlocks) { //否则拆分文件数据块为多个任务加入到  copyListingFileStatus 列表中
           long curLength = 0;
+          //将 blocksPerChunk 个数据块拆解为一个文件进行迁移
           for (int j = 0; j < blocksPerChunk && i < numBlocks; ++j, ++i) {
             curLength += blockLocations[i].getLength();
           }
