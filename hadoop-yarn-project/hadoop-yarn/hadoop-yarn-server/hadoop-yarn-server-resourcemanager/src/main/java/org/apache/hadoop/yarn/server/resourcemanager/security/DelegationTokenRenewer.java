@@ -90,10 +90,11 @@ public class DelegationTokenRenewer extends AbstractService {
   public static final String SCHEME = "hdfs";
 
   // global single timer (daemon)
+  //全局定时器
   private Timer renewalTimer;
   private RMContext rmContext;
   
-  // delegation token canceler thread
+  // delegation token canceler thread 注册 token 线程
   private DelegationTokenCancelThread dtCancelThread =
     new DelegationTokenCancelThread();
   private ThreadPoolExecutor renewerService;
@@ -104,25 +105,44 @@ public class DelegationTokenRenewer extends AbstractService {
   private ConcurrentMap<Token<?>, DelegationTokenToRenew> allTokens =
       new ConcurrentHashMap<Token<?>, DelegationTokenToRenew>();
 
+  //延迟删除 token 任务列表
   private final ConcurrentMap<ApplicationId, Long> delayedRemovalMap =
       new ConcurrentHashMap<ApplicationId, Long>();
 
+  //yarn.nm.liveness-monitor.expiry-interval-ms 延迟销毁时间默认 10 分钟
   private long tokenRemovalDelayMs;
-  
+  //延迟删除 Token 监控线程
   private Thread delayedRemovalThread;
   private ReadWriteLock serviceStateLock = new ReentrantReadWriteLock();
   private volatile boolean isServiceStarted;
+
   private LinkedBlockingQueue<DelegationTokenRenewerEvent> pendingEventQueue;
-  
+  // yarn.resourcemanager.delegation-token.always-cancel 默认 false
   private boolean alwaysCancelDelegationTokens;
+  //yarn.log-aggregation-enable 如果开启日志聚合则延迟销毁 token
   private boolean tokenKeepAliveEnabled;
+  //yarn.resourcemanager.proxy-user-privileges.enabled  是否允许代理创建 Token
   private boolean hasProxyUserPrivileges;
+  //yarn.resourcemanager.system-credentials.valid-time-remaining ,默认 3 小时
   private long credentialsValidTimeRemaining;
+
+
+   //token   RenewerEvent 执行超时时间
+  //yarn.resourcemanager.delegation-token-renewer.thread-timeout    60s
   private long tokenRenewerThreadTimeout;
+
+  //执行   RenewerEvent 执行间隔次数
+  // yarn.resourcemanager.delegation-token-renewer.thread-retry-interval
   private long tokenRenewerThreadRetryInterval;
+  //执行   RenewerEvent 失败最多尝试次数
+  // yarn.resourcemanager.delegation-token-renewer.thread-retry-max-attempts 默认10 次
   private int tokenRenewerThreadRetryMaxAttempts;
+
+  ///执行   RenewerEvent  任务列表
   private final Map<DelegationTokenRenewerEvent, Future<?>> futures =
       new ConcurrentHashMap<>();
+
+  //是否开启 token 事件跟踪，默认开启，且无配置参数
   private boolean delegationTokenRenewerPoolTrackerFlag = true;
 
   // this config is supposedly not used by end-users.
@@ -171,6 +191,7 @@ public class DelegationTokenRenewer extends AbstractService {
   }
 
   protected ThreadPoolExecutor createNewThreadPoolService(Configuration conf) {
+    //yarn.resourcemanager.delegation-token-renewer.thread-count 默认 50 个线程
     int nThreads = conf.getInt(
         YarnConfiguration.RM_DELEGATION_TOKEN_RENEWER_THREAD_COUNT,
         YarnConfiguration.DEFAULT_RM_DELEGATION_TOKEN_RENEWER_THREAD_COUNT);
@@ -213,6 +234,7 @@ public class DelegationTokenRenewer extends AbstractService {
     }
 
     while(!pendingEventQueue.isEmpty()) {
+      //当服务都启动后所有   RenewerEvent 都放 futures 中
       processDelegationTokenRenewerEvent(pendingEventQueue.take());
     }
     super.serviceStart();
@@ -227,6 +249,7 @@ public class DelegationTokenRenewer extends AbstractService {
             renewerService.submit(new DelegationTokenRenewerRunnable(evt));
         futures.put(evt, future);
       } else {
+        //如果当前 DelegationTokenRenewer 还没启动则先把各种事件放入到   pendingEventQueue  列表中
         pendingEventQueue.add(evt);
       }
     } finally {
@@ -276,7 +299,9 @@ public class DelegationTokenRenewer extends AbstractService {
     public final Collection<ApplicationId> referringAppIds;
     public final Configuration conf;
     public long expirationDate;
+    //定时 renwtoken 执行器
     public RenewalTimerTask timerTask;
+    //在任务结束时是否主动注销 token （用户在提交任务时可指定或者在 ResourceManager 配置全局参数）
     public volatile boolean shouldCancelAtEnd;
     public long maxDate;
     public String user;
@@ -469,7 +494,7 @@ public class DelegationTokenRenewer extends AbstractService {
     }
 
     LOG.debug("Registering tokens for renewal for: appId = {}", applicationId);
-
+    //从作业提交的 Credentials 中或 Token 列表
     Collection<Token<?>> tokens = ts.getAllTokens();
     long now = System.currentTimeMillis();
 
@@ -477,24 +502,26 @@ public class DelegationTokenRenewer extends AbstractService {
     // all renewable tokens are valid
     // At RM restart it is safe to assume that all the previously added tokens
     // are valid
+
     appTokens.put(applicationId,
       Collections.synchronizedSet(new HashSet<DelegationTokenToRenew>()));
+    //需要维护续租的 Token 列表
     Set<DelegationTokenToRenew> tokenList = new HashSet<DelegationTokenToRenew>();
     boolean hasHdfsToken = false;
     for (Token<?> token : tokens) {
-      if (token.isManaged()) {
+      if (token.isManaged()) { //判断 Token 是否允许被 renewed
         if (token.getKind().equals(HDFS_DELEGATION_KIND)) {
           LOG.info(applicationId + " found existing hdfs token " + token);
-          hasHdfsToken = true;
+          hasHdfsToken = true; //如果当前 Token 为访问  HDFS Token 则打印其信息，并标记 hasHdfsToken 为 true
         }
-        if (skipTokenRenewal(token)) {
+        if (skipTokenRenewal(token)) { //如果 renewer 为空则直接跳过该 token
           continue;
         }
 
         DelegationTokenToRenew dttr = allTokens.get(token);
         if (dttr == null) {
           Configuration tokenConf;
-          if (evt.tokenConf != null) {
+          if (evt.tokenConf != null) { //如果 tokenConf 为空 ，则给一个默认的 conf
             // Override conf with app provided conf - this is required in cases
             // where RM does not have the required conf to communicate with
             // remote hdfs cluster. The conf is provided by the application
@@ -513,9 +540,11 @@ public class DelegationTokenRenewer extends AbstractService {
           }  else {
             tokenConf = getConfig();
           }
+          //为其构建一个  DelegationTokenToRenew 对象
           dttr = new DelegationTokenToRenew(Arrays.asList(applicationId), token,
               tokenConf, now, shouldCancelAtEnd, evt.getUser());
           try {
+            //立即进行一次  renewToken 操作
             renewToken(dttr);
           } catch (IOException ioe) {
             if (ioe instanceof SecretManager.InvalidToken
@@ -533,28 +562,30 @@ public class DelegationTokenRenewer extends AbstractService {
             throw new IOException("Failed to renew token: " + dttr.token, ioe);
           }
         }
+        //最后加入到  tokenList 列表
         tokenList.add(dttr);
       }
     }
 
-    if (!tokenList.isEmpty()) {
+    if (!tokenList.isEmpty()) { //如果需要维护的不为空
       // Renewing token and adding it to timer calls are separated purposefully
       // If user provides incorrect token then it should not be added for
       // renewal.
       for (DelegationTokenToRenew dtr : tokenList) {
         DelegationTokenToRenew currentDtr =
-            allTokens.putIfAbsent(dtr.token, dtr);
-        if (currentDtr != null) {
+            allTokens.putIfAbsent(dtr.token, dtr); //则将其加入到 allTokens 列表中
+        if (currentDtr != null) { //如果 toekn 已经被添加过，则更新其新即可
           // another job beat us
           currentDtr.referringAppIds.add(applicationId);
           appTokens.get(applicationId).add(currentDtr);
-        } else {
-          appTokens.get(applicationId).add(dtr);
-          setTimerForTokenRenewal(dtr);
+        } else { //如果 token 是第一次添加
+          appTokens.get(applicationId).add(dtr);//同时也更新  appTokens 列表
+          setTimerForTokenRenewal(dtr); //为其创建一个更新 token 的任务 RenewalTimerTask
         }
       }
     }
 
+     //如果 token 列表中没有包 HDFS_DELEGATION_KIND 则会为提交用户申请一个 HDFS_DELEGATION_KIND Token，并加入到列表维护，同时也为其创建一个 RenewalTimerTask
     if (!hasHdfsToken) {
       requestNewHdfsDelegationTokenAsProxyUser(Arrays.asList(applicationId),
           evt.getUser(),
@@ -583,15 +614,17 @@ public class DelegationTokenRenewer extends AbstractService {
       Token<?> token = dttr.token;
 
       try {
+        //如果 token 即将过期则会删除旧的 token，创建新的 token （满足一定条件）
         requestNewHdfsDelegationTokenIfNeeded(dttr);
         // if the token is not replaced by a new token, renew the token
-        if (!dttr.isTimerCancelled()) {
-          renewToken(dttr);
-          setTimerForTokenRenewal(dttr);// set the next one
+        if (!dttr.isTimerCancelled()) {//如果 token 已经正在被移除，则不会再为续租
+          renewToken(dttr);//进行 renewToken 操作
+          setTimerForTokenRenewal(dttr);// set the next one 更新定时器
         } else {
           LOG.info("The token was removed already. Token = [" +dttr +"]");
         }
       } catch (Exception e) {
+         //如果更新失败则直接删除
         LOG.error("Exception renewing token" + token + ". Not rescheduled", e);
         removeFailedDelegationToken(dttr);
       }
@@ -634,8 +667,10 @@ public class DelegationTokenRenewer extends AbstractService {
       LOG.info("Will not renew token " + token);
       return;
     }
+    //renew 时间往提早 1/10
     long renewIn = token.expirationDate - expiresIn/10; // little bit before the expiration
     // need to create new task every time
+    //创建一个 Task 执行 renew
     RenewalTimerTask tTask = new RenewalTimerTask(token);
     token.setTimerTask(tTask); // keep reference to the timer
 
@@ -670,7 +705,7 @@ public class DelegationTokenRenewer extends AbstractService {
   void requestNewHdfsDelegationTokenIfNeeded(
       final DelegationTokenToRenew dttr) throws IOException,
       InterruptedException {
-
+    //距离最大过期时间还有 3 小时，同时 Token 类型为 HDFS_DELEGATION_KIND
     if (hasProxyUserPrivileges
         && dttr.maxDate - dttr.expirationDate < credentialsValidTimeRemaining
         && dttr.token.getKind().equals(HDFS_DELEGATION_KIND)) {
@@ -705,6 +740,7 @@ public class DelegationTokenRenewer extends AbstractService {
     }
   }
 
+  //为用户创建一个 HDFSToken
   private void requestNewHdfsDelegationTokenAsProxyUser(
       Collection<ApplicationId> referringAppIds,
       String user, boolean shouldCancelAtEnd) throws IOException,
@@ -728,10 +764,12 @@ public class DelegationTokenRenewer extends AbstractService {
               new DelegationTokenToRenew(referringAppIds, token, getConfig(),
                 Time.now(), shouldCancelAtEnd, user);
           // renew the token to get the next expiration date.
-          renewToken(tokenToRenew);
-          setTimerForTokenRenewal(tokenToRenew);
+          renewToken(tokenToRenew); //立即为其进行一次 renew 操作
+          setTimerForTokenRenewal(tokenToRenew);//
           for (ApplicationId applicationId : referringAppIds) {
-            appTokens.get(applicationId).add(tokenToRenew);
+            appTokens.get(applicationId).add(tokenToRenew); //加入到维护列表
+            //todo 但是没加入到 allTokens 列表中
+
           }
           LOG.info("Received new token " + token);
           incrTokenSequenceNo = true;
@@ -844,8 +882,10 @@ public class DelegationTokenRenewer extends AbstractService {
     }
   }
 
+  //将 app 的 token 移除
   private void removeApplicationFromRenewal(ApplicationId applicationId) {
     rmContext.getSystemCredentialsForApps().remove(applicationId);
+    //从 appTokens 列表中移除
     Set<DelegationTokenToRenew> tokens = appTokens.remove(applicationId);
 
     if (tokens != null && !tokens.isEmpty()) {
@@ -858,7 +898,7 @@ public class DelegationTokenRenewer extends AbstractService {
                 + "; token=" + dttr.token.getService());
           }
 
-          // continue if the app list isn't empty
+          // continue if the app list isn't empty 如果没有 app 在使用该token 后续流程则跳过
           synchronized(dttr.referringAppIds) {
             dttr.referringAppIds.remove(applicationId);
             if (!dttr.referringAppIds.isEmpty()) {
@@ -866,12 +906,12 @@ public class DelegationTokenRenewer extends AbstractService {
             }
           }
           // cancel the timer
-          dttr.cancelTimer();
+          dttr.cancelTimer(); //取消定时更新器
 
-          // cancel the token
+          // cancel the token 注销 token
           cancelToken(dttr);
 
-          allTokens.remove(dttr.token);
+          allTokens.remove(dttr.token);//从 allTokens 列表中移除 token
         }
       }
     }
@@ -945,7 +985,7 @@ public class DelegationTokenRenewer extends AbstractService {
         LOG.info("Retrying token renewer thread for appid = {} and "
             + "attempt is {}", evt.getApplicationId(),
             evt.getAttempt());
-        evt.incrAttempt();
+        evt.incrAttempt();  //尝试次数+1
 
         Collection<Token<?>> tokens =
             evt.getCredentials().getAllTokens();
@@ -1041,6 +1081,7 @@ public class DelegationTokenRenewer extends AbstractService {
             (DelegationTokenRenewerAppSubmitEvent) evt;
         handleDTRenewerAppSubmitEvent(appSubmitEvt);
       } else if (evt instanceof DelegationTokenRenewerAppRecoverEvent) {
+        //把  Recover 的 app 和 submit 的 App 处理流程都统一
         DelegationTokenRenewerAppRecoverEvent appRecoverEvt =
             (DelegationTokenRenewerAppRecoverEvent) evt;
         handleDTRenewerAppRecoverEvent(appRecoverEvt);
