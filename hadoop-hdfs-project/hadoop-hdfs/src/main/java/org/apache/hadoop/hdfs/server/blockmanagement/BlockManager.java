@@ -389,11 +389,15 @@ public class BlockManager implements BlockStatsMXBean {
   /**
    * The maximum number of outgoing replication streams a given node should have
    * at one time considering all but the highest priority replications needed.
+   * 修复副本非最高优先级，一个 node 能允许作为 Resource 节点能够传输的数据块副本最大个数
+   * dfs.namenode.replication.max-streams 2
     */
   int maxReplicationStreams;
   /**
    * The maximum number of outgoing replication streams a given node should have
    * at one time.
+   * dfs.namenode.replication.max-streams-hard-limit  默认值：4
+   *  一个 node 能允许作为 Resource 节点能够传输的数据块副本最大个数
    */
   int replicationStreamsHardLimit;
   /** Minimum copies needed or else write is disallowed
@@ -2314,7 +2318,10 @@ public class BlockManager implements BlockStatsMXBean {
         }
         continue;
       }
-
+     /**
+      * 修复任务为非最高优先级, 且节点为非 ecommission 和  Maintenance 状态的节点
+      * 限制节点修复任务个数不能超过 maxReplicationStreams
+      * */
       if (priority != LowRedundancyBlocks.QUEUE_HIGHEST_PRIORITY
           && (!node.isDecommissionInProgress() && !node.isEnteringMaintenance())
           && node.getNumberOfBlocksToBeReplicated() >= maxReplicationStreams) {
