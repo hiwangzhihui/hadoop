@@ -815,6 +815,7 @@ public class DFSOutputStream extends FSOutputSummer
 
   void setClosed() {
     closed = true;
+    //关闭数据流程时停止文件续租
     dfsClient.endFileLease(fileId);
     getStreamer().release();
   }

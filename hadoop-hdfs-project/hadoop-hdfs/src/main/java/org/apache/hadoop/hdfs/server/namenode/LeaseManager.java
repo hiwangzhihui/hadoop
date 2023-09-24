@@ -83,7 +83,9 @@ public class LeaseManager {
   public static final Logger LOG = LoggerFactory.getLogger(LeaseManager.class
       .getName());
   private final FSNamesystem fsnamesystem;
+  //60s，用于如果 Client 之前打开过文件，但是没有主动关闭租约，又从新打开，此时如果租约超过 softLimit 则会释放，再为其重启创建一个
   private long softLimit = HdfsConstants.LEASE_SOFTLIMIT_PERIOD;
+  //dfs.namenode.lease-hard-limit-sec 默认 20*60s,租约超时时间
   private long hardLimit;
   static final int INODE_FILTER_WORKER_COUNT_MAX = 4;
   static final int INODE_FILTER_WORKER_TASK_MIN = 512;
@@ -93,9 +95,14 @@ public class LeaseManager {
   //
   // Used for handling lock-leases
   // Mapping: leaseHolder -> Lease
-  //
+  /**
+   * 租约列表 leaseHolder -> Lease
+   * */
   private final HashMap<String, Lease> leases = new HashMap<>();
   // INodeID -> Lease
+  /**
+   * 租约列表 INodeID -> Lease
+   * */
   private final TreeMap<Long, Lease> leasesById = new TreeMap<>();
 
   private Daemon lmthread;
@@ -349,18 +356,21 @@ public class LeaseManager {
    * Adds (or re-adds) the lease for the specified file.
    */
   synchronized Lease addLease(String holder, long inodeId) {
+    //首先会从列表中尝试获取 Client 的租约信息
     Lease lease = getLease(holder);
     if (lease == null) {
-      lease = new Lease(holder);
+      lease = new Lease(holder); //如果不存在则添加
       leases.put(holder, lease);
     } else {
-      renewLease(lease);
+      renewLease(lease); //如果存在则先执行一次 renew 操作
     }
     leasesById.put(inodeId, lease);
-    lease.files.add(inodeId);
+    lease.files.add(inodeId); //将文件信息加入到 lease 持有的文件列表中
     return lease;
   }
-
+  /**
+   * 当关闭文件时（提交数据块）时就会将该文件的续租信息移除
+   * */
   synchronized void removeLease(long inodeId) {
     final Lease lease = leasesById.get(inodeId);
     if (lease != null) {
@@ -444,9 +454,9 @@ public class LeaseManager {
    * expire, all the corresponding locks can be released.
    *************************************************************/
   class Lease {
-    private final String holder;
-    private long lastUpdate;
-    private final HashSet<Long> files = new HashSet<>();
+    private final String holder; //租约持有者 ClietName
+    private long lastUpdate; //租约最近一次更新的时间
+    private final HashSet<Long> files = new HashSet<>(); //租约操作的文件列表
 
     /** Only LeaseManager object can create a lease */
     private Lease(String h) {
@@ -537,6 +547,7 @@ public class LeaseManager {
           Thread.sleep(fsnamesystem.getLeaseRecheckIntervalMs());
 
           // pre-filter the leases w/o the fsn lock.
+          //获取已超时的租约列表
           Collection<Lease> candidates = getExpiredCandidateLeases();
           if (candidates.isEmpty()) {
             continue;
@@ -594,6 +605,7 @@ public class LeaseManager {
       FSDirectory fsd = fsnamesystem.getFSDirectory();
       String p = null;
       String newHolder = getInternalLeaseHolder();
+      //获取超时租约的文件列表，进行释放
       for(Long id : leaseINodeIds) {
         try {
           INodesInPath iip = INodesInPath.fromINode(fsd.getInode(id));
@@ -605,11 +617,14 @@ public class LeaseManager {
           final INodeFile lastINode = iip.getLastINode().asFile();
           if (fsnamesystem.isFileDeleted(lastINode)) {
             // INode referred by the lease could have been deleted.
+            //文件被删除的情况，直接从维护列表中删除
             removeLease(lastINode.getId());
             continue;
           }
           boolean completed = false;
           try {
+            //判断文件的不同情况，符合条件则更新状态为非  UnderConstruction ,同时从维护列表中移除
+            //移除过程中如果文件列表为从则该租约也将从 LeaseManager 列表中移除
             completed = fsnamesystem.internalReleaseLease(
                 leaseToCheck, p, iip, newHolder);
           } catch (IOException e) {

@@ -105,6 +105,7 @@ public class LeaseRenewer {
    * A factory for sharing {@link LeaseRenewer} objects
    * among {@link DFSClient} instances
    * so that there is only one renewer per authority per user.
+   * Factory 单例对象，使用 renewers 列表维护所有用户的 LeaseRenewer 服务
    */
   private static class Factory {
     private static final Factory INSTANCE = new Factory();
@@ -150,7 +151,9 @@ public class LeaseRenewer {
       }
     }
 
-    /** A map for per user per namenode renewers. */
+    /** A map for per user per namenode renewers.
+     *  namenode-user ---> LeaseRenewer
+     * */
     private final Map<Key, LeaseRenewer> renewers = new HashMap<>();
 
     /** Get a renewer. */
@@ -180,12 +183,19 @@ public class LeaseRenewer {
 
   /** The time in milliseconds that the map became empty. */
   private long emptyTime = Long.MAX_VALUE;
-  /** A fixed lease renewal time period in milliseconds */
+  /** A fixed lease renewal time period in milliseconds
+   *  续租间隔时间 默认 30 ms
+   *  可使用 ipc.client.rpc-timeout.ms 参数指定,生效值为 ipc.client.rpc-timeout.ms/2
+   * */
   private long renewal = HdfsConstants.LEASE_SOFTLIMIT_PERIOD / 2;
 
-  /** A daemon for renewing lease */
+  /** A daemon for renewing lease
+   *  dfsClient 的续租线程
+   * */
   private Daemon daemon = null;
-  /** Only the daemon with currentId should run. */
+  /** Only the daemon with currentId should run.
+   *  租约线程 ID
+   * */
   private int currentId = 0;
 
   /**
@@ -194,17 +204,26 @@ public class LeaseRenewer {
    * In other words,
    * if the map is empty for a time period longer than the grace period,
    * the renewer should terminate.
+   * 续租间隔时间上限 60s ,如果 60s 没续租则线程可以退出
+   * 配合 emptyTime 使用
+   * 如果当前对象从 renewers 列表移除则 emptyTime 为0 ，说明 renewer可以退出
    */
   private long gracePeriod;
   /**
    * The time period in milliseconds
    * that the renewer sleeps for each iteration.
+   * 默认 30 s 进行一次检查
    */
   private long sleepPeriod;
 
+  /**
+   * 表明当前 LeaseRenewer 维护指定用户访问指定 NameNode 的 Key 信息
+   * */
   private final Factory.Key factorykey;
 
-  /** A list of clients corresponding to this renewer. */
+  /** A list of clients corresponding to this renewer.
+   *   当前 LeaseRenewer 维护的 DFSClient列表
+   *  */
   private final List<DFSClient> dfsclients = new ArrayList<>();
 
   /**
@@ -315,6 +334,8 @@ public class LeaseRenewer {
 
   public synchronized boolean put(final DFSClient dfsc) {
     if (dfsc.isClientRunning()) {
+      //如果当前 LeaseRenewer 没有启动，或则 emptyTime 没被更新则会创建一个线程为其续租
+      //否则之间返回 true
       if (!isRunning() || isRenewerExpired()) {
         // Start a new daemon with a new id.
         final int id = ++currentId;
@@ -323,8 +344,9 @@ public class LeaseRenewer {
           // create new LR and continue to acquire lease.
           return false;
         }
+        //更新状态为 true 新，只会为一个 HDfsClient 创建一个续租线程
         isLSRunning.getAndSet(true);
-
+        //启动一个线程，为 hdfsClient 续租
         daemon = new Daemon(new Runnable() {
           @Override
           public void run() {
@@ -367,14 +389,14 @@ public class LeaseRenewer {
   /** Close the given client. */
   public synchronized void closeClient(final DFSClient dfsc) {
     dfsclients.remove(dfsc);
-    if (dfsclients.isEmpty()) {
+    if (dfsclients.isEmpty()) {//如果 dfsclients 为空移除 LeaseRenewer 对象停止续租服务
       if (!isRunning() || isRenewerExpired()) {
         Factory.INSTANCE.remove(LeaseRenewer.this);
         return;
       }
       if (emptyTime == Long.MAX_VALUE) {
         //discover the first time that the client list is empty.
-        emptyTime = Time.monotonicNow();
+        emptyTime = Time.monotonicNow(); //更新 emptyTime 时间
       }
     }
 
@@ -438,10 +460,14 @@ public class LeaseRenewer {
    */
   private void run(final int id) throws InterruptedException {
     for(long lastRenewed = Time.monotonicNow(); !Thread.interrupted();
+        //默认 30s 进行检查移除
         Thread.sleep(getSleepPeriod())) {
+
       final long elapsed = Time.monotonicNow() - lastRenewed;
+      //如果 elapsed 时间超过续期间隔时间，则立即向 NameNode  发起续租请求
       if (elapsed >= getRenewalTime()) {
         try {
+          //为当前 LeaseRenewer 持有的 hdfsClient 进行续租
           renew();
           if (LOG.isDebugEnabled()) {
             LOG.debug("Lease renewer daemon for " + clientsString()
@@ -453,6 +479,7 @@ public class LeaseRenewer {
               + (elapsed/1000) + " seconds.  Aborting ...", ie);
           List<DFSClient> dfsclientsCopy;
           synchronized (this) {
+            //发生异常则，将当前 LeaseRenewer 对象从 INSTANCE 列表中移除，并强制关闭文件数据流
             DFSClientFaultInjector.get().delayWhenRenewLeaseTimeout();
             dfsclientsCopy = new ArrayList<>(dfsclients);
             Factory.INSTANCE.remove(LeaseRenewer.this);

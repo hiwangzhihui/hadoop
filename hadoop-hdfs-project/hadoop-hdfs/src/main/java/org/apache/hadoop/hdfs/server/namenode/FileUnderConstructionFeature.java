@@ -28,8 +28,8 @@ import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
  */
 @InterfaceAudience.Private
 public class FileUnderConstructionFeature implements INode.Feature {
-  private String clientName; // lease holder
-  private final String clientMachine;
+  private String clientName; // lease holder 当前文件操作者
+  private final String clientMachine; //当前文件所在的节点
 
   public FileUnderConstructionFeature(final String clientName, final String clientMachine) {
     this.clientName = clientName;

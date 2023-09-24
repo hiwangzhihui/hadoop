@@ -1052,7 +1052,7 @@ public class DFSStripedOutputStream extends DFSOutputStream
         b.add(e);
       }
     }
-
+    //关闭数据流程时停止文件续租
     dfsClient.endFileLease(fileId);
     final IOException ioe = b.build();
     if (ioe != null) {

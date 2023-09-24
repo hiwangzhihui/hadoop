@@ -273,6 +273,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
    * A map from file names to {@link DFSOutputStream} objects
    * that are currently being written by this client.
    * Note that a file can only be written by a single client.
+   * 正在操作的文件列表
    */
   private final Map<Long, DFSOutputStream> filesBeingWritten = new HashMap<>();
 
@@ -508,9 +509,13 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   private void beginFileLease(final long inodeId, final DFSOutputStream out)
       throws IOException {
     synchronized (filesBeingWritten) {
+      //将文件放入到 filesBeingWritten 列表中维护
       putFileBeingWritten(inodeId, out);
+      //为 DfsClient 获取一个 LeaseRenewer ，并将 DfsClient 加入到 LeaseRenewer  的Client 列表中
       LeaseRenewer renewer = getLeaseRenewer();
+      //启动一个线程维护文件对应的租约
       boolean result = renewer.put(this);
+      //如果线程启动失败则会移除原来的，再创建一个线程启动`
       if (!result) {
         // Existing LeaseRenewer cannot add another Daemon, so remove existing
         // and add new one.
@@ -521,12 +526,16 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     }
   }
 
-  /** Stop renewal of lease for the file. */
+  /** Stop renewal of lease for the file.
+   *  停止为文件续租
+   * */
   void endFileLease(final long inodeId) {
     synchronized (filesBeingWritten) {
+      //将文件从 filesBeingWritten 列表中移除
       removeFileBeingWritten(inodeId);
       // remove client from renewer if no files are open
       if (filesBeingWritten.isEmpty()) {
+        //如果文件列表为空，则将 Client 从 LeaseRenewer 维护的 Client 列表移除
         getLeaseRenewer().closeClient(this);
       }
     }
@@ -540,11 +549,11 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   public void putFileBeingWritten(final long inodeId,
       final DFSOutputStream out) {
     synchronized(filesBeingWritten) {
-      filesBeingWritten.put(inodeId, out);
+      filesBeingWritten.put(inodeId, out);//文件加入到 filesBeingWritten 列表中维护
       // update the last lease renewal time only when there was no
       // writes. once there is one write stream open, the lease renewer
       // thread keeps it updated well with in anyone's expiration time.
-      if (lastLeaseRenewal == 0) {
+      if (lastLeaseRenewal == 0) { //todo ，刷新 lastLeaseRenewal 时间
         updateLastLeaseRenewal();
       }
     }
@@ -594,6 +603,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     if (clientRunning && !isFilesBeingWrittenEmpty()) {
       try {
         namenode.renewLease(clientName);
+        //更新客户端续租时间
         updateLastLeaseRenewal();
         return true;
       } catch (IOException e) {
@@ -1272,6 +1282,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         src, masked, flag, createParent, replication, blockSize, progress,
         dfsClientConf.createChecksum(checksumOpt),
         getFavoredNodesStr(favoredNodes), ecPolicyName, storagePolicy);
+    //创建文件成功后开始，为其启动续租程序
     beginFileLease(result.getFileId(), result);
     return result;
   }

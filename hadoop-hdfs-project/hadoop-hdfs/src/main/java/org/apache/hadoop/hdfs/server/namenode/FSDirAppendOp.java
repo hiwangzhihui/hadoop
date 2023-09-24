@@ -174,6 +174,7 @@ final class FSDirAppendOp {
    *                      rebuilding
    * @return the last block locations if the block is partial or null otherwise
    * @throws IOException
+   * 追加文件前置的更新操作
    */
   static LocatedBlock prepareFileForAppend(final FSNamesystem fsn,
       final INodesInPath iip, final String leaseHolder,
@@ -184,10 +185,10 @@ final class FSDirAppendOp {
 
     final INodeFile file = iip.getLastINode().asFile();
     final QuotaCounts delta = verifyQuotaForUCBlock(fsn, file, iip);
-
     file.recordModification(iip.getLatestSnapshotId());
+    //更新文件状态为  UnderConstruction
     file.toUnderConstruction(leaseHolder, clientMachine);
-
+     //为文件添加租约信息
     fsn.getLeaseManager().addLease(
         file.getFileUnderConstructionFeature().getClientName(), file.getId());
 

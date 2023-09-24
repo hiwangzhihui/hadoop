@@ -462,7 +462,9 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   private final int snapshotDiffReportLimit;
   private final int blockDeletionIncrement;
 
-  /** Interval between each check of lease to release. */
+  /** Interval between each check of lease to release.
+   *  租约超时检查间隔时间 2s dfs.namenode.lease-recheck-interval-ms
+   * */
   private final long leaseRecheckIntervalMs;
   /** Maximum time the lock is hold to release lease. */
   private final long maxLockHoldToReleaseLeaseMs;
@@ -2799,6 +2801,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       Lease lease = leaseManager.getLease(holder);
 
       if (!force && lease != null) {
+        //在写文件时会检查文件是否被其客户端占用续租
         Lease leaseFile = leaseManager.getLease(file);
         if (leaseFile != null && leaseFile.equals(lease)) {
           // We found the lease for this file but the original
@@ -4018,7 +4021,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     checkOperation(OperationCategory.WRITE);
     checkNameNodeSafeMode("Cannot renew lease for " + holder);
     // fsn is not mutated so lock is not required.  the leaseManger is also
-    // thread-safe.
+    // thread-safe. 更新续租时间
     leaseManager.renewLease(holder);
   }
 

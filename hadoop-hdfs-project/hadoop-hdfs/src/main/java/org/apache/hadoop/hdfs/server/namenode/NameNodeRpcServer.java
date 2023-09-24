@@ -1161,6 +1161,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
             null, masked), createParent);
   }
 
+  //为客户端续租
   @Override // ClientProtocol
   public void renewLease(String clientName) throws IOException {
     checkNNStartup();
