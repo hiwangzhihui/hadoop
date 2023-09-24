@@ -508,9 +508,13 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   private void beginFileLease(final long inodeId, final DFSOutputStream out)
       throws IOException {
     synchronized (filesBeingWritten) {
+      //将文件放入到 filesBeingWritten 列表中维护
       putFileBeingWritten(inodeId, out);
+      //为文件创建一个 LeaseRenewer ，并纳入到 Factory.INSTANCE 列表中管理
       LeaseRenewer renewer = getLeaseRenewer();
+      //启动一个线程维护文件对应的租约
       boolean result = renewer.put(this);
+      //如果线程启动失败则会移除原来的，再创建一个线程启动`
       if (!result) {
         // Existing LeaseRenewer cannot add another Daemon, so remove existing
         // and add new one.
@@ -540,11 +544,11 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   public void putFileBeingWritten(final long inodeId,
       final DFSOutputStream out) {
     synchronized(filesBeingWritten) {
-      filesBeingWritten.put(inodeId, out);
+      filesBeingWritten.put(inodeId, out);//文件加入到 filesBeingWritten 列表中维护
       // update the last lease renewal time only when there was no
       // writes. once there is one write stream open, the lease renewer
       // thread keeps it updated well with in anyone's expiration time.
-      if (lastLeaseRenewal == 0) {
+      if (lastLeaseRenewal == 0) { //todo ，刷新 lastLeaseRenewal 时间
         updateLastLeaseRenewal();
       }
     }
@@ -1272,6 +1276,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         src, masked, flag, createParent, replication, blockSize, progress,
         dfsClientConf.createChecksum(checksumOpt),
         getFavoredNodesStr(favoredNodes), ecPolicyName, storagePolicy);
+    //创建文件成功后开始，为其启动续租程序
     beginFileLease(result.getFileId(), result);
     return result;
   }
