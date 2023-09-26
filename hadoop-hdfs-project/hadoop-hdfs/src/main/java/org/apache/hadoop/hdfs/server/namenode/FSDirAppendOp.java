@@ -122,6 +122,7 @@ final class FSDirAppendOp {
             "Cannot append to lazy persist file " + path);
       }
       // Opening an existing file for append - may need to recover lease.
+      //先尝试进行 Leaserecover 操作
       fsn.recoverLeaseInternal(RecoverLeaseOp.APPEND_FILE, iip, path, holder,
           clientMachine, false);
 
@@ -139,6 +140,7 @@ final class FSDirAppendOp {
               + path + " is not sufficiently replicated yet.");
         }
       }
+      //追加文件前置的更新操作，包含创建新的租约
       lb = prepareFileForAppend(fsn, iip, holder, clientMachine, newBlock,
           true, logRetryCache);
     } catch (IOException ie) {

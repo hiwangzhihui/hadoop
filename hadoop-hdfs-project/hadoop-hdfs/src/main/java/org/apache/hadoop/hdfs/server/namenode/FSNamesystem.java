@@ -2801,7 +2801,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       Lease lease = leaseManager.getLease(holder);
 
       if (!force && lease != null) {
-        //在写文件时会检查文件是否被其客户端占用续租
+        //如果被占用且不是强制 recover , 会检查当前文件租约持有者，和当前 holder 对比
+        //如果一致，则抛出异常，表示当前 hodler 已经持有该文件的租约
         Lease leaseFile = leaseManager.getLease(file);
         if (leaseFile != null && leaseFile.equals(lease)) {
           // We found the lease for this file but the original
@@ -2818,6 +2819,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       String clientName = uc.getClientName();
       lease = leaseManager.getLease(clientName);
       if (lease == null) {
+        //如果文件状态为 UnderConstruction 且对应的租约不存在则抛出异常
         throw new AlreadyBeingCreatedException(
             op.getExceptionMessage(src, holder, clientMachine,
                 "the file is under construction but no leases found."));
@@ -2825,6 +2827,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       if (force) {
         // close now: no need to wait for soft lease expiration and 
         // close only the file src
+        //如果 force=true 则进入 internalReleaseLease 流程，强制删除就的 lease 创建新的 lease
         LOG.info("recoverLease: " + lease + ", src=" + src +
           " from client " + clientName);
         return internalReleaseLease(lease, src, iip, holder);
@@ -2835,7 +2838,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
         //
         // If the original holder has not renewed in the last SOFTLIMIT 
         // period, then start lease recovery.
-        //
+        // 如果旧 lease 超过 SoftLimit 则可释放租约，新增的 hdfsClient 就会占用该文件获取新的租约
         if (lease.expiredSoftLimit()) {
           LOG.info("startFile: recover " + lease + ", src=" + src + " client "
               + clientName);
