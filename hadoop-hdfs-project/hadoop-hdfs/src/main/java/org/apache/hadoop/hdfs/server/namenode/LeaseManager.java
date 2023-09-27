@@ -89,7 +89,10 @@ public class LeaseManager {
   private long hardLimit;
   static final int INODE_FILTER_WORKER_COUNT_MAX = 4;
   static final int INODE_FILTER_WORKER_TASK_MIN = 512;
+  //内置 LeaseHolder  的租约更新时间
   private long lastHolderUpdateTime;
+  // TODO 内置 LeaseHolder HDFS_NameNode + 时间戳 ，释放占用的文件将会被 internalLeaseHolder 独占 softLimit 这段时间
+  //未正常关闭的文件 UNDER_CONSTRUCTION、UNDER_RECOVERY:一直被 internalLeaseHolder 持有不释放；直到人工介入修复
   private String internalLeaseHolder;
 
   //
@@ -124,6 +127,7 @@ public class LeaseManager {
   }
 
   // Get the current internal lease holder name.
+  //获取内置 hodler 并更新内置 holder 的视角
   String getInternalLeaseHolder() {
     long elapsed = Time.monotonicNow() - lastHolderUpdateTime;
     if (elapsed > hardLimit) {
@@ -604,6 +608,7 @@ public class LeaseManager {
       Long[] leaseINodeIds = files.toArray(new Long[files.size()]);
       FSDirectory fsd = fsnamesystem.getFSDirectory();
       String p = null;
+      //获取内置的  Holder
       String newHolder = getInternalLeaseHolder();
       //获取超时租约的文件列表，进行释放
       for(Long id : leaseINodeIds) {
@@ -657,6 +662,7 @@ public class LeaseManager {
       }
 
       for(Long id : removing) {
+        //当 Lease 中的文件列表为空时，Lease 也将会被移除
         removeLease(leaseToCheck, id);
       }
     }

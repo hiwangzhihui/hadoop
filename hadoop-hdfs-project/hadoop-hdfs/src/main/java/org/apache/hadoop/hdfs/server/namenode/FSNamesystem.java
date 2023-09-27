@@ -3592,7 +3592,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     BlockInfo curBlock = null;
     for(nrCompleteBlocks = 0; nrCompleteBlocks < nrBlocks; nrCompleteBlocks++) {
       curBlock = blocks[nrCompleteBlocks];
-      if(!curBlock.isComplete())
+      if(!curBlock.isComplete()) //判断文件所有数据块是否处于关闭状态
         break;
       assert blockManager.hasMinStorage(curBlock) :
               "A COMPLETE block is not minimally replicated in " + src;
@@ -3600,7 +3600,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
 
     // If there are no incomplete blocks associated with this file,
     // then reap lease immediately and close the file.
-    if(nrCompleteBlocks == nrBlocks) {
+    if(nrCompleteBlocks == nrBlocks) {//如果所有数据块都处于 COMPLETE 状态可以直接关闭文件，
       finalizeINodeFileUnderConstruction(src, pendingFile,
           iip.getLatestSnapshotId(), false);
       NameNode.stateChangeLog.warn("BLOCK*" +
@@ -3632,7 +3632,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     boolean penultimateBlockMinStorage = penultimateBlock == null ||
         blockManager.hasMinStorage(penultimateBlock);
 
-    switch(lastBlockState) {
+    switch(lastBlockState) {//检查最后一个数据块状态
     case COMPLETE:
       assert false : "Already checked that the last block is incomplete";
       break;
@@ -3779,9 +3779,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     pendingFile.toCompleteFile(now(),
         allowCommittedBlock? numCommittedAllowed: 0,
         blockManager.getMinReplication());
-
+    //文件从租约中移除
     leaseManager.removeLease(uc.getClientName(), pendingFile);
 
+    //关闭文件
     // close file and persist block allocations for this file
     closeFile(src, pendingFile);
 

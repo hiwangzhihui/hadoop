@@ -186,6 +186,7 @@ public class LeaseRenewer {
   /** A fixed lease renewal time period in milliseconds
    *  续租间隔时间 默认 30 ms
    *  可使用 ipc.client.rpc-timeout.ms 参数指定,生效值为 ipc.client.rpc-timeout.ms/2
+   *  且要求该值小于 HdfsConstants.LEASE_SOFTLIMIT_PERIOD / 2;
    * */
   private long renewal = HdfsConstants.LEASE_SOFTLIMIT_PERIOD / 2;
 
