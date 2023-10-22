@@ -166,6 +166,7 @@ public class NameNodeProxiesClient {
       int numResponseToDrop, AtomicBoolean fallbackToSimpleAuth)
       throws IOException {
     Preconditions.checkArgument(numResponseToDrop > 0);
+    //获取用户配置的 failoverProxyProvider 实现类
     AbstractNNFailoverProxyProvider<T> failoverProxyProvider =
         createFailoverProxyProvider(config, nameNodeUri, xface, true,
             fallbackToSimpleAuth);

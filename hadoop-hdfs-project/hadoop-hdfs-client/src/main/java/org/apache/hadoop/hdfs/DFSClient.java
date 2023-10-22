@@ -217,7 +217,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
   private final Configuration conf;
   private final Tracer tracer;
   private final DfsClientConf dfsClientConf;
-  final ClientProtocol namenode;
+  final ClientProtocol namenode; //与 NameNode 通信的客户端
   /* The service used for delegation tokens */
   private Text dtService;
 
@@ -350,6 +350,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
         DFS_CLIENT_TEST_DROP_NAMENODE_RESPONSE_NUM_KEY,
         DFS_CLIENT_TEST_DROP_NAMENODE_RESPONSE_NUM_DEFAULT);
     ProxyAndInfo<ClientProtocol> proxyInfo = null;
+    //namenode Client 认证策略回退默认为 false
     AtomicBoolean nnFallbackToSimpleAuth = new AtomicBoolean(false);
 
     if (numResponseToDrop > 0) {
@@ -373,6 +374,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     } else {
       Preconditions.checkArgument(nameNodeUri != null,
           "null URI");
+      //通过 NameNodeProxiesClient 工具类获取代理对象
       proxyInfo = NameNodeProxiesClient.createProxyWithClientProtocol(conf,
           nameNodeUri, nnFallbackToSimpleAuth);
       this.dtService = proxyInfo.getDelegationTokenService();
