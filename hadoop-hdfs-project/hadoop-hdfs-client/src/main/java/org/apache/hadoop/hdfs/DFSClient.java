@@ -205,28 +205,28 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     DataEncryptionKeyFactory {
   public static final Logger LOG = LoggerFactory.getLogger(DFSClient.class);
 
-  private final Configuration conf;
+  private final Configuration conf; //hadoop 配置
   private final Tracer tracer;
-  private final DfsClientConf dfsClientConf;
-  final ClientProtocol namenode;
+  private final DfsClientConf dfsClientConf;// hdfsClient 配置
+  final ClientProtocol namenode; //与 namenode 交互的客户端
   /* The service used for delegation tokens */
-  private Text dtService;
+  private Text dtService;  //DelegationToken
 
-  final UserGroupInformation ugi;
+  final UserGroupInformation ugi;  //当前操作客户端的用户
   volatile boolean clientRunning = true;
-  volatile long lastLeaseRenewal;
+  volatile long lastLeaseRenewal; //客户端最近一次续租的时间
   private volatile FsServerDefaults serverDefaults;
   private volatile long serverDefaultsLastUpdate;
-  final String clientName;
-  final SocketFactory socketFactory;
+  final String clientName; //客户端名称
+  final SocketFactory socketFactory; // 底层网络连接工厂类
   final ReplaceDatanodeOnFailure dtpReplaceDatanodeOnFailure;
   final short dtpReplaceDatanodeOnFailureReplication;
-  private final FileSystem.Statistics stats;
+  private final FileSystem.Statistics stats; //客户端读写统计信息
   private final URI namenodeUri;
   private final Random r = new Random();
   private SocketAddress[] localInterfaceAddrs;
   private DataEncryptionKey encryptionKey;
-  final SaslDataTransferClient saslClient;
+  final SaslDataTransferClient saslClient; //安全认证通信的客户端，包装 socketFactory 创建的输出和输入流
   private final CachingStrategy defaultReadCachingStrategy;
   private final CachingStrategy defaultWriteCachingStrategy;
   private final ClientContext clientContext;
@@ -324,7 +324,8 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     int numResponseToDrop = conf.getInt(
         DFS_CLIENT_TEST_DROP_NAMENODE_RESPONSE_NUM_KEY,
         DFS_CLIENT_TEST_DROP_NAMENODE_RESPONSE_NUM_DEFAULT);
-    ProxyAndInfo<ClientProtocol> proxyInfo = null;
+    ProxyAndInfo<ClientProtocol> proxyInfo = null; // 代理对象信息
+    //默认认证不回退
     AtomicBoolean nnFallbackToSimpleAuth = new AtomicBoolean(false);
 
     if (numResponseToDrop > 0) {
@@ -348,9 +349,11 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     } else {
       Preconditions.checkArgument(nameNodeUri != null,
           "null URI");
+
       proxyInfo = NameNodeProxiesClient.createProxyWithClientProtocol(conf,
           nameNodeUri, nnFallbackToSimpleAuth);
       this.dtService = proxyInfo.getDelegationTokenService();
+      //获取代理对象
       this.namenode = proxyInfo.getProxy();
     }
 

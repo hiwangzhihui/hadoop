@@ -46,16 +46,16 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
       RetryInvocationHandler.class);
 
   static class Call {
-    private final Method method;
-    private final Object[] args;
-    private final boolean isRpc;
-    private final int callId;
-    private final Counters counters = new Counters();
+    private final Method method; //执行ID
+    private final Object[] args; //请求参数
+    private final boolean isRpc;//是否为 RPC 请求
+    private final int callId; //rpc 请求 ID
+    private final Counters counters = new Counters();//计数器
 
-    private final RetryPolicy retryPolicy;
-    private final RetryInvocationHandler<?> retryInvocationHandler;
+    private final RetryPolicy retryPolicy; //重试策略
+    private final RetryInvocationHandler<?> retryInvocationHandler; //执行器
 
-    private RetryInfo retryInfo;
+    private RetryInfo retryInfo; //重试信息
 
     Call(Method method, Object[] args, boolean isRpc, int callId,
          RetryInvocationHandler<?> retryInvocationHandler) {
@@ -158,7 +158,7 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
     }
 
     Object invokeMethod() throws Throwable {
-      if (isRpc) {
+      if (isRpc) { //如果是 rpc 请求则进入该逻辑
         Client.setCallIdAndRetryCount(callId, counters.retries,
             retryInvocationHandler.asyncCallHandler);
       }
@@ -188,9 +188,9 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
   private static class ProxyDescriptor<T> {
     private final FailoverProxyProvider<T> fpp;
     /** Count the associated proxy provider has ever been failed over. */
-    private long failoverCount = 0;
+    private long failoverCount = 0;//累计失败次数
 
-    private ProxyInfo<T> proxyInfo;
+    private ProxyInfo<T> proxyInfo; //当前持有的代理对象
 
     ProxyDescriptor(FailoverProxyProvider<T> fpp) {
       this.fpp = fpp;
@@ -214,13 +214,13 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
       // Make sure that concurrent failed invocations only cause a single
       // actual failover.
       if (failoverCount == expectedFailoverCount) {
-        fpp.performFailover(proxyInfo.proxy);
+        fpp.performFailover(proxyInfo.proxy);//切换 HA 索引
         failoverCount++;
       } else {
         LOG.warn("A failover has occurred since the start of call #" + callId
             + " " + proxyInfo.getString(method.getName()));
       }
-      proxyInfo = fpp.getProxy();
+      proxyInfo = fpp.getProxy();//重新获取另外一个 master 节点服务的代理对象
     }
 
     boolean idempotentOrAtMostOnce(Method method) throws NoSuchMethodException {
@@ -315,6 +315,7 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
   private final RetryPolicy defaultPolicy;
   private final Map<String,RetryPolicy> methodNameToPolicyMap;
 
+  //异步的 Handler
   private final AsyncCallHandler asyncCallHandler = new AsyncCallHandler();
 
   protected RetryInvocationHandler(FailoverProxyProvider<T> proxyProvider,
@@ -358,11 +359,12 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
     while (true) {
       final CallReturn c = call.invokeOnce();
       final CallReturn.State state = c.getState();
-      if (state == CallReturn.State.ASYNC_INVOKED) {
+      if (state == CallReturn.State.ASYNC_INVOKED) { //如果是异步 CallHandler 则返回 null
         return null; // return null for async calls
-      } else if (c.getState() != CallReturn.State.RETRY) {
+      } else if (c.getState() != CallReturn.State.RETRY) { //不是 RETRY ，则同步获取结果
         return c.getReturnValue();
       }
+      //如果是重试则，不断循环
     }
   }
 
@@ -419,6 +421,7 @@ public class RetryInvocationHandler<T> implements RpcInvocationHandler {
       if (!method.isAccessible()) {
         method.setAccessible(true);
       }
+      //获取 协议实现的 proxy 对象执行对应的方法
       final Object r = method.invoke(proxyDescriptor.getProxy(), args);
       hasSuccessfulCall = true;
       return r;

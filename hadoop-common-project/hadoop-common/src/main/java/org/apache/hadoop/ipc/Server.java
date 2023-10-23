@@ -248,6 +248,7 @@ public abstract class Server {
       this.rpcRequestWrapperClass = rpcRequestWrapperClass;
     }   
   }
+  //不同协议引擎服务端注册列表
   static Map<RPC.RpcKind, RpcKindMapValue> rpcKindMap = new HashMap<>(4);
   
   
@@ -442,6 +443,7 @@ public abstract class Server {
   private ConnectionManager connectionManager;
   private Listener listener = null;
   private Responder responder = null;
+  //处理 RPC 请求的 Handlr 个数
   private Handler[] handlers = null;
 
   private boolean logSlowRPC = false;
@@ -866,6 +868,7 @@ public abstract class Server {
       ResponseParams responseParams = new ResponseParams();
 
       try {
+        //调用 Engine 的 Server RPCInvoke 进行处理
         value = call(
             rpcKind, connection.protocolName, rpcRequest, timestamp);
       } catch (Throwable e) {
@@ -1239,6 +1242,7 @@ public abstract class Server {
       c.setLastContact(Time.now());
       
       try {
+        //读取数据，并且处理请求内容
         count = c.readAndProcess();
       } catch (InterruptedException ieo) {
         LOG.info(Thread.currentThread().getName() + ": readAndProcess caught InterruptedException", ieo);
@@ -2099,6 +2103,7 @@ public abstract class Server {
           ByteBuffer requestData = data;
           data = null; // null out in case processOneRpc throws.
           boolean isHeaderRead = connectionContextRead;
+          //将读取到的请求数据进行解析
           processOneRpc(requestData);
           // the last rpc-request we processed could have simply been the
           // connectionContext; if so continue to read the first RPC.
@@ -2340,6 +2345,7 @@ public abstract class Server {
       int retry = RpcConstants.INVALID_RETRY_COUNT;
       try {
         final RpcWritable.Buffer buffer = RpcWritable.Buffer.wrap(bb);
+        //解析请求头信息
         final RpcRequestHeaderProto header =
             getMessage(RpcRequestHeaderProto.getDefaultInstance(), buffer);
         callId = header.getCallId();
@@ -2347,6 +2353,7 @@ public abstract class Server {
         if (LOG.isDebugEnabled()) {
           LOG.debug(" got #" + callId);
         }
+        //检查头信息
         checkRpcHeaders(header);
 
         if (callId < 0) { // callIds typically used during connection setup
@@ -2356,6 +2363,7 @@ public abstract class Server {
               RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
               "Connection context not established");
         } else {
+          //通过检查进行处理请求
           processRpcRequest(header, buffer);
         }
       } catch (RpcServerException rse) {
@@ -2423,6 +2431,7 @@ public abstract class Server {
     private void processRpcRequest(RpcRequestHeaderProto header,
         RpcWritable.Buffer buffer) throws RpcServerException,
         InterruptedException {
+      //通过请求头，解析知道请求的方法和请求使用的协议和使用的 RpcInvoker
       Class<? extends Writable> rpcRequestClass = 
           getRpcRequestWrapper(header.getRpcKind());
       if (rpcRequestClass == null) {
@@ -2470,7 +2479,7 @@ public abstract class Server {
                     .toByteArray())
                 .build();
       }
-
+       //将请求封装到 RpcCall 中
       RpcCall call = new RpcCall(this, header.getCallId(),
           header.getRetryCount(), rpcRequest,
           ProtoUtil.convert(header.getRpcKind()),
@@ -2480,6 +2489,7 @@ public abstract class Server {
       call.setPriorityLevel(callQueue.getPriorityLevel(call));
 
       try {
+        //将请求放入到请求队列中处理
         internalQueueCall(call);
       } catch (RpcServerException rse) {
         throw rse;
@@ -2658,6 +2668,7 @@ public abstract class Server {
       while (running) {
         TraceScope traceScope = null;
         try {
+          //Handler 线程不断从队列中获取 RPC 请求处理
           final Call call = callQueue.take(); // pop the queue; maybe blocked here
           if (LOG.isDebugEnabled()) {
             LOG.debug(Thread.currentThread().getName() + ": " + call + " for RpcKind " + call.rpcKind);

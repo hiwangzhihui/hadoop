@@ -68,6 +68,7 @@ import org.apache.hadoop.security.UserGroupInformation;
  *
  * For creating proxy objects with other protocols, please see
  * {@link NameNodeProxies#createProxy(Configuration, URI, Class)}.
+ * 获取 NameNode 客户端代理工具类
  */
 @InterfaceAudience.Private
 public class NameNodeProxiesClient {
@@ -80,9 +81,9 @@ public class NameNodeProxiesClient {
    * This is simply used as a tuple-like return type for created NN proxy.
    */
   public static class ProxyAndInfo<PROXYTYPE> {
-    private final PROXYTYPE proxy;
-    private final Text dtService;
-    private final InetSocketAddress address;
+    private final PROXYTYPE proxy; //代理对象
+    private final Text dtService; //DelegationToken
+    private final InetSocketAddress address; //链接的 NameNode 地址
 
     public ProxyAndInfo(PROXYTYPE proxy, Text dtService,
                         InetSocketAddress address) {
@@ -164,6 +165,7 @@ public class NameNodeProxiesClient {
       int numResponseToDrop, AtomicBoolean fallbackToSimpleAuth)
       throws IOException {
     Preconditions.checkArgument(numResponseToDrop > 0);
+    //获取 failoverProxyProvider dfs.client.failover.proxy.provider
     AbstractNNFailoverProxyProvider<T> failoverProxyProvider =
         createFailoverProxyProvider(config, nameNodeUri, xface, true,
             fallbackToSimpleAuth);
@@ -182,17 +184,20 @@ public class NameNodeProxiesClient {
           HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_KEY,
           HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_DEFAULT);
       InvocationHandler dummyHandler = new LossyRetryInvocationHandler<>(
-              numResponseToDrop, failoverProxyProvider,
+              numResponseToDrop,
+               failoverProxyProvider, //失败 NameNode 切换方式
               RetryPolicies.failoverOnNetworkException(
                   RetryPolicies.TRY_ONCE_THEN_FAIL, maxFailoverAttempts,
                   Math.max(numResponseToDrop + 1, maxRetryAttempts), delay,
-                  maxCap));
+                  maxCap)  //失败重试策略
+      );
 
       @SuppressWarnings("unchecked")
       T proxy = (T) Proxy.newProxyInstance(
-          failoverProxyProvider.getInterface().getClassLoader(),
-          new Class[]{xface}, dummyHandler);
-      Text dtService;
+          failoverProxyProvider.getInterface().getClassLoader(), // 代理类 ConfiguredFailoverProxyProvider
+          new Class[]{xface}, //被代理接口 ClientProtocol
+              dummyHandler); //执行类  LossyRetryInvocationHandler
+      Text dtService; //dhfs 完整的路径地址
       if (failoverProxyProvider.useLogicalURI()) {
         dtService = HAUtilClient.buildTokenServiceForLogicalUri(nameNodeUri,
             HdfsConstants.HDFS_URI_SCHEME);
@@ -341,6 +346,7 @@ public class NameNodeProxiesClient {
     RPC.setProtocolEngine(conf, ClientNamenodeProtocolPB.class,
         ProtobufRpcEngine.class);
 
+    //失败重试策略
     final RetryPolicy defaultPolicy =
         RetryUtils.getDefaultRetryPolicy(
             conf,
@@ -350,17 +356,20 @@ public class NameNodeProxiesClient {
             HdfsClientConfigKeys.Retry.POLICY_SPEC_DEFAULT,
             SafeModeException.class.getName());
 
+    //RPC 协议版本信息
     final long version = RPC.getProtocolVersion(ClientNamenodeProtocolPB.class);
+    //获取接口协议对应的代理类
     ClientNamenodeProtocolPB proxy = RPC.getProtocolProxy(
         ClientNamenodeProtocolPB.class, version, address, ugi, conf,
+        //默认 hadoop.rpc.socket.factory.class.default ，创建底层 Socket 链接的工厂类 StandardSocketFactory
         NetUtils.getDefaultSocketFactory(conf),
         org.apache.hadoop.ipc.Client.getTimeout(conf), defaultPolicy,
         fallbackToSimpleAuth).getProxy();
 
-    if (withRetries) { // create the proxy with retries
+    if (withRetries) { // create the proxy with retries 如果允许 retries 则再包装一层
       Map<String, RetryPolicy> methodNameToPolicyMap = new HashMap<>();
       ClientProtocol translatorProxy =
-          new ClientNamenodeProtocolTranslatorPB(proxy);
+          new ClientNamenodeProtocolTranslatorPB(proxy);  //ClientNamenodeProtocolTranslatorPB 包装客户单，进行序列化和反序列化处理
       return (ClientProtocol) RetryProxy.create(
           ClientProtocol.class,
           new DefaultFailoverProxyProvider<>(ClientProtocol.class,

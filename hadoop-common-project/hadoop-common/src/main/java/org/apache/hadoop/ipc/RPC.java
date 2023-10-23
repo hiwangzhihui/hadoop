@@ -206,7 +206,9 @@ public class RPC {
   // return the RpcEngine configured to handle a protocol
   static synchronized RpcEngine getProtocolEngine(Class<?> protocol,
       Configuration conf) {
+    //获取协议配置对应的 RpcEngine ，可选的有 ProtobufRpcEngine、和WritableRpcEngine
     RpcEngine engine = PROTOCOL_ENGINES.get(protocol);
+    //如果没有显示的配置 RpcEngine，则使用 WritableRpcEngine
     if (engine == null) {
       Class<?> impl = conf.getClass(ENGINE_PROP+"."+protocol.getName(),
                                     WritableRpcEngine.class);
@@ -582,6 +584,7 @@ public class RPC {
     if (UserGroupInformation.isSecurityEnabled()) {
       SaslRpcServer.init(conf);
     }
+    //获取指定协议配置的 Engine rpc.engine.org.apache.hadoop.hdfs.protocolPB.ClientNamenodeProtocolPB = ProtobufRpcEngine
     return getProtocolEngine(protocol, conf).getProxy(protocol, clientVersion,
         addr, ticket, conf, factory, rpcTimeout, connectionRetryPolicy,
         fallbackToSimpleAuth);

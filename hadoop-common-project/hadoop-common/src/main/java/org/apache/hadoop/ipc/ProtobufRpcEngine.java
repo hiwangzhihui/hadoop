@@ -65,7 +65,7 @@ public class ProtobufRpcEngine implements RpcEngine {
         RPC.RpcKind.RPC_PROTOCOL_BUFFER, RpcProtobufRequest.class,
         new Server.ProtoBufRpcInvoker());
   }
-
+  // SocketFactory 类实例都共用一个 Client
   private static final ClientCache CLIENTS = new ClientCache();
 
   @Unstable
@@ -95,7 +95,7 @@ public class ProtobufRpcEngine implements RpcEngine {
       InetSocketAddress addr, UserGroupInformation ticket, Configuration conf,
       SocketFactory factory, int rpcTimeout, RetryPolicy connectionRetryPolicy,
       AtomicBoolean fallbackToSimpleAuth) throws IOException {
-
+     //Invoker 执行器
     final Invoker invoker = new Invoker(protocol, addr, ticket, conf, factory,
         rpcTimeout, connectionRetryPolicy, fallbackToSimpleAuth);
     return new ProtocolProxy<T>(protocol, (T) Proxy.newProxyInstance(
@@ -112,16 +112,16 @@ public class ProtobufRpcEngine implements RpcEngine {
             new Class[] { protocol }, new Invoker(protocol, connId, conf,
                 factory)), false);
   }
-
+    //客户端执行请求的 Invoker
   private static class Invoker implements RpcInvocationHandler {
     private final Map<String, Message> returnTypes = 
         new ConcurrentHashMap<String, Message>();
     private boolean isClosed = false;
-    private final Client.ConnectionId remoteId;
-    private final Client client;
-    private final long clientProtocolVersion;
-    private final String protocolName;
-    private AtomicBoolean fallbackToSimpleAuth;
+    private final Client.ConnectionId remoteId; //与 HDFS 集群通信的 Connection Id
+    private final Client client;  //发送请求 Client
+    private final long clientProtocolVersion; //协议版本号
+    private final String protocolName; //协议名称
+    private AtomicBoolean fallbackToSimpleAuth; //认证策略是否允许回退到 simple 认证
 
     private Invoker(Class<?> protocol, InetSocketAddress addr,
         UserGroupInformation ticket, Configuration conf, SocketFactory factory,
@@ -212,7 +212,7 @@ public class ProtobufRpcEngine implements RpcEngine {
       if (tracer != null) {
         traceScope = tracer.newScope(RpcClientUtil.methodToTraceString(method));
       }
-
+      //1、封装请求头
       RequestHeaderProto rpcRequestHeader = constructRpcRequestHeader(method);
       
       if (LOG.isTraceEnabled()) {
@@ -225,6 +225,7 @@ public class ProtobufRpcEngine implements RpcEngine {
       final Message theRequest = (Message) args[1];
       final RpcWritable.Buffer val;
       try {
+         //2、执行请求
         val = (RpcWritable.Buffer) client.call(RPC.RpcKind.RPC_PROTOCOL_BUFFER,
             new RpcProtobufRequest(rpcRequestHeader, theRequest), remoteId,
             fallbackToSimpleAuth);
@@ -267,6 +268,7 @@ public class ProtobufRpcEngine implements RpcEngine {
         ASYNC_RETURN_MESSAGE.set(asyncGet);
         return null;
       } else {
+         //获取结果包装为 Message
         return getReturnMessage(method, val);
       }
     }
@@ -343,7 +345,7 @@ public class ProtobufRpcEngine implements RpcEngine {
         numHandlers, numReaders, queueSizePerHandler, verbose, secretManager,
         portRangeConfig);
   }
-  
+
   public static class Server extends RPC.Server {
 
     static final ThreadLocal<ProtobufRpcEngineCallback> currentCallback =
@@ -497,10 +499,12 @@ public class ProtobufRpcEngine implements RpcEngine {
         if (server.verbose)
           LOG.info("Call: connectionProtocolName=" + connectionProtocolName + 
               ", method=" + methodName);
-        
+        //根据请求头，获取对应协议的实现类对象
         ProtoClassProtoImpl protocolImpl = getProtocolImpl(server, 
                               declaringClassProtoName, clientVersion);
+
         BlockingService service = (BlockingService) protocolImpl.protocolImpl;
+        //获取具体调用的方法
         MethodDescriptor methodDescriptor = service.getDescriptorForType()
             .findMethodByName(methodName);
         if (methodDescriptor == null) {
@@ -509,9 +513,9 @@ public class ProtobufRpcEngine implements RpcEngine {
           LOG.warn(msg);
           throw new RpcNoSuchMethodException(msg);
         }
+        //获取请求参数
         Message prototype = service.getRequestPrototype(methodDescriptor);
         Message param = request.getValue(prototype);
-
         Message result;
         long startTime = Time.now();
         int qTime = (int) (startTime - receiveTime);
@@ -520,6 +524,7 @@ public class ProtobufRpcEngine implements RpcEngine {
         try {
           server.rpcDetailedMetrics.init(protocolImpl.protocolClass);
           currentCallInfo.set(new CallInfo(server, methodName));
+          //传递请求方法和参数，通过ProtocolBuf 创建静态代理的对象，调用对应的方法
           result = service.callBlockingMethod(methodDescriptor, null, param);
           // Check if this needs to be a deferred response,
           // by checking the ThreadLocal callback being set

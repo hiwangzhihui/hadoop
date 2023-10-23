@@ -358,10 +358,11 @@ public class SaslRpcClient {
     // negotiation fails
     authMethod = AuthMethod.SIMPLE;
 
-    sendSaslMessage(ipcStreams.out, negotiateRequest);
+    sendSaslMessage(ipcStreams.out, negotiateRequest);//发送一个协商请求
     // loop until sasl is complete or a rpc error occurs
     boolean done = false;
     do {
+      //协商请求发送完毕后，获取响应结果
       ByteBuffer bb = ipcStreams.readResponse();
 
       RpcWritable.Buffer saslPacket = RpcWritable.Buffer.wrap(bb);
@@ -384,7 +385,7 @@ public class SaslRpcClient {
       }
       // handle sasl negotiation process
       RpcSaslProto.Builder response = null;
-      switch (saslMessage.getState()) {
+      switch (saslMessage.getState()) { //获取响应消息判断，当前服务端使用的是什么认证方式
         case NEGOTIATE: {
           // create a compatible SASL client, throws if no supported auths
           SaslAuth saslAuthType = selectSaslClient(saslMessage.getAuthsList());

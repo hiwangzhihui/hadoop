@@ -51,12 +51,12 @@ public class ConfiguredFailoverProxyProvider<T> extends
 
   protected final Configuration conf;
   protected final List<AddressRpcProxyPair<T>> proxies =
-      new ArrayList<AddressRpcProxyPair<T>>();
+      new ArrayList<AddressRpcProxyPair<T>>(); //代理对象列表
   private final UserGroupInformation ugi;
   protected final Class<T> xface;
 
   private int currentProxyIndex = 0;
-  private final HAProxyFactory<T> factory;
+  private final HAProxyFactory<T> factory; // HAProxy 工厂类
 
   public ConfiguredFailoverProxyProvider(Configuration conf, URI uri,
       Class<T> xface, HAProxyFactory<T> factory) {
@@ -123,7 +123,7 @@ public class ConfiguredFailoverProxyProvider<T> extends
   public synchronized ProxyInfo<T> getProxy() {
     AddressRpcProxyPair<T> current = proxies.get(currentProxyIndex);
     if (current.namenode == null) {
-      try {
+      try {//创建当前的代理对象
         current.namenode = factory.createProxy(conf,
             current.address, xface, ugi, false, getFallbackToSimpleAuth());
       } catch (IOException e) {
@@ -140,6 +140,7 @@ public class ConfiguredFailoverProxyProvider<T> extends
   }
 
   synchronized void incrementProxyIndex() {
+    //更新索引
     currentProxyIndex = (currentProxyIndex + 1) % proxies.size();
   }
 
