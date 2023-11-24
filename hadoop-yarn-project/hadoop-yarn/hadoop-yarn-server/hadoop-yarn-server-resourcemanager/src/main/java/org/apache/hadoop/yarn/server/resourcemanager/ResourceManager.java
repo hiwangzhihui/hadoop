@@ -753,7 +753,7 @@ public class ResourceManager extends CompositeService
 
       recoveryEnabled = conf.getBoolean(YarnConfiguration.RECOVERY_ENABLED,
           YarnConfiguration.DEFAULT_RM_RECOVERY_ENABLED);
-
+       //初始化 RMStateStore
       RMStateStore rmStore = null;
       if (recoveryEnabled) {
         rmStore = RMStateStoreFactory.getStore(conf);
@@ -777,6 +777,7 @@ public class ResourceManager extends CompositeService
         LOG.error("Failed to init state store", e);
         throw e;
       }
+      //rmStore 放入到 rmContext 中对外提供服务
       rmContext.setStateStore(rmStore);
 
       if (UserGroupInformation.isSecurityEnabled()) {
@@ -973,6 +974,7 @@ public class ResourceManager extends CompositeService
         rmnmInfo.unregister();
       }
       if (rmContext != null) {
+          //rmActiveServer 停止时会释放 RMStateStore
         RMStateStore store = rmContext.getStateStore();
         try {
           if (null != store) {
