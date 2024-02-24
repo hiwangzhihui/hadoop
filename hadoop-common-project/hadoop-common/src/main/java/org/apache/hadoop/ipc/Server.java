@@ -437,10 +437,13 @@ public abstract class Server {
   private final boolean tcpNoDelay; // if T then disable Nagle's Algorithm
 
   volatile private boolean running = true;         // true while server runs
+  //客户端请求队列
   private CallQueueManager<Call> callQueue;
 
   // maintains the set of client connections and handles idle timeouts
+  //客户端链接管理器
   private ConnectionManager connectionManager;
+  //监听器
   private Listener listener = null;
   private Responder responder = null;
   //处理 RPC 请求的 Handlr 个数
@@ -875,9 +878,11 @@ public abstract class Server {
         populateResponseParamsOnError(e, responseParams);
       }
       if (!isResponseDeferred()) {
+        //给 Call 中的 rpcResponse 设置响应结果
         setupResponse(this, responseParams.returnStatus,
             responseParams.detailedErr,
             value, responseParams.errorClass, responseParams.error);
+        //将响应结果加入到 connection.responseQueue 队列中
         sendResponse();
       } else {
         if (LOG.isDebugEnabled()) {
@@ -1039,6 +1044,7 @@ public abstract class Server {
       port = acceptChannel.socket().getLocalPort(); //Could be an ephemeral port
       // create a selector;
       selector= Selector.open();
+      //读取数据的线程个数，默认1 个 ipc.server.read.threadpool.size
       readers = new Reader[readThreads];
       for (int i = 0; i < readThreads; i++) {
         Reader reader = new Reader(
@@ -1048,6 +1054,7 @@ public abstract class Server {
       }
 
       // Register accepts on the server socket with the selector.
+      //注册监听 OP_ACCEPT（请求连接）事件
       acceptChannel.register(selector, SelectionKey.OP_ACCEPT);
       this.setName("IPC Server listener on " + port);
       this.setDaemon(true);
@@ -1088,6 +1095,7 @@ public abstract class Server {
             int size = pendingConnections.size();
             for (int i=size; i>0; i--) {
               Connection conn = pendingConnections.take();
+              //对通道注册 OP_READ（读取数据就绪）事件
               conn.channel.register(readSelector, SelectionKey.OP_READ, conn);
             }
             readSelector.select();
@@ -1098,6 +1106,7 @@ public abstract class Server {
               iter.remove();
               try {
                 if (key.isReadable()) {
+                   //再读取已经就绪好的通道数据
                   doRead(key);
                 }
               } catch (CancelledKeyException cke) {
@@ -1152,6 +1161,7 @@ public abstract class Server {
       while (running) {
         SelectionKey key = null;
         try {
+          //监听请求事件
           getSelector().select();
           Iterator<SelectionKey> iter = getSelector().selectedKeys().iterator();
           while (iter.hasNext()) {
@@ -1160,6 +1170,7 @@ public abstract class Server {
             try {
               if (key.isValid()) {
                 if (key.isAcceptable())
+                  //将监听到的请求交个 Reader 读取处理
                   doAccept(key);
               }
             } catch (IOException e) {
@@ -1212,13 +1223,16 @@ public abstract class Server {
     void doAccept(SelectionKey key) throws InterruptedException, IOException,  OutOfMemoryError {
       ServerSocketChannel server = (ServerSocketChannel) key.channel();
       SocketChannel channel;
+      //打开数据通道
       while ((channel = server.accept()) != null) {
 
         channel.configureBlocking(false);
         channel.socket().setTcpNoDelay(tcpNoDelay);
         channel.socket().setKeepAlive(true);
-        
+
+        //将 Connection 交给 Reader 去读取数据
         Reader reader = getReader();
+        //注册 Connection 交给 connectionManager 管理
         Connection c = connectionManager.register(channel);
         // If the connectionManager can't take it, close the connection.
         if (c == null) {
@@ -1229,6 +1243,7 @@ public abstract class Server {
           continue;
         }
         key.attach(c);  // so closeCurrentConnection can get the object
+        //并将与 reader 绑定，加入到 pendingConnections 队里中
         reader.addConnection(c);
       }
     }
@@ -1242,7 +1257,7 @@ public abstract class Server {
       c.setLastContact(Time.now());
       
       try {
-        //读取数据，并且处理请求内容
+        //读取请求数据将其封装到 Call 中，并将其放入到 callQueue 队列中
         count = c.readAndProcess();
       } catch (InterruptedException ieo) {
         LOG.info(Thread.currentThread().getName() + ": readAndProcess caught InterruptedException", ieo);
@@ -1335,6 +1350,7 @@ public abstract class Server {
             iter.remove();
             try {
               if (key.isWritable()) {
+                //处理各链接的响应结果并返回
                 doAsyncWrite(key);
               }
             } catch (CancelledKeyException cke) {
@@ -1617,6 +1633,7 @@ public abstract class Server {
     private SocketChannel channel;
     private ByteBuffer data;
     private ByteBuffer dataLengthBuffer;
+    //当前 TCP 链接通道响应队列
     private LinkedList<RpcCall> responseQueue;
     // number of outstanding rpcs
     private AtomicInteger rpcCount = new AtomicInteger();
@@ -2640,6 +2657,7 @@ public abstract class Server {
   private void internalQueueCall(Call call)
       throws IOException, InterruptedException {
     try {
+
       callQueue.put(call); // queue the call; maybe blocked here
     } catch (CallQueueOverflowException cqe) {
       // If rpc scheduler indicates back off based on performance degradation
@@ -2921,6 +2939,7 @@ public abstract class Server {
     if (status == RpcStatusProto.SUCCESS) {
       RpcResponseHeaderProto header = headerBuilder.build();
       try {
+        //给 Call rpcResponse 赋值
         setupResponse(call, header, rv);
       } catch (Throwable t) {
         LOG.warn("Error serializing call response for call " + call, t);
@@ -3070,8 +3089,11 @@ public abstract class Server {
 
   /** Starts the service.  Must be called before any calls will be handled. */
   public synchronized void start() {
+    //响应处理线程
     responder.start();
+    //监听线程
     listener.start();
+    //处理请求任务的 Handler 个数
     handlers = new Handler[handlerCount];
     
     for (int i = 0; i < handlerCount; i++) {
@@ -3326,6 +3348,7 @@ public abstract class Server {
     final private int idleScanInterval;
     final private int maxIdleTime;
     final private int maxIdleToClose;
+    //允许最大连接数，默认不限制
     final private int maxConnections;
     
     ConnectionManager() {
