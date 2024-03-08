@@ -132,6 +132,7 @@ class FSDirStatAndListingOp {
 
   static ContentSummary getContentSummary(
       FSDirectory fsd, FSPermissionChecker pc, String src) throws IOException {
+    //获取当前文件或者目录的详细信息 INodesInPath
     final INodesInPath iip = fsd.resolvePath(pc, src, DirOp.READ_LINK);
     // getContentSummaryInt() call will check access (if enabled) when
     // traversing all sub directories.
@@ -524,6 +525,7 @@ class FSDirStatAndListingOp {
       FSPermissionChecker pc, INodesInPath iip) throws IOException {
     fsd.readLock();
     try {
+      //获取全路径
       INode targetNode = iip.getLastINode();
       if (targetNode == null) {
         throw new FileNotFoundException("File does not exist: " + iip.getPath());

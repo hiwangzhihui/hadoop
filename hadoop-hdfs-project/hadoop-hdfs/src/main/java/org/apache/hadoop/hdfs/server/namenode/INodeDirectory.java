@@ -657,6 +657,7 @@ public class INodeDirectory extends INodeWithAdditionalFields
       final ContentCounts counts = new ContentCounts.Builder().build();
       // if the getContentSummary call is against a non-snapshot path, the
       // computation should include all the deleted files/directories
+      //统计 Snapshot 数据信息
       sf.computeContentSummary4Snapshot(summary.getBlockStoragePolicySuite(),
           counts);
       summary.getCounts().addContents(counts);
@@ -668,6 +669,7 @@ public class INodeDirectory extends INodeWithAdditionalFields
     if (q != null && snapshotId == Snapshot.CURRENT_STATE_ID) {
       return q.computeContentSummary(this, summary);
     } else {
+      //开始统计
       return computeDirectoryContentSummary(summary, snapshotId);
     }
   }
@@ -676,6 +678,7 @@ public class INodeDirectory extends INodeWithAdditionalFields
       ContentSummaryComputationContext summary, int snapshotId)
       throws AccessControlException{
     // throws exception if failing the permission check
+    //权限检查
     summary.checkPermission(this, snapshotId, FsAction.READ_EXECUTE);
     ReadOnlyList<INode> childrenList = getChildrenList(snapshotId);
     // Explicit traversing is done to enable repositioning after relinquishing
@@ -685,6 +688,7 @@ public class INodeDirectory extends INodeWithAdditionalFields
       byte[] childName = child.getLocalNameBytes();
 
       long lastYieldCount = summary.getYieldCount();
+      //递归子目录统计
       child.computeContentSummary(snapshotId, summary);
 
       // Check whether the computation was paused in the subtree.

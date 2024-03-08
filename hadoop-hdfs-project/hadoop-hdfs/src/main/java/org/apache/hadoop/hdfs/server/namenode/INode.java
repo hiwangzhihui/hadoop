@@ -430,10 +430,12 @@ public abstract class INode implements INodeAttributes, Diff.Element<byte[]> {
    */
   public final ContentSummary computeAndConvertContentSummary(int snapshotId,
       ContentSummaryComputationContext summary) throws AccessControlException {
+    //统计目录的数据信息
     computeContentSummary(snapshotId, summary);
     final ContentCounts counts = summary.getCounts();
     final ContentCounts snapshotCounts = summary.getSnapshotCounts();
     final QuotaCounts q = getQuotaCounts();
+    //封装统计信息返回
     return new ContentSummary.Builder().
         length(counts.getLength()).
         fileCount(counts.getFileCount() + counts.getSymlinkCount()).
