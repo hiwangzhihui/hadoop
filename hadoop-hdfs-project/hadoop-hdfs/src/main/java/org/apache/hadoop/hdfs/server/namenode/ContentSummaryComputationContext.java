@@ -41,11 +41,11 @@ public class ContentSummaryComputationContext {
   private BlockStoragePolicySuite bsps = null;
   private ContentCounts counts = null;
   private ContentCounts snapshotCounts = null;
-  private long nextCountLimit = 0;
-  private long limitPerRun = 0;
-  private long yieldCount = 0;
-  private long sleepMilliSec = 0;
-  private int sleepNanoSec = 0;
+  private long nextCountLimit = 0;//下一个读锁释放点
+  private long limitPerRun = 0;//读锁释放计数器增量
+  private long yieldCount = 0;//读锁释放次数
+  private long sleepMilliSec = 0;//释放锁一次休眠时间
+  private int sleepNanoSec = 0;//时间单位
 
   public static final String REPLICATED = "Replicated";
   public static final Logger LOG = LoggerFactory
@@ -109,6 +109,7 @@ public class ContentSummaryComputationContext {
         counts.getSymlinkCount() +
         counts.getDirectoryCount() +
         counts.getSnapshotableDirectoryCount();
+    //当前遍历的目录、文件个数小于 nextCountLimit 则不会释放读锁
     if (currentCount <= nextCountLimit) {
       return false;
     }
@@ -130,18 +131,18 @@ public class ContentSummaryComputationContext {
     }
 
     // unlock
-    dir.readUnlock();
-    fsn.readUnlock("contentSummary");
+    dir.readUnlock(); //释放当前目录的读锁
+    fsn.readUnlock("contentSummary");//释放  fsn 的读锁
 
     try {
       Thread.sleep(sleepMilliSec, sleepNanoSec);
     } catch (InterruptedException ie) {
     } finally {
-      // reacquire
+      // reacquire   再次抢占读锁
       fsn.readLock();
       dir.readLock();
     }
-    yieldCount++;
+    yieldCount++; //统计累计休眠次数
     return true;
   }
 

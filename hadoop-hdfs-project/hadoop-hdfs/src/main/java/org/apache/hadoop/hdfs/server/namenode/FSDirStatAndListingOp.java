@@ -126,13 +126,15 @@ class FSDirStatAndListingOp {
   static ContentSummary getContentSummary(
       FSDirectory fsd, FSPermissionChecker pc, String src) throws IOException {
     final INodesInPath iip = fsd.resolvePath(pc, src, DirOp.READ_LINK);
+    //dfs.permissions.ContentSummary.subAccess=false
     if (fsd.isPermissionEnabled() && fsd.isPermissionContentSummarySubAccess()) {
+      //是否一次性检查所有子目录的权限？
       fsd.checkPermission(pc, iip, false, null, null, null,
           FsAction.READ_EXECUTE);
-      pc = null;
+      pc = null;//将 PC 设置为 NULL 子目录不再继续鉴权
     }
     // getContentSummaryInt() call will check access (if enabled) when
-    // traversing all sub directories.
+    // traversing all sub directories. 开始统计所有子目录、文件的数据
     return getContentSummaryInt(fsd, pc, iip);
   }
 

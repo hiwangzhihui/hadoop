@@ -157,9 +157,12 @@ public class FSDirectory implements Closeable {
   private final int maxComponentLength;
   private final int maxDirItems;
   private final int lsLimit;  // max list limit
+  //dfs.content-summary.limit  5000
   private final int contentCountLimit; // max content summary counts per run
+  //dfs.content-summary.sleep-microsec 500ms
   private final long contentSleepMicroSec;
   private final INodeMap inodeMap; // Synchronized by dirLock
+  //释放读锁次数
   private long yieldCount = 0; // keep track of lock yield count.
   private int quotaInitThreads;
 
