@@ -986,11 +986,14 @@ public class FSImage implements Closeable {
   void saveFSImage(SaveNamespaceContext context, StorageDirectory sd,
       NameNodeFile dstType) throws IOException {
     long txid = context.getTxId();
+    //新的 fsimage.ckpt_TxId文件
     File newFile = NNStorage.getStorageFile(sd, NameNodeFile.IMAGE_NEW, txid);
+    //保存的目标文件 fsimage_TxId 
     File dstFile = NNStorage.getStorageFile(sd, dstType, txid);
     
     FSImageFormatProtobuf.Saver saver = new FSImageFormatProtobuf.Saver(context,
         conf);
+    //压缩 Image 文件
     FSImageCompression compression = FSImageCompression.createCompression(conf);
     long numErrors = saver.save(newFile, compression);
     if (numErrors > 0) {
@@ -999,7 +1002,7 @@ public class FSImage implements Closeable {
           dstFile);
       exitAfterSave.set(true);
     }
-
+    //
     MD5FileUtils.saveMD5File(dstFile, saver.getSavedDigest());
     storage.setMostRecentCheckpointInfo(txid, Time.now());
   }
@@ -1019,6 +1022,7 @@ public class FSImage implements Closeable {
     String imageFileName = NNStorage.getLegacyOIVImageFileName(txid);
     File imageFile = new File(targetDir, imageFileName);
     saver.save(imageFile, compression);
+
     archivalManager.purgeOldLegacyOIVImages(targetDir, txid);
   }
 
@@ -1049,6 +1053,7 @@ public class FSImage implements Closeable {
     @Override
     public void run() {
       // Deletes checkpoint file in every storage directory when shutdown.
+      //设置回调函数，在 NN 停止时删除 checkpoint 文件
       Runnable cancelCheckpointFinalizer = () -> {
         try {
           deleteCancelledCheckpoint(context.getTxId());
@@ -1058,9 +1063,11 @@ public class FSImage implements Closeable {
           LOG.error("FSImageSaver cancel checkpoint threw an exception:", e);
         }
       };
+      //启动一个钩子删除  fsimage.ckpt 文件
       ShutdownHookManager.get().addShutdownHook(cancelCheckpointFinalizer,
           SHUTDOWN_HOOK_PRIORITY);
       try {
+        //执行保存任务
         saveFSImage(context, sd, nnf);
       } catch (SaveNamespaceCancelledException snce) {
         LOG.info("Cancelled image saving for " + sd.getRoot() +
@@ -1117,14 +1124,17 @@ public class FSImage implements Closeable {
   public synchronized boolean saveNamespace(long timeWindow, long txGap,
       FSNamesystem source) throws IOException {
     if (timeWindow > 0 || txGap > 0) {
+      //获取 Image 列表
       final FSImageStorageInspector inspector = storage.readAndInspectDirs(
           EnumSet.of(NameNodeFile.IMAGE, NameNodeFile.IMAGE_ROLLBACK),
           StartupOption.REGULAR);
+      //获取最新的 Image 文件进行加载
       FSImageFile image = inspector.getLatestImages().get(0);
       File imageFile = image.getFile();
-
+      //获取最新 Image 文件的 lastCheckPointTxId
       final long checkpointTxId = image.getCheckpointTxId();
       final long checkpointAge = Time.now() - imageFile.lastModified();
+      //检查 checkpointAge 是否小于  timeWindow 或 间隔事物个事小于 txGap ，则不进行 Checkpoint
       if (checkpointAge <= timeWindow * 1000 &&
           checkpointTxId >= this.getCorrectLastAppliedOrWrittenTxId() - txGap) {
         return false;
@@ -1227,6 +1237,7 @@ public class FSImage implements Closeable {
     try {
       List<Thread> saveThreads = new ArrayList<Thread>();
       // save images into current
+      //将不同目录的 Image 交给不同线程去处理生成
       for (Iterator<StorageDirectory> it
              = storage.dirIterator(NameNodeDirType.IMAGE); it.hasNext();) {
         StorageDirectory sd = it.next();
@@ -1235,8 +1246,8 @@ public class FSImage implements Closeable {
         saveThreads.add(saveThread);
         saveThread.start();
       }
-      waitForThreads(saveThreads);
-      saveThreads.clear();
+      waitForThreads(saveThreads);//等待线程任务执行完成
+      saveThreads.clear(); //任务列表清空
       storage.reportErrorsOnDirectories(ctx.getErrorSDs());
   
       if (storage.getNumStorageDirs(NameNodeDirType.IMAGE) == 0) {
@@ -1255,6 +1266,7 @@ public class FSImage implements Closeable {
       // old edit logs and checkpoints.
       // Do not purge anything if we just wrote a corrupted FsImage.
       if (!exitAfterSave.get()) {
+        //检查历史的规定 Image 和 Eitlog ，删除过期的文件
         purgeOldStorage(nnf);
         archivalManager.purgeCheckpoints(NameNodeFile.IMAGE_NEW);
       }

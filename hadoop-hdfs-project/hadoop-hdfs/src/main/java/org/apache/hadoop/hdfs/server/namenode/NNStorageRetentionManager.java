@@ -67,12 +67,15 @@ public class NNStorageRetentionManager {
       NNStorage storage,
       LogsPurgeable purgeableLogs,
       StoragePurger purger) {
+    //dfs.namenode.num.checkpoints.retained 最多保留的 Image 个数
     this.numCheckpointsToRetain = conf.getInt(
         DFSConfigKeys.DFS_NAMENODE_NUM_CHECKPOINTS_RETAINED_KEY,
         DFSConfigKeys.DFS_NAMENODE_NUM_CHECKPOINTS_RETAINED_DEFAULT);
+   //dfs.namenode.num.extra.edits.retained 需要保留 minImageTxId 之前的事务记录条数 100W
     this.numExtraEditsToRetain = conf.getLong(
         DFSConfigKeys.DFS_NAMENODE_NUM_EXTRA_EDITS_RETAINED_KEY,
         DFSConfigKeys.DFS_NAMENODE_NUM_EXTRA_EDITS_RETAINED_DEFAULT);
+    //dfs.namenode.max.extra.edits.segments.retained 最多保留的 Eitlog 文件个数
     this.maxExtraEditsSegmentsToRetain = conf.getInt(
         DFSConfigKeys.DFS_NAMENODE_MAX_EXTRA_EDITS_SEGMENTS_RETAINED_KEY,
         DFSConfigKeys.DFS_NAMENODE_MAX_EXTRA_EDITS_SEGMENTS_RETAINED_DEFAULT);
@@ -108,14 +111,17 @@ public class NNStorageRetentionManager {
     }
   }
 
+  //清理过期的 Image 和 Editlog  文件
   void purgeOldStorage(NameNodeFile nnf) throws IOException {
     FSImageTransactionalStorageInspector inspector =
         new FSImageTransactionalStorageInspector(EnumSet.of(nnf));
     storage.inspectStorageDirs(inspector);
 
+    //返回保留 Image 的最小的 TxId
     long minImageTxId = getImageTxIdToRetain(inspector);
+    //清除小于 minImageTxId 的 Image
     purgeCheckpointsOlderThan(inspector, minImageTxId);
-    
+
     if (nnf == NameNodeFile.IMAGE_ROLLBACK) {
       // do not purge edits for IMAGE_ROLLBACK.
       return;
@@ -131,9 +137,11 @@ public class NNStorageRetentionManager {
     // First, determine the target number of extra transactions to retain based
     // on the configured amount.
     long minimumRequiredTxId = minImageTxId + 1;
+    //purgeLogsFrom 之前的事务日志都删除
     long purgeLogsFrom = Math.max(0, minimumRequiredTxId - numExtraEditsToRetain);
-    
+
     ArrayList<EditLogInputStream> editLogs = new ArrayList<EditLogInputStream>();
+    //获取从 purgeLogsFrom 到结尾的日志列表
     purgeableLogs.selectInputStreams(editLogs, purgeLogsFrom, false, false);
     Collections.sort(editLogs, new Comparator<EditLogInputStream>() {
       @Override
@@ -146,6 +154,7 @@ public class NNStorageRetentionManager {
     });
 
     // Remove from consideration any edit logs that are in fact required.
+    //将大于 minimumRequiredTxId 的事务日志从列表中移除
     while (editLogs.size() > 0 &&
         editLogs.get(editLogs.size() - 1).getFirstTxId() >= minimumRequiredTxId) {
       editLogs.remove(editLogs.size() - 1);
@@ -153,6 +162,8 @@ public class NNStorageRetentionManager {
     
     // Next, adjust the number of transactions to retain if doing so would mean
     // keeping too many segments around.
+    //通过以上处理，如果剩余的 editLogs 个数大于 maxExtraEditsSegmentsToRetain
+    //则继续向 maxExtraEditsSegmentsToRetain 靠齐，并更新 purgeLogsFrom
     while (editLogs.size() > maxExtraEditsSegmentsToRetain) {
       purgeLogsFrom = editLogs.get(0).getLastTxId() + 1;
       editLogs.remove(0);
@@ -160,12 +171,13 @@ public class NNStorageRetentionManager {
     
     // Finally, ensure that we're not trying to purge any transactions that we
     // actually need.
+    //最后再次检查 purgeLogsFrom 是否符合规则
     if (purgeLogsFrom > minimumRequiredTxId) {
       throw new AssertionError("Should not purge more edits than required to "
           + "restore: " + purgeLogsFrom + " should be <= "
           + minimumRequiredTxId);
     }
-    
+    //删除小于 purgeLogsFrom 所有 Editlog 日志
     purgeableLogs.purgeLogsOlderThan(purgeLogsFrom);
   }
   
@@ -191,7 +203,7 @@ public class NNStorageRetentionManager {
     if (images.isEmpty()) {
       return 0L;
     }
-
+   //从大到小排序
     TreeSet<Long> imageTxIds = Sets.newTreeSet(Collections.reverseOrder());
     for (FSImageFile image : images) {
       imageTxIds.add(image.getCheckpointTxId());
@@ -199,6 +211,7 @@ public class NNStorageRetentionManager {
 
     List<Long> imageTxIdsList = Lists.newArrayList(imageTxIds);
     int toRetain = Math.min(numCheckpointsToRetain, imageTxIdsList.size());
+    //获取 txnid 最小的为 image  的 minTxId
     long minTxId = imageTxIdsList.get(toRetain - 1);
     LOG.info("Going to retain {} images with txid >= {}", toRetain, minTxId);
     return minTxId;

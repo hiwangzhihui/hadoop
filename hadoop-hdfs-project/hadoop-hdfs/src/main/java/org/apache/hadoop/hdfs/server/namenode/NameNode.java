@@ -1362,6 +1362,7 @@ public class NameNode extends ReconfigurableBase implements
     NNStorage existingStorage = null;
     FSImage sharedEditsImage = null;
     try {
+      //从池盘中加载 Image 元数据
       FSNamesystem fsns =
           FSNamesystem.loadFromDisk(getConfigurationWithoutSharedEdits(conf));
       

@@ -33,13 +33,22 @@ public class CheckpointConf {
   private static final Logger LOG =
       LoggerFactory.getLogger(CheckpointConf.class);
   
-  /** How often to checkpoint regardless of number of txns */
+  /** How often to checkpoint regardless of number of txns
+   * dfs.namenode.checkpoint.period = 3600s
+   * 触发 checkpoint 间隔时间
+   * */
   private final long checkpointPeriod;    // in seconds
   
-  /** How often to poll the NN to check checkpointTxnCount */
+  /** How often to poll the NN to check checkpointTxnCount
+   * dfs.namenode.checkpoint.check.period = 60s
+   * 定时 检查 Checkpoint 的时间
+   * */
   private final long checkpointCheckPeriod; // in seconds
   
-  /** checkpoint once every this many transactions, regardless of time */
+  /** checkpoint once every this many transactions, regardless of time
+   *  dfs.namenode.checkpoint.txns 触发 Checkpoint 事务格式
+   *  1000000
+   * */
   private final long checkpointTxnCount;
 
   /** maxium number of retries when merge errors occur */
@@ -88,6 +97,7 @@ public class CheckpointConf {
   }
 
   public long getCheckPeriod() {
+    //实际检查间隔时间，两个参数取最小值
     return Math.min(checkpointCheckPeriod, checkpointPeriod);
   }
 

@@ -782,6 +782,7 @@ public final class FSImageFormatPBINode {
             outputInodes++;
           }
           INodeDirectorySection.DirEntry e = b.build();
+          //写入分隔符
           e.writeDelimitedTo(out);
         }
 
@@ -846,6 +847,7 @@ public final class FSImageFormatPBINode {
         FileUnderConstructionEntry.Builder b = FileUnderConstructionEntry
             .newBuilder().setInodeId(file.getId()).setFullPath(path);
         FileUnderConstructionEntry e = b.build();
+        //写入分隔符
         e.writeDelimitedTo(out);
       }
       parent.commitSection(summary,

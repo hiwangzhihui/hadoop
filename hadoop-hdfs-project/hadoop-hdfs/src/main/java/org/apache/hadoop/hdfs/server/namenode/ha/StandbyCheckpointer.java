@@ -172,6 +172,7 @@ public class StandbyCheckpointer {
     LOG.info("Starting standby checkpoint thread...\n" +
         "Checkpointing active NN to possible NNs: {}\n" +
         "Serving checkpoints at {}", activeNNAddresses, myNNAddress);
+    //启动定时检查 checkPoint 线程
     thread.start();
   }
   
@@ -224,12 +225,14 @@ public class StandbyCheckpointer {
       } else {
         imageType = NameNodeFile.IMAGE;
       }
+      //执行保存
       img.saveNamespace(namesystem, imageType, canceler);
       txid = img.getStorage().getMostRecentCheckpointTxId();
       assert txid == thisCheckpointTxId : "expected to save checkpoint at txid=" +
           thisCheckpointTxId + " but instead saved at txid=" + txid;
 
       // Save the legacy OIV image, if the output dir is defined.
+      //清理历史的 Image 文件
       String outputDir = checkpointConf.getLegacyOivImageDir();
       if (outputDir != null && !outputDir.isEmpty()) {
         try {
@@ -350,11 +353,12 @@ public class StandbyCheckpointer {
    * Cancel any checkpoint that's currently being made,
    * and prevent any new checkpoints from starting for the next
    * minute or so.
+   * 延迟生成 Checkpoint
    */
   public void cancelAndPreventCheckpoints(String msg) throws ServiceFailedException {
     synchronized (cancelLock) {
       // The checkpointer thread takes this lock and checks if checkpointing is
-      // postponed. 
+      // postponed.  延迟 2 分钟，2 分钟即将要触发的 Checkpoint 任务都取消
       thread.preventCheckpointsFor(PREVENT_AFTER_CANCEL_MS);
 
       // Before beginning a checkpoint, the checkpointer thread
@@ -421,15 +425,17 @@ public class StandbyCheckpointer {
     }
 
     private void doWork() {
+      //时间转换为毫秒
       final long checkPeriod = 1000 * checkpointConf.getCheckPeriod();
       // Reset checkpoint time so that we don't always checkpoint
       // on startup.
       lastCheckpointTime = monotonicNow();
-      while (shouldRun) {
+      while (shouldRun) {// StandbyNameNode 服务停止时 CheckPonit 线程也停止
+
         boolean needRollbackCheckpoint = namesystem.isNeedRollbackFsImage();
         if (!needRollbackCheckpoint) {
           try {
-            Thread.sleep(checkPeriod);
+            Thread.sleep(checkPeriod); //休息指定时间再进行检查
           } catch (InterruptedException ie) {
           }
           if (!shouldRun) {
@@ -443,14 +449,16 @@ public class StandbyCheckpointer {
           }
           
           final long now = monotonicNow();
+          //没进行 Checkpoint 的事务个数
           final long uncheckpointed = countUncheckpointedTxns();
+          //距离上次 checkpoint 的间隔时间
           final long secsSinceLast = (now - lastCheckpointTime) / 1000;
 
           // if we need a rollback checkpoint, always attempt to checkpoint
           boolean needCheckpoint = needRollbackCheckpoint;
 
           if (needCheckpoint) {
-            LOG.info("Triggering a rollback fsimage for rolling upgrade.");
+            LOG.info("Triggering a rollback fsimage for rolling upgrade.");//待梳理
           } else if (uncheckpointed >= checkpointConf.getTxnCount()) {
             LOG.info("Triggering checkpoint because there have been {} txns " +
                 "since the last checkpoint, " +
@@ -465,7 +473,7 @@ public class StandbyCheckpointer {
           }
 
           if (needCheckpoint) {
-            synchronized (cancelLock) {
+            synchronized (cancelLock) { //判断 Checkpoint 是否要取消
               if (now < preventCheckpointsUntil) {
                 LOG.info("But skipping this checkpoint since we are about to failover!");
                 canceledCount++;
@@ -477,10 +485,11 @@ public class StandbyCheckpointer {
 
             // on all nodes, we build the checkpoint. However, we only ship the checkpoint if have a
             // rollback request, are the checkpointer, are outside the quiet period.
+            //执行 Checkpoint
             doCheckpoint();
 
             // reset needRollbackCheckpoint to false only when we finish a ckpt
-            // for rollback image
+            // for rollback image  状态更新标记
             if (needRollbackCheckpoint
                 && namesystem.getFSImage().hasRollbackFSImage()) {
               namesystem.setCreatedRollbackImages(true);

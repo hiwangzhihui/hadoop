@@ -338,6 +338,7 @@ public final class FSImageFormatProtobuf {
      * thread count is set to less than 1, it will be reset to the default
      * value
      * @return ExecutorServie with the correct number of threads
+     * dfs.image.parallel.threads = 4
      */
     private ExecutorService getParallelExecutorService() {
       int threads = conf.getInt(DFSConfigKeys.DFS_IMAGE_PARALLEL_THREADS_KEY,
@@ -436,6 +437,7 @@ public final class FSImageFormatProtobuf {
           stageSubSections = getSubSectionsOfName(
               subSections, SectionName.INODE_SUB);
           if (loadInParallel && (stageSubSections.size() > 0)) {
+            //并行加载文件 Inode 数据信息
             inodeLoader.loadINodeSectionInParallel(executorService,
                 stageSubSections, summary.getCodec(), prog, currentStep);
           } else {
@@ -450,6 +452,7 @@ public final class FSImageFormatProtobuf {
           stageSubSections = getSubSectionsOfName(
               subSections, SectionName.INODE_DIR_SUB);
           if (loadInParallel && stageSubSections.size() > 0) {
+            //并行加载目录元数据信息
             inodeLoader.loadINodeDirectorySectionInParallel(executorService,
                 stageSubSections, summary.getCodec());
           } else {
@@ -598,7 +601,7 @@ public final class FSImageFormatProtobuf {
     }
     return loadInParallel;
   }
-
+  //dfs.image.parallel.load 是否开启并行加载 Image
   public static void initParallelLoad(Configuration conf) {
     enableParallelLoad =
         conf.getBoolean(DFSConfigKeys.DFS_IMAGE_PARALLEL_LOAD_KEY,
@@ -731,6 +734,7 @@ public final class FSImageFormatProtobuf {
       try {
         LOG.info("Saving image file {} using {}", file, compression);
         long startTime = monotonicNow();
+        //进入 save 内部逻辑，保存各种类型的 Section 数据序列化并压缩到文件中
         long numErrors = saveInternal(
             fout, compression, file.getAbsolutePath());
         LOG.info("Image file {} of size {} bytes saved in {} seconds {}.", file,
@@ -795,9 +799,11 @@ public final class FSImageFormatProtobuf {
     private long saveInodes(FileSummary.Builder summary) throws IOException {
       FSImageFormatPBINode.Saver saver = new FSImageFormatPBINode.Saver(this,
           summary);
-
+      //保存文件 Inode 信息
       saver.serializeINodeSection(sectionOutputStream);
+     //保存目录 Inode 信息
       saver.serializeINodeDirectorySection(sectionOutputStream);
+      //保存未关闭文件 Inode 信息
       saver.serializeFilesUCSection(sectionOutputStream);
 
       return saver.getNumImageErrors();
