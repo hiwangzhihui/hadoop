@@ -32,8 +32,8 @@ public enum FSEditLogOpCodes {
   OP_ADD                        ((byte)  0, AddOp.class), //添加操作
   // deprecated operation
   OP_RENAME_OLD                 ((byte)  1, RenameOldOp.class), //重命名操作
-  OP_DELETE                     ((byte)  2, DeleteOp.class),
-  OP_MKDIR                      ((byte)  3, MkdirOp.class),
+  OP_DELETE                     ((byte)  2, DeleteOp.class),//删除操作
+  OP_MKDIR                      ((byte)  3, MkdirOp.class),//创建目录操作
   OP_SET_REPLICATION            ((byte)  4, SetReplicationOp.class),
   @Deprecated OP_DATANODE_ADD   ((byte)  5), // obsolete
   @Deprecated OP_DATANODE_REMOVE((byte)  6), // obsolete

@@ -1569,7 +1569,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
             DFS_NAMENODE_EDITS_DIR_KEY + ". Ignoring duplicates.");
       }
     }
-
+    //如果没配置则使用 dfs.namenode.edits.dir 目录
     if (editsDirs.isEmpty()) {
       // If this is the case, no edit dirs have been explicitly configured.
       // Image dirs are to be used for edits too.

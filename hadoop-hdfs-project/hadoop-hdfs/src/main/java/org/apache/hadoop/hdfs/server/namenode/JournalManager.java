@@ -125,11 +125,13 @@ public interface JournalManager extends Closeable, FormatConfirmable,
    * @param startTxId The given txid should be right at the segment boundary, 
    * i.e., it should be the first txid of some segment, if segment corresponding
    * to the txid exists.
+   * 丢弃部分事物日志
    */
   void discardSegments(long startTxId) throws IOException;
 
   /**
    * @return the CTime of the journal manager.
+   * 获取集群创建时间
    */
   long getJournalCTime() throws IOException;
 

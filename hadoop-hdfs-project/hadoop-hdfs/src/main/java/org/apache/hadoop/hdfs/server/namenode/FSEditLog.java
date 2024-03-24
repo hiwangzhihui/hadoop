@@ -687,6 +687,7 @@ public class FSEditLog implements LogsPurgeable {
           printStatistics(false);
 
           // if somebody is already syncing, then wait
+          //如果有其它线程在处理则当前等待
           while (mytxid > synctxid && isSyncRunning) {
             try {
               wait(1000);
@@ -704,6 +705,7 @@ public class FSEditLog implements LogsPurgeable {
           // now, this thread will do the sync.  track if other edits were
           // included in the sync - ie. batched.  if this is the only edit
           // synced then the batched count is 0
+          // editsBatchedInSync 为本次写入到文件的事务个数，尝试写入一批
           editsBatchedInSync = txid - synctxid - 1;
           syncStart = txid;
           isSyncRunning = true;
@@ -714,6 +716,7 @@ public class FSEditLog implements LogsPurgeable {
             if (journalSet.isEmpty()) {
               throw new IOException("No journals available to flush");
             }
+            //交互 doubleBuffer 缓冲区数据，为事物数据写入到文件做准备
             editLogStream.setReadyToFlush();
           } catch (IOException e) {
             final String msg =
@@ -735,11 +738,11 @@ public class FSEditLog implements LogsPurgeable {
         logStream = editLogStream;
       }
       
-      // do the sync
+      // do the sync 将
       long start = monotonicNow();
       try {
         if (logStream != null) {
-          //执行 flush
+          //执行 flush 将 bufReady 数据写入到文件中
           logStream.flush();
         }
       } catch (IOException ex) {
@@ -766,12 +769,14 @@ public class FSEditLog implements LogsPurgeable {
       // Prevent RuntimeException from blocking other log edit sync 
       synchronized (this) {
         if (sync) {
+          //更新已经同步的最新事务 ID 为 mytxid
           synctxid = syncStart;
           for (JournalManager jm : journalSet.getJournalManagers()) {
             /**
              * {@link FileJournalManager#lastReadableTxId} is only meaningful
              * for file-based journals. Therefore the interface is not added to
              * other types of {@link JournalManager}.
+             * 更新文件系统中，最新写入的最后一个 txnId
              */
             if (jm instanceof FileJournalManager) {
               ((FileJournalManager)jm).setLastReadableTxId(syncStart);
