@@ -569,6 +569,7 @@ public final class FSImageFormatPBINode {
     }
 
     void serializeINodeDirectorySection(OutputStream out) throws IOException {
+      //
       Iterator<INodeWithAdditionalFields> iter = fsn.getFSDirectory()
           .getINodeMap().getMapIterator();
       final ArrayList<INodeReference> refList = parent.getSaverContext()
@@ -576,15 +577,18 @@ public final class FSImageFormatPBINode {
       int i = 0;
       while (iter.hasNext()) {
         INodeWithAdditionalFields n = iter.next();
+        //过滤掉非目录 Inode
         if (!n.isDirectory()) {
           continue;
         }
-
+        //获取当前目录的下面的子文件列表,绑定文件目录的父子关系
         ReadOnlyList<INode> children = n.asDirectory().getChildrenList(
             Snapshot.CURRENT_STATE_ID);
         if (children.size() > 0) {
+          //为子文件、目录绑定父目录信息
           INodeDirectorySection.DirEntry.Builder b = INodeDirectorySection.
               DirEntry.newBuilder().setParent(n.getId());
+
           for (INode inode : children) {
             if (!inode.isReference()) {
               b.addChildren(inode.getId());
@@ -593,6 +597,7 @@ public final class FSImageFormatPBINode {
               b.addRefChildren(refList.size() - 1);
             }
           }
+          //收集完当前目录的子目前列表后进行序列化保存
           INodeDirectorySection.DirEntry e = b.build();
           e.writeDelimitedTo(out);
         }
@@ -609,6 +614,7 @@ public final class FSImageFormatPBINode {
     void serializeINodeSection(OutputStream out) throws IOException {
       INodeMap inodesMap = fsn.dir.getINodeMap();
       //构造一个  INodeSection ，保存最后一个 inode 的 inodeId，以及这个命名空间中所有 Inode 的个数
+      //汇总信息
       INodeSection.Builder b = INodeSection.newBuilder()
           .setLastInodeId(fsn.dir.getLastInodeId()).setNumInodes(inodesMap.size());
       INodeSection s = b.build();
@@ -620,6 +626,7 @@ public final class FSImageFormatPBINode {
       Iterator<INodeWithAdditionalFields> iter = inodesMap.getMapIterator();
       while (iter.hasNext()) {
         INodeWithAdditionalFields n = iter.next();
+        //保存同类型的 Inode 属性信息
         save(out, n);
         ++i;
         if (i % FSImageFormatProtobuf.Saver.CHECK_CANCEL_INTERVAL == 0) {
@@ -645,6 +652,7 @@ public final class FSImageFormatPBINode {
                        + " as the file is not under construction");
           continue;
         }
+        //主要保存 Id 与文件全路径
         String path = file.getFullPathName();
         FileUnderConstructionEntry.Builder b = FileUnderConstructionEntry
             .newBuilder().setInodeId(file.getId()).setFullPath(path);
@@ -657,11 +665,11 @@ public final class FSImageFormatPBINode {
 
     private void save(OutputStream out, INode n) throws IOException {
       if (n.isDirectory()) {
-        save(out, n.asDirectory());
+        save(out, n.asDirectory());//目录 Inode
       } else if (n.isFile()) {
-        save(out, n.asFile());
+        save(out, n.asFile());//文件 Inode
       } else if (n.isSymlink()) {
-        save(out, n.asSymlink());
+        save(out, n.asSymlink());//软链 Inode
       }
     }
 

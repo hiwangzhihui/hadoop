@@ -40,6 +40,7 @@ public class BlockIdManager {
   /**
    * The global generation stamp for legacy blocks with randomly
    * generated block IDs.
+   *
    */
   private final GenerationStamp legacyGenerationStamp = new GenerationStamp();
   /**

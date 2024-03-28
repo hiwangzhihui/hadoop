@@ -36,7 +36,7 @@ import com.google.common.base.Preconditions;
 @InterfaceAudience.Private
 public class SaveNamespaceContext {
   private final FSNamesystem sourceNamesystem;
-  private final long txid;
+  private final long txid; //当前最新的事务ID
   private final List<StorageDirectory> errorSDs =
     Collections.synchronizedList(new ArrayList<StorageDirectory>());
   

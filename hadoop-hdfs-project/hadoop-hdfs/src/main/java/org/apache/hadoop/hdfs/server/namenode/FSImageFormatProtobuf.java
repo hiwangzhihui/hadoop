@@ -97,6 +97,9 @@ public final class FSImageFormatProtobuf {
     }
   }
 
+  /**
+   * 自增 ID 的 map 数据结构
+   * **/
   public static final class SaverContext {
     public static class DeduplicationMap<E> {
       private final Map<E, Integer> map = Maps.newHashMap();
@@ -110,6 +113,7 @@ public final class FSImageFormatProtobuf {
         if (value == null) {
           return 0;
         }
+        //自增 ID
         Integer v = map.get(value);
         if (v == null) {
           int nv = map.size() + 1;
@@ -471,6 +475,7 @@ public final class FSImageFormatProtobuf {
 
     private static void saveFileSummary(OutputStream out, FileSummary summary)
         throws IOException {
+      //将 summary 写到 Image 文件
       summary.writeDelimitedTo(out);
       int length = getOndiskTrunkSize(summary);
       byte[] lengthBytes = new byte[4];
@@ -482,9 +487,11 @@ public final class FSImageFormatProtobuf {
     private void saveInodes(FileSummary.Builder summary) throws IOException {
       FSImageFormatPBINode.Saver saver = new FSImageFormatPBINode.Saver(this,
           summary);
-
+      //保存 HDFS 目录树的所有 INode
       saver.serializeINodeSection(sectionOutputStream);
+      //保存文件目录父子关系
       saver.serializeINodeDirectorySection(sectionOutputStream);
+      //保存当前未写入完成的文件信息
       saver.serializeFilesUCSection(sectionOutputStream);
     }
 
@@ -523,7 +530,7 @@ public final class FSImageFormatProtobuf {
 
       fileChannel = fout.getChannel();
 
-      // FileSummary  为 faiamge 文件的描述部分
+      // FileSummary   为 faiamge 文件的描述部分
       FileSummary.Builder b = FileSummary.newBuilder()
           .setOndiskVersion(FSImageUtil.FILE_VERSION)
           .setLayoutVersion(
@@ -555,6 +562,7 @@ public final class FSImageFormatProtobuf {
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
       // 保存命名空间 Inode 信息  INodeSection
       saveInodes(b);
+      //保存快照
       long numErrors = saveSnapshots(b);
       prog.endStep(Phase.SAVING_CHECKPOINT, step);
 
@@ -581,6 +589,7 @@ public final class FSImageFormatProtobuf {
       //FileSummary 记录了 image 的元信息，将其写入 fsiamge
       saveFileSummary(underlyingOutputStream, summary);
       underlyingOutputStream.close();
+      //记录 Image 文件的 Md5 值
       savedDigest = new MD5Hash(digester.digest());
       return numErrors;
     }
@@ -618,14 +627,15 @@ public final class FSImageFormatProtobuf {
     private void saveErasureCodingSection(
         FileSummary.Builder summary) throws IOException {
       final FSNamesystem fsn = context.getSourceNamesystem();
+      //获取所有的 EC 策略
       ErasureCodingPolicyInfo[] ecPolicies =
           fsn.getErasureCodingPolicyManager().getPolicies();
+      //ec 策略数据序列化
       ArrayList<ErasureCodingPolicyProto> ecPolicyProtoes =
           new ArrayList<ErasureCodingPolicyProto>();
       for (ErasureCodingPolicyInfo p : ecPolicies) {
         ecPolicyProtoes.add(PBHelperClient.convertErasureCodingPolicy(p));
       }
-
       ErasureCodingSection section = ErasureCodingSection.newBuilder().
           addAllPolicies(ecPolicyProtoes).build();
       section.writeDelimitedTo(sectionOutputStream);
@@ -666,6 +676,7 @@ public final class FSImageFormatProtobuf {
       StringTableSection.Builder b = StringTableSection.newBuilder()
           .setNumEntry(saverContext.stringMap.size());
       b.build().writeDelimitedTo(out);
+      //遍历 StringMap 数据存放到 StringTableSection.Entry 列表中
       for (Entry<String, Integer> e : saverContext.stringMap.entrySet()) {
         StringTableSection.Entry.Builder eb = StringTableSection.Entry
             .newBuilder().setId(e.getValue()).setStr(e.getKey());
