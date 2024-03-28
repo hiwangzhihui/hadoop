@@ -78,7 +78,7 @@ public final class FSImageFormatPBINode {
   private final static int USER_STRID_OFFSET = 40;
   private final static int GROUP_STRID_OFFSET = 16;
 
-  public static final int ACL_ENTRY_NAME_MASK = (1 << 24) - 1;
+  public static final int ACL_ENTRY_NAME_MASK  = (1 << 24) - 1;
   public static final int ACL_ENTRY_NAME_OFFSET = 6;
   public static final int ACL_ENTRY_TYPE_OFFSET = 3;
   public static final int ACL_ENTRY_SCOPE_OFFSET = 5;
@@ -444,8 +444,11 @@ public final class FSImageFormatPBINode {
   public final static class Saver {
     private static long buildPermissionStatus(INodeAttributes n,
         final SaverContext.DeduplicationMap<String> stringMap) {
+      //将文件用户名存入到Map 中
       long userId = stringMap.getId(n.getUserName());
+      //装文件所属组存入到map 中
       long groupId = stringMap.getId(n.getGroupName());
+      //返回文件权限信息
       return ((userId & USER_GROUP_STRID_MASK) << USER_STRID_OFFSET)
           | ((groupId & USER_GROUP_STRID_MASK) << GROUP_STRID_OFFSET)
           | n.getFsPermissionShort();
@@ -510,6 +513,7 @@ public final class FSImageFormatPBINode {
       INodeSection.INodeFile.Builder b = INodeSection.INodeFile.newBuilder()
           .setAccessTime(file.getAccessTime())
           .setModificationTime(file.getModificationTime())
+          //保存压缩后的文件权限信息
           .setPermission(buildPermissionStatus(file, state.getStringMap()))
           .setPreferredBlockSize(file.getPreferredBlockSize())
           .setStoragePolicyID(file.getLocalStoragePolicyID())
