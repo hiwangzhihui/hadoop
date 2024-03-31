@@ -39,11 +39,14 @@ import org.apache.hadoop.classification.InterfaceAudience;
  */
 @InterfaceAudience.Private
 public class SerialNumberMap<T> {
-  private String name;
-  private final int max;
-  private final AtomicInteger current = new AtomicInteger(1);
+  private String name; //内置映射表名称
+  private final int max;//该 Map 能够记录的最大数据量
+  private final AtomicInteger current = new AtomicInteger(1);//该 map 的自增 id
+  //存储元数据的两张 Map 关联的数据表，双向索引
+  // value -> id
   private final ConcurrentMap<T, Integer> t2i =
       new ConcurrentHashMap<T, Integer>();
+  //id --> value
   private final ConcurrentMap<Integer, T> i2t =
       new ConcurrentHashMap<Integer, T>();
 
@@ -56,11 +59,13 @@ public class SerialNumberMap<T> {
     this.max = (1 << bitLength) - 1;
   }
 
+  //在 Map 中找到，value 对应的 Id
   public int get(T t) {
     if (t == null) {
       return 0;
     }
     Integer sn = t2i.get(t);
+    //如果没有则，添加数据，自增索引 Id
     if (sn == null) {
       sn = current.getAndIncrement();
       if (sn > max) {

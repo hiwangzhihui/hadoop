@@ -64,16 +64,22 @@ public abstract class INodeWithAdditionalFields extends INode
 
     /** Encode the {@link PermissionStatus} to a long. */
     static long toLong(PermissionStatus ps) {
+      //权限信息转换为 Long
       long permission = 0L;
+      //权限用户信息 ID 获取
       final int user = SerialNumberManager.USER.getSerialNumber(
           ps.getUserName());
       assert user != 0;
+      //权限用户信息 ID ，存储到 permission 中
       permission = USER.BITS.combine(user, permission);
       // ideally should assert on group but inodes are created with null
       // group and then updated only when added to a directory.
+      //组信息
       final int group = SerialNumberManager.GROUP.getSerialNumber(
           ps.getGroupName());
       permission = GROUP.BITS.combine(group, permission);
+
+      //权限信息
       final int mode = ps.getPermission().toShort();
       permission = MODE.BITS.combine(mode, permission);
       return permission;

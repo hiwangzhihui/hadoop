@@ -25,31 +25,46 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/** Manage name-to-serial-number maps for various string tables. */
+/** Manage name-to-serial-number maps for various string tables.
+ *  名称映射到-Id 字符串映射表管理器
+ * */
 public enum SerialNumberManager {
+  //snm 初始化信息创建时已确定，每个  snm 的 bitLength 取各种属性（USER、NAME、GROUP）的最大值
   GLOBAL(),
   USER(PermissionStatusFormat.USER, AclEntryStatusFormat.NAME),
   GROUP(PermissionStatusFormat.GROUP, AclEntryStatusFormat.NAME),
   XATTR(XAttrFormat.NAME);
 
+  //一共管理上四种类型的映射表
   private static final SerialNumberManager[] values = values();
   private static final int maxEntryBits;
   private static final int maxEntryNumber;
   private static final int maskBits;
-
+  //存储具体映射表
   private SerialNumberMap<String> serialMap;
   private int bitLength = Integer.SIZE;
 
   static {
+    //获取指定整数转换成二进制后的前导零的个数，还有 29 位是 0
     maxEntryBits = Integer.numberOfLeadingZeros(values.length);
+    //536870911
     maxEntryNumber = (1 << maxEntryBits) - 1;
+    //3
     maskBits = Integer.SIZE - maxEntryBits;
     for (SerialNumberManager snm : values) {
       // account for string table mask bits.
+      //更新不同 snm 的 maxEntryBits，约束边界范围
       snm.updateLength(maxEntryBits);
+      //一共会有四个每种类型的 SerialNumberManager 会创建一个 SerialNumberMap
+      //在创 SerialNumberMap 会更新每个 map 的max 值
+      //GLOBAL serial map: bits=29 maxEntries=536870911
+      //USER serial map: bits=24 maxEntries=16777215
+      //GROUP serial map: bits=24 maxEntries=16777215
+      //XATTR serial map: bits=24 maxEntries=16777215
       snm.serialMap = new SerialNumberMap<String>(snm);
       FSDirectory.LOG.info(snm + " serial map: bits=" + snm.getLength() +
           " maxEntries=" + snm.serialMap.getMax());
+
     }
   }
 
