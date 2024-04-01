@@ -119,10 +119,12 @@ public enum SerialNumberManager {
     for (final SerialNumberManager snm : values) {
       size += snm.size();
     }
+    //准备一个 2^32 大小的 Map 数据结构
     int tableMaskBits = getMaskBits();
     StringTable map = new StringTable(size, tableMaskBits);
     for (final SerialNumberManager snm : values) {
       final int mask = snm.getMask(tableMaskBits);
+      //id -- value
       for (Entry<Integer, String> entry : snm.entrySet()) {
         map.put(entry.getKey() | mask, entry.getValue());
       }

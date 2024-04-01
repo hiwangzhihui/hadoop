@@ -141,6 +141,7 @@ public abstract class INodeWithAdditionalFields extends INode
 
   INodeWithAdditionalFields(long id, byte[] name, PermissionStatus permissions,
       long modificationTime, long accessTime) {
+    //在创建文件、目录，或更新文件、目录权限时计算对应的值
     this(null, id, name, PermissionStatusFormat.toLong(permissions),
         modificationTime, accessTime);
   }

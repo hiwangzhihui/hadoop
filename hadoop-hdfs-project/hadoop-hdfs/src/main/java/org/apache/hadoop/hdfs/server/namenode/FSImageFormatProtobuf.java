@@ -989,6 +989,7 @@ public final class FSImageFormatProtobuf {
           .setNumEntry(stringTable.size())
           .setMaskBits(stringTable.getMaskBits());
       b.build().writeDelimitedTo(out);
+      //遍历将数据持久化
       for (Entry<Integer, String> e : stringTable) {
         StringTableSection.Entry.Builder eb = StringTableSection.Entry
             .newBuilder().setId(e.getKey()).setStr(e.getValue());
