@@ -70,7 +70,9 @@ class FSDirXAttrOp {
       FSDirectory fsd, FSPermissionChecker pc, String src, XAttr xAttr,
       EnumSet<XAttrSetFlag> flag, boolean logRetryCache)
       throws IOException {
+    //检查特性是否开启 dfs.namenode.xattrs.enabled
     checkXAttrsConfigFlag(fsd);
+    //检查属性是否超长 dfs.namenode.fs-limits.max-xattr-size=16384
     checkXAttrSize(fsd, xAttr);
     XAttrPermissionFilter.checkPermissionForApi(
         pc, xAttr, FSDirectory.isReservedRawName(src));
@@ -82,6 +84,7 @@ class FSDirXAttrOp {
       iip = fsd.resolvePath(pc, src, DirOp.WRITE);
       src = iip.getPath();
       checkXAttrChangeAccess(fsd, iip, xAttr, pc);
+      //设置属性
       unprotectedSetXAttrs(fsd, iip, xAttrs, flag);
     } finally {
       fsd.writeUnlock();
@@ -299,7 +302,7 @@ class FSDirXAttrOp {
             SECURITY_XATTR_UNREADABLE_BY_SUPERUSER + "' on a file.");
       }
     }
-
+    //执行添加
     XAttrStorage.updateINodeXAttrs(inode, newXAttrs, iip.getLatestSnapshotId());
     return inode;
   }

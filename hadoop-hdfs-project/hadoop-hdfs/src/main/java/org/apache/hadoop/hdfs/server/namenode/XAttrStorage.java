@@ -88,6 +88,7 @@ public class XAttrStorage {
     if (xAttrs == null || xAttrs.isEmpty()) {
       return;
     }
+    //将字符串的 Attr 转换为 XAttrFeature
     inode.addXAttrFeature(new XAttrFeature(xAttrs), snapshotId);
   }
 }

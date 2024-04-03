@@ -58,6 +58,7 @@ public class XAttrFeature implements INode.Feature {
           b.add(attr);
         }
       }
+      //转为 byte 数组
       this.attrs = XAttrFormat.toBytes(toPack);
       if (b != null) {
         this.xAttrs = b.build();
