@@ -180,9 +180,9 @@ message INodeSection {
       DIRECTORY = 2;
       SYMLINK = 3;
     };
-    required Type type = 1;
-    required uint64 id = 2;
-    optional bytes name = 3;
+    required Type type = 1; //Inode 类型
+    required uint64 id = 2; // Inode Id
+    optional bytes name = 3;// Inode 名称
 
     optional INodeFile file = 4;
     optional INodeDirectory directory = 5;

@@ -97,6 +97,7 @@ public final class AclUtil {
    *   group and other permissions
    */
   public static List<AclEntry> getMinimalAcl(FsPermission perm) {
+    //用户、组、Other 三个最新 acl 必须有
     return Lists.newArrayList(
       new AclEntry.Builder()
         .setScope(AclEntryScope.ACCESS)

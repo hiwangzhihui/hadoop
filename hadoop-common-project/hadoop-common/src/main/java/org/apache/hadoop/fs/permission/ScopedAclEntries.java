@@ -34,8 +34,8 @@ import org.apache.hadoop.fs.permission.AclEntryScope;
 public final class ScopedAclEntries {
   private static final int PIVOT_NOT_FOUND = -1;
 
-  private final List<AclEntry> accessEntries;
-  private final List<AclEntry> defaultEntries;
+  private final List<AclEntry> accessEntries;// 非 Default acl
+  private final List<AclEntry> defaultEntries;// default acl 列表
 
   /**
    * Creates a new ScopedAclEntries from the given list.  It is assumed that the
@@ -45,6 +45,7 @@ public final class ScopedAclEntries {
    * @param aclEntries List<AclEntry> to separate
    */
   public ScopedAclEntries(List<AclEntry> aclEntries) {
+    //检查是否有 Default acl 设置
     int pivot = calculatePivotOnDefaultEntries(aclEntries);
     if (pivot != PIVOT_NOT_FOUND) {
       accessEntries = pivot != 0 ? aclEntries.subList(0, pivot) :

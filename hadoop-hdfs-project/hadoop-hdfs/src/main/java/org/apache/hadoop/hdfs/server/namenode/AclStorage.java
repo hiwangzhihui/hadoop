@@ -269,11 +269,13 @@ public final class AclStorage {
    */
   public static void updateINodeAcl(INode inode, List<AclEntry> newAcl,
       int snapshotId) throws AclException, QuotaExceededException {
+    //要求必须有基础的用户、组、Other 权限信息
     assert newAcl.size() >= 3;
     FsPermission perm = inode.getFsPermission();
     final FsPermission newPerm;
-    if (!AclUtil.isMinimalAcl(newAcl)) {
+    if (!AclUtil.isMinimalAcl(newAcl)) {//如果有新增 acl 信息则走以下逻辑
       // This is an extended ACL.  Split entries into access vs. default.
+      //将 default  Acl 和 非 Default  acl 拆分为两个集合
       ScopedAclEntries scoped = new ScopedAclEntries(newAcl);
       List<AclEntry> accessEntries = scoped.getAccessEntries();
       List<AclEntry> defaultEntries = scoped.getDefaultEntries();
@@ -285,9 +287,10 @@ public final class AclStorage {
       }
 
       // Attach entries to the feature.
-      if (inode.getAclFeature() != null) {
+      if (inode.getAclFeature() != null) { //先将 acl 属性删除，在添加进行更新
         inode.removeAclFeature(snapshotId);
       }
+      //添加 Acl 特性，封装为 AclFeature
       inode.addAclFeature(createAclFeature(accessEntries, defaultEntries),
         snapshotId);
       newPerm = createFsPermissionForExtendedAcl(accessEntries, perm);
@@ -298,7 +301,7 @@ public final class AclStorage {
       }
       newPerm = createFsPermissionForMinimalAcl(newAcl, perm);
     }
-
+    //更新权限信息
     inode.setPermission(newPerm, snapshotId);
   }
 
@@ -320,19 +323,22 @@ public final class AclStorage {
     // Pre-allocate list size for the explicit entries stored in the feature,
     // which is all entries minus the 3 entries implicitly stored in the
     // permission bits.
+    //构造新增的 acl 信息列表
     List<AclEntry> featureEntries = Lists.newArrayListWithCapacity(
       (accessEntries.size() - 3) + defaultEntries.size());
 
     // For the access ACL, the feature only needs to hold the named user and
     // group entries.  For a correctly sorted ACL, these will be in a
     // predictable range.
+     //排查第一个和倒数两个，中间的为新增的 acl TODO Debug 验证有 bug，Group 信息不应该保存到 acl 中
     if (!AclUtil.isMinimalAcl(accessEntries)) {
       featureEntries.addAll(
         accessEntries.subList(1, accessEntries.size() - 2));
     }
 
     // Add all default entries to the feature.
-    featureEntries.addAll(defaultEntries);
+    featureEntries.addAll(defaultEntries);//添加默认 acl 信息
+    //将 AclEntry 列表转换为 AclFeature, AclFeature 使用 Int数组压缩存储 acl列表信息
     return new AclFeature(AclEntryStatusFormat.toInt(featureEntries));
   }
 

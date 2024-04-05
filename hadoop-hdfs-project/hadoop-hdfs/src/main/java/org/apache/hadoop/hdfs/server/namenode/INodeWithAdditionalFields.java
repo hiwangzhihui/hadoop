@@ -35,6 +35,7 @@ import com.google.common.base.Preconditions;
 public abstract class INodeWithAdditionalFields extends INode
     implements LinkedElement {
   enum PermissionStatusFormat {
+    //上一个类型，当前类型占用长度
     MODE(null, 16),
     GROUP(MODE.BITS, 25),
     USER(GROUP.BITS, 23);

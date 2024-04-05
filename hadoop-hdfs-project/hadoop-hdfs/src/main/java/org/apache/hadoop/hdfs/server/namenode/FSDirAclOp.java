@@ -48,9 +48,12 @@ class FSDirAclOp {
       fsd.checkOwner(pc, iip);
       INode inode = FSDirectory.resolveLastINode(iip);
       int snapshotId = iip.getLatestSnapshotId();
+      //获取当前 Acl 信息
       List<AclEntry> existingAcl = AclStorage.readINodeLogicalAcl(inode);
+      //合并新修改的 Acl 和当前 Acl 信息
       List<AclEntry> newAcl = AclTransformation.mergeAclEntries(
           existingAcl, aclSpec);
+      //更新 acl 信息
       AclStorage.updateINodeAcl(inode, newAcl, snapshotId);
       fsd.getEditLog().logSetAcl(src, newAcl);
     } finally {

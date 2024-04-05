@@ -68,6 +68,7 @@ class XAttrFormat {
       int nid = v & XATTR_NAME_MASK;
       builder.setNameSpace(XATTR_NAMESPACE_VALUES[ns]);
       builder.setName(XAttrStorage.getName(nid));
+      //0xff 为 11111111
       int vlen = ((0xff & attrs[i]) << 8) | (0xff & attrs[i + 1]);
       i += 2;
       if (vlen > 0) {
@@ -134,22 +135,29 @@ class XAttrFormat {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try {
       for (XAttr a : xAttrs) {
+        //获取属性所在的空间
         int nsOrd = a.getNameSpace().ordinal();
         Preconditions.checkArgument(nsOrd < 8, "Too many namespaces.");
+        //缓存属性的名称，并返回 ID
         int nid = XAttrStorage.getNameSerialNumber(a.getName());
         Preconditions.checkArgument(nid < XATTR_NAME_ID_MAX,
             "Too large serial number of the xattr name");
 
         // big-endian
+        //将 NsId 和 nid 压缩记录到一个 Int 类的数据中
         int v = ((nsOrd & XATTR_NAMESPACE_MASK) << XATTR_NAMESPACE_OFFSET)
             | (nid & XATTR_NAME_MASK);
+        //将压缩的数据写入到数据流中
         out.write(Ints.toByteArray(v));
         int vlen = a.getValue() == null ? 0 : a.getValue().length;
+        //约束 Vlen 小于等于 1024， 2^10
         Preconditions.checkArgument(vlen < XATTR_VALUE_LEN_MAX,
             "The length of xAttr values is too long.");
-        out.write((byte)(vlen >> 8));
-        out.write((byte)(vlen));
+        //将 value 长度写入到流中, 一个字节 8 位，所以 1024 需要使用 两个字节表示
+        out.write((byte)(vlen >> 8)); //前两位写入一次
+        out.write((byte)(vlen));//后 8 位再写一次
         if (vlen > 0) {
+          //将 value 也写入到流中
           out.write(a.getValue());
         }
       }

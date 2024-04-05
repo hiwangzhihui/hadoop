@@ -203,6 +203,7 @@ public final class FSImageFormatProtobuf {
       if (!FSImageUtil.checkFileFormat(raFile)) {
         throw new IOException("Unrecognized file format");
       }
+      //1.先加载 summary 数据信息
       FileSummary summary = FSImageUtil.loadSummary(raFile);
       if (requireSameLayoutVersion && summary.getLayoutVersion() !=
           HdfsServerConstants.NAMENODE_LAYOUT_VERSION) {
@@ -212,12 +213,11 @@ public final class FSImageFormatProtobuf {
       }
 
       FileChannel channel = fin.getChannel();
-
       FSImageFormatPBINode.Loader inodeLoader = new FSImageFormatPBINode.Loader(
           fsn, this);
       FSImageFormatPBSnapshot.Loader snapshotLoader = new FSImageFormatPBSnapshot.Loader(
           fsn, this);
-
+      //2.根据枚举排序各种 Section
       ArrayList<FileSummary.Section> sections = Lists.newArrayList(summary
           .getSectionsList());
       Collections.sort(sections, new Comparator<FileSummary.Section>() {
@@ -242,7 +242,7 @@ public final class FSImageFormatProtobuf {
        * a particular step to be started for once.
        */
       Step currentStep = null;
-
+      //3.按照上述排序加载各种 Selection 数据
       for (FileSummary.Section s : sections) {
         channel.position(s.getOffset());
         InputStream in = new BufferedInputStream(new LimitInputStream(fin,
@@ -255,12 +255,14 @@ public final class FSImageFormatProtobuf {
 
         switch (SectionName.fromString(n)) {
         case NS_INFO:
+          //恢复 blockIdManager 和事务 Id 基础信息
           loadNameSystemSection(in);
           break;
         case STRING_TABLE:
           loadStringTableSection(in);
           break;
         case INODE: {
+          //恢复集群所有的Inode ，并构建 inodeMap 列表
           currentStep = new Step(StepType.INODES);
           prog.beginStep(Phase.LOADING_FSIMAGE, currentStep);
           inodeLoader.loadINodeSection(in, prog, currentStep);
@@ -270,6 +272,7 @@ public final class FSImageFormatProtobuf {
           snapshotLoader.loadINodeReferenceSection(in);
           break;
         case INODE_DIR:
+          //恢复父子目录的关系挂载
           inodeLoader.loadINodeDirectorySection(in);
           break;
         case FILES_UNDERCONSTRUCTION:
@@ -317,9 +320,11 @@ public final class FSImageFormatProtobuf {
       blockIdManager.setLegacyGenerationStampLimit(s.getGenstampV1Limit());
       blockIdManager.setLastAllocatedContiguousBlockId(s.getLastAllocatedBlockId());
       if (s.hasLastAllocatedStripedBlockId()) {
+        //更新最后生成的一个数块 Id
         blockIdManager.setLastAllocatedStripedBlockId(
             s.getLastAllocatedStripedBlockId());
       }
+      //更新当前 Image 最新事务 ID
       imgTxId = s.getTransactionId();
       if (s.hasRollingUpgradeStartTime()
           && fsn.getFSImage().hasRollbackFSImage()) {
@@ -331,6 +336,7 @@ public final class FSImageFormatProtobuf {
 
     private void loadStringTableSection(InputStream in) throws IOException {
       StringTableSection s = StringTableSection.parseDelimitedFrom(in);
+      //StringTalbe 加载到一个数组列表
       ctx.stringTable = new String[s.getNumEntry() + 1];
       for (int i = 0; i < s.getNumEntry(); ++i) {
         StringTableSection.Entry e = StringTableSection.Entry
@@ -487,11 +493,11 @@ public final class FSImageFormatProtobuf {
     private void saveInodes(FileSummary.Builder summary) throws IOException {
       FSImageFormatPBINode.Saver saver = new FSImageFormatPBINode.Saver(this,
           summary);
-      //保存 HDFS 目录树的所有 INode
+      //保存 HDFS 目录树的所有 INode，使用  NodeSection 序列化存储
       saver.serializeINodeSection(sectionOutputStream);
-      //保存文件目录父子关系
+      //保存文件目录父子关系，使用 INodeDirectorySection 序列化存储
       saver.serializeINodeDirectorySection(sectionOutputStream);
-      //保存当前未写入完成的文件信息
+      //保存当前未写入完成的文件信息，使用 FilesUCSection 序列化存储
       saver.serializeFilesUCSection(sectionOutputStream);
     }
 
@@ -560,7 +566,7 @@ public final class FSImageFormatProtobuf {
 
       step = new Step(StepType.INODES, filePath);
       prog.beginStep(Phase.SAVING_CHECKPOINT, step);
-      // 保存命名空间 Inode 信息  INodeSection
+      // 保存所有文件、目录 Inode 信息
       saveInodes(b);
       //保存快照
       long numErrors = saveSnapshots(b);
@@ -646,6 +652,7 @@ public final class FSImageFormatProtobuf {
         throws IOException {
       final FSNamesystem fsn = context.getSourceNamesystem();
       OutputStream out = sectionOutputStream;
+      //保存集群 Blockmnager 的基础信息
       BlockIdManager blockIdManager = fsn.getBlockManager().getBlockIdManager();
       NameSystemSection.Builder b = NameSystemSection.newBuilder()
           .setGenstampV1(blockIdManager.getLegacyGenerationStamp())

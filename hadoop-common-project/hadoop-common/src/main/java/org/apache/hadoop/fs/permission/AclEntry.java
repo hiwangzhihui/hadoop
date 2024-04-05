@@ -38,10 +38,10 @@ import org.apache.hadoop.util.StringUtils;
 @InterfaceAudience.Public
 @InterfaceStability.Stable
 public class AclEntry {
-  private final AclEntryType type;
-  private final String name;
-  private final FsAction permission;
-  private final AclEntryScope scope;
+  private final AclEntryType type;// Acl 类型
+  private final String name;//Acl 类型对应的名称（用户名、组名称）
+  private final FsAction permission;//权限值
+  private final AclEntryScope scope;//生效范围
 
   /**
    * Returns the ACL entry type.

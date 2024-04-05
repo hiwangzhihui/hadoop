@@ -246,7 +246,9 @@ public final class FSImageFormatPBINode {
         if (e == null) {
           break;
         }
+        //根据读取的数据先构建一个 INodeDirectory 并设置其父目录
         INodeDirectory p = dir.getInode(e.getParent()).asDirectory();
+        //恢复子目录列表
         for (long id : e.getChildrenList()) {
           INode child = dir.getInode(id);
           addToParent(p, child);
@@ -260,6 +262,7 @@ public final class FSImageFormatPBINode {
 
     void loadINodeSection(InputStream in, StartupProgress prog,
         Step currentStep) throws IOException {
+      //Inode 恢复 FSDirectory 的 inodeMap 数据结构维护集群所有的 Inode
       INodeSection s = INodeSection.parseDelimitedFrom(in);
       fsn.dir.resetLastInodeId(s.getLastInodeId());
       long numInodes = s.getNumInodes();
@@ -271,6 +274,7 @@ public final class FSImageFormatPBINode {
         if (p.getId() == INodeId.ROOT_INODE_ID) {
           loadRootINode(p);
         } else {
+          //根据不同类型恢复不同的 Inode
           INode n = loadINode(p);
           dir.addToInodeMap(n);
         }
@@ -538,7 +542,9 @@ public final class FSImageFormatPBINode {
 
     public static INodeSection.INodeDirectory.Builder buildINodeDirectory(
         INodeDirectoryAttributes dir, final SaverContext state) {
+      //容量信息
       QuotaCounts quota = dir.getQuotaCounts();
+      //修改时间、所属 NS 存储空间、存储空间、权限信息
       INodeSection.INodeDirectory.Builder b = INodeSection.INodeDirectory
           .newBuilder().setModificationTime(dir.getModificationTime())
           .setNsQuota(quota.getNameSpace())
@@ -548,11 +554,12 @@ public final class FSImageFormatPBINode {
       if (quota.getTypeSpaces().anyGreaterOrEqual(0)) {
         b.setTypeQuotas(buildQuotaByStorageTypeEntries(quota));
       }
-
+       //acl 信息
       AclFeature f = dir.getAclFeature();
       if (f != null) {
         b.setAcl(buildAclEntries(f, state.getStringMap()));
       }
+      //扩展属性信息
       XAttrFeature xAttrFeature = dir.getXAttrFeature();
       if (xAttrFeature != null) {
         b.setXAttrs(buildXAttrs(xAttrFeature, state.getStringMap()));
@@ -589,16 +596,16 @@ public final class FSImageFormatPBINode {
         ReadOnlyList<INode> children = n.asDirectory().getChildrenList(
             Snapshot.CURRENT_STATE_ID);
         if (children.size() > 0) {
-          //为子文件、目录绑定父目录信息
+          //设置当前目录的父目录，进行关系绑定
           INodeDirectorySection.DirEntry.Builder b = INodeDirectorySection.
               DirEntry.newBuilder().setParent(n.getId());
 
           for (INode inode : children) {
             if (!inode.isReference()) {
-              b.addChildren(inode.getId());
+              b.addChildren(inode.getId());//添加子文件、目录的 Id 加入 Children 列表进行关系绑定
             } else {
               refList.add(inode.asReference());
-              b.addRefChildren(refList.size() - 1);
+              b.addRefChildren(refList.size() - 1); //目录下存在 reference 则放在 refChildren 列表下
             }
           }
           //收集完当前目录的子目前列表后进行序列化保存
@@ -630,7 +637,7 @@ public final class FSImageFormatPBINode {
       Iterator<INodeWithAdditionalFields> iter = inodesMap.getMapIterator();
       while (iter.hasNext()) {
         INodeWithAdditionalFields n = iter.next();
-        //保存同类型的 Inode 属性信息
+        //保存不同类型的 Inode （文件、目录、软链） 属性信息
         save(out, n);
         ++i;
         if (i % FSImageFormatProtobuf.Saver.CHECK_CANCEL_INTERVAL == 0) {
@@ -678,9 +685,12 @@ public final class FSImageFormatPBINode {
     }
 
     private void save(OutputStream out, INodeDirectory n) throws IOException {
+      //构建目录的基础信息
       INodeSection.INodeDirectory.Builder b = buildINodeDirectory(n,
           parent.getSaverContext());
+      //构建 Inode 的基础信息
       INodeSection.INode r = buildINodeCommon(n)
+           //继续设置类型，和目录属性赋值
           .setType(INodeSection.INode.Type.DIRECTORY).setDirectory(b).build();
       r.writeDelimitedTo(out);
     }
@@ -727,6 +737,9 @@ public final class FSImageFormatPBINode {
       r.writeDelimitedTo(out);
     }
 
+    /***
+     * 保存基础信息 ID 和 Name
+     * */
     private INodeSection.INode.Builder buildINodeCommon(INode n) {
       return INodeSection.INode.newBuilder()
           .setId(n.getId())

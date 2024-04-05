@@ -203,6 +203,7 @@ public class FsPermission implements Writable, Serializable,
 
   /**
    * Encode the object to a short.
+   *
    */
   public short toShort() {
     int s =  (stickyBit ? 1 << 9 : 0)     |

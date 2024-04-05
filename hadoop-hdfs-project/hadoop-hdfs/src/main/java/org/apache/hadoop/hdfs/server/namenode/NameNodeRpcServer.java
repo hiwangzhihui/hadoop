@@ -2041,6 +2041,7 @@ public class NameNodeRpcServer implements NamenodeProtocols {
     return namesystem.listCachePools(prevKey != null ? prevKey : "");
   }
 
+  //修改文件、目录 Acl 信息
   @Override // ClientProtocol
   public void modifyAclEntries(String src, List<AclEntry> aclSpec)
       throws IOException {

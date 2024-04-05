@@ -65,9 +65,9 @@ public class XAttr {
     RAW
   }
 
-  private final NameSpace ns;
-  private final String name;
-  private final byte[] value;
+  private final NameSpace ns; //属性存放的所在的空间
+  private final String name;//属性名称
+  private final byte[] value;//属性值
 
   public static class Builder {
     private NameSpace ns = NameSpace.USER;

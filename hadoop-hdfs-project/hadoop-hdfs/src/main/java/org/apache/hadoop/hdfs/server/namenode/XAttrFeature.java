@@ -33,13 +33,16 @@ import com.google.common.collect.ImmutableList;
 public class XAttrFeature implements INode.Feature {
   static final int PACK_THRESHOLD = 1024;
 
-  /** The packed bytes for small size XAttrs. */
+  /** The packed bytes for small size XAttrs.
+   *  属性压缩的二进制流信息
+   * */
   private byte[] attrs;
 
   /**
    * List to store large size XAttrs.
    * Typically XAttr value size is small, so this
    * list is null usually.
+   * Value 大于 1024 Byte 的属性原样存储在该数组中
    */
   private ImmutableList<XAttr> xAttrs;
 
@@ -50,9 +53,10 @@ public class XAttrFeature implements INode.Feature {
       for (XAttr attr : xAttrs) {
         if (attr.getValue() == null ||
             attr.getValue().length <= PACK_THRESHOLD) {
+          //如果 value 数据小于 1024 byte 才会压缩为为二进制流
           toPack.add(attr);
         } else {
-          if (b == null) {
+          if (b == null) { //否则原样存储
             b = ImmutableList.builder();
           }
           b.add(attr);

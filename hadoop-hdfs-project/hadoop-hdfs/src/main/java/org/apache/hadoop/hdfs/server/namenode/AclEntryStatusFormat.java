@@ -85,6 +85,15 @@ public enum AclEntryStatusFormat {
     return null;
   }
 
+  /**
+   * AclEntry 压缩的核心类
+   * 使用 Int 类型数据记录单个 aclEntry 信息
+   * [0:1) -- the scope of the entry (AclEntryScope)
+   * [1:3) -- the type of the entry (AclEntryType)
+   * [3:6) -- the permission of the entry (FsAction)
+   * [6:7) -- A flag to indicate whether Named entry or not
+   * [7:32) -- the name of the entry, which is an ID that points to a
+   * */
   static int toInt(AclEntry aclEntry) {
     long aclEntryInt = 0;
     aclEntryInt = SCOPE.BITS
@@ -95,10 +104,12 @@ public enum AclEntryStatusFormat {
     if (aclEntry.getName() != null) {
       aclEntryInt = NAMED_ENTRY_CHECK.BITS.combine(1, aclEntryInt);
       if (aclEntry.getType() == AclEntryType.USER) {
+        //与 Permission 共用一个缓存列表存储用户信息，返回缓存 Id
         int userId = SerialNumberManager.INSTANCE.getUserSerialNumber(aclEntry
             .getName());
         aclEntryInt = NAME.BITS.combine(userId, aclEntryInt);
       } else if (aclEntry.getType() == AclEntryType.GROUP) {
+        //与 Permission 共用一个缓存列表存储组信息信息，返回缓存 Id
         int groupId = SerialNumberManager.INSTANCE
             .getGroupSerialNumber(aclEntry.getName());
         aclEntryInt = NAME.BITS.combine(groupId, aclEntryInt);

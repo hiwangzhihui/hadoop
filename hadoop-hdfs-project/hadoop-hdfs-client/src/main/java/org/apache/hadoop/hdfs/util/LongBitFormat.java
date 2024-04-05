@@ -35,7 +35,10 @@ public class LongBitFormat implements Serializable {
   private final long MIN;
   /** Maximum value */
   private final long MAX;
-  /** Bit mask */
+  /** Bit mask
+   *  掩码：作用是在指定的二进制位，将范围内的数值归零，避免其它参数越界影响
+   *       也可用于设置默认值
+   * */
   private final long MASK;
 
   public LongBitFormat(String name, LongBitFormat previous, int length,
