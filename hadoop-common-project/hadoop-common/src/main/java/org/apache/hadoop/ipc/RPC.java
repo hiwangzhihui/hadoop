@@ -862,7 +862,7 @@ public class RPC {
        this.protocolImpl = protocolImpl;
      }
    }
-
+   //维护通序列化引擎的协议和实现 Map 列表 Map<ProtoNameVer, ProtoClassProtoImpl>
    ArrayList<Map<ProtoNameVer, ProtoClassProtoImpl>> protocolImplMapArray = 
        new ArrayList<Map<ProtoNameVer, ProtoClassProtoImpl>>(RpcKind.MAX_INDEX);
    

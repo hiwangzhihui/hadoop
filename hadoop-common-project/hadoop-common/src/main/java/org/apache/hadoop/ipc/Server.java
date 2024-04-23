@@ -1095,11 +1095,11 @@ public abstract class Server {
             int size = pendingConnections.size();
             for (int i=size; i>0; i--) {
               Connection conn = pendingConnections.take();
-              //对通道注册 OP_READ（读取数据就绪）事件
+              //对通道注册 OP_READ（读取数据就绪）事件，到 readSelector
               conn.channel.register(readSelector, SelectionKey.OP_READ, conn);
             }
-            readSelector.select();
-
+            readSelector.select(); //获取请求数据就绪的 IO 通道列表
+            //遍历数据流通道，读取客户端请求
             Iterator<SelectionKey> iter = readSelector.selectedKeys().iterator();
             while (iter.hasNext()) {
               key = iter.next();
@@ -1230,7 +1230,7 @@ public abstract class Server {
         channel.socket().setTcpNoDelay(tcpNoDelay);
         channel.socket().setKeepAlive(true);
 
-        //将 Connection 交给 Reader 去读取数据
+        //将 Connection 交给 Reader 去读取数据,默认 1 个 reader
         Reader reader = getReader();
         //注册 Connection 交给 connectionManager 管理
         Connection c = connectionManager.register(channel);
