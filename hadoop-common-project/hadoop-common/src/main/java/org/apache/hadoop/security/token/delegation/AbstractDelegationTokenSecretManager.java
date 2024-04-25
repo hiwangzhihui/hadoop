@@ -516,6 +516,7 @@ extends AbstractDelegationTokenIdentifier>
           + formatTokenId(id) + " with sequenceNumber="
           + id.getSequenceNumber());
     }
+    //renewToken 是核心，根据 MAC 地址生成 password
     byte[] password = createPassword(token.getIdentifier(), key.getKey());
     if (!MessageDigest.isEqual(password, token.getPassword())) {
       throw new AccessControlException(renewer

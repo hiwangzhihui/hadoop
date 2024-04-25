@@ -1855,6 +1855,7 @@ public abstract class Server {
             LOG.debug("SASL server context established. Negotiated QoP is "
                 + saslServer.getNegotiatedProperty(Sasl.QOP));
           }
+          //每次请求是都会获取当前链接认证用户信息，进行一次检查
           user = getAuthorizedUgi(saslServer.getAuthorizationID());
           if (LOG.isDebugEnabled()) {
             LOG.debug("SASL server successfully authenticated client: " + user);
@@ -1900,7 +1901,8 @@ public abstract class Server {
         throws SaslException, IOException, AccessControlException,
         InterruptedException {
       final RpcSaslProto saslResponse;
-      final SaslState state = saslMessage.getState(); // required      
+      final SaslState state = saslMessage.getState(); // required
+      //根据当前消息携带的不通状态处理消息
       switch (state) {
         case NEGOTIATE: {
           if (sentNegotiate) {
@@ -1941,7 +1943,7 @@ public abstract class Server {
           }
           // sasl server for tokens may already be instantiated
           if (saslServer == null || authMethod != AuthMethod.TOKEN) {
-            saslServer = createSaslServer(authMethod);
+              saslServer = createSaslServer(authMethod);
           }
           saslResponse = processSaslToken(saslMessage);
           break;
@@ -2549,6 +2551,7 @@ public abstract class Server {
               RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
               "SASL protocol not requested by client");
         }
+        //根据不同的认证策略使用不同的入口读取数据
         saslReadAndProcess(buffer);
       } else if (callId == PING_CALL_ID) {
         LOG.debug("Received ping message");
