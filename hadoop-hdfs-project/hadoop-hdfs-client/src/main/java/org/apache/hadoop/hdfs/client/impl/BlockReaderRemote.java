@@ -406,6 +406,7 @@ public class BlockReaderRemote implements BlockReader {
     // in and out will be closed when sock is closed (by the caller)
     final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
         peer.getOutputStream()));
+    //向 DN 发送一个读数据的请求
     new Sender(out).readBlock(block, blockToken, clientName, startOffset, len,
         verifyChecksum, cachingStrategy);
 
@@ -413,7 +414,7 @@ public class BlockReaderRemote implements BlockReader {
     // Get bytes in block
     //
     DataInputStream in = new DataInputStream(peer.getInputStream());
-
+    //等待响应结果
     BlockOpResponseProto status = BlockOpResponseProto.parseFrom(
         PBHelperClient.vintPrefixed(in));
     checkSuccess(status, peer, block, file);

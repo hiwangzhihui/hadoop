@@ -1012,6 +1012,7 @@ public class DFSInputStream extends FSInputStream
       ByteBuffer buf, CorruptedBlocks corruptedBlocks)
       throws IOException {
     while (true) {
+      //从中选取一个 DN
       DNAddrPair addressPair = chooseDataNode(block, null);
       // Latest block, if refreshed internally
       block = addressPair.block;
@@ -1068,6 +1069,7 @@ public class DFSInputStream extends FSInputStream
       BlockReader reader = null;
       try {
         DFSClientFaultInjector.get().fetchFromDatanodeException();
+        //获取一个 read 进行包装
         reader = getBlockReader(block, startInBlk, len, datanode.addr,
             datanode.storageType, datanode.info);
 
@@ -1371,19 +1373,23 @@ public class DFSInputStream extends FSInputStream
 
     // determine the block and byte range within the block
     // corresponding to position and realLen
+    //根据读取数据范围获取数据块位置
     List<LocatedBlock> blockRange = getBlockRange(position, realLen);
     int remaining = realLen;
     CorruptedBlocks corruptedBlocks = new CorruptedBlocks();
+    //已经从 HDFS 中获取到数据块位置了
     for (LocatedBlock blk : blockRange) {
       long targetStart = position - blk.getStartOffset();
       int bytesToRead = (int) Math.min(remaining,
           blk.getBlockSize() - targetStart);
       long targetEnd = targetStart + bytesToRead - 1;
       try {
+        //走 HedgedReads 策略读取数据
         if (dfsClient.isHedgedReadsEnabled() && !blk.isStriped()) {
           hedgedFetchBlockByteRange(blk, targetStart,
               targetEnd, buffer, corruptedBlocks);
         } else {
+          //直接准备从  LocatedBlock 中的 DN 中读取数据
           fetchBlockByteRange(blk, targetStart, targetEnd,
               buffer, corruptedBlocks);
         }
